@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 · 小浣熊水浒卡</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
+           display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+    .box { background: #16213e; padding: 40px; border-radius: 12px; width: 300px; }
+    h1 { font-size: 20px; margin-top: 0; text-align: center; }
+    input { width: 100%; padding: 10px; margin: 8px 0; border-radius: 6px;
+            border: 1px solid #444; background: #0f3460; color: #eee; box-sizing: border-box; }
+    button { width: 100%; padding: 10px; margin-top: 12px; border: none; border-radius: 6px;
+             background: #e94560; color: white; font-size: 16px; cursor: pointer; }
+    .error { color: #e94560; font-size: 14px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>小浣熊水浒卡</h1>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <form method="post">
+      <input name="username" placeholder="账号" required>
+      <input name="password" type="password" placeholder="密码" required>
+      <button type="submit">登录</button>
+    </form>
+  </div>
+</body>
+</html>
