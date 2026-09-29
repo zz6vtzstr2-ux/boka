@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>个人收藏 · 小浣熊水浒卡</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
+           max-width: 900px; margin: 0 auto; padding: 16px; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .back { color: #888; text-decoration: none; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+    .card { background: #16213e; border-radius: 10px; padding: 10px; text-align: center;
+            border: 2px solid #0f3460; cursor: pointer; position: relative; }
+    .card:hover { border-color: #e94560; }
+    .card .name { font-size: 14px; margin-bottom: 4px; }
+    .card .nick { font-size: 12px; color: #888; margin-bottom: 8px; }
+    .card .stats { font-size: 13px; color: #e94560; }
+    .card .count { position: absolute; top: 6px; right: 8px; font-size: 12px;
+                   background: #e94560; border-radius: 10px; padding: 2px 6px; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+             background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 100; }
+    .modal.active { display: flex; }
+    .modal-content { background: #16213e; border-radius: 12px; padding: 24px; max-width: 400px; width: 90%; }
+    .modal-content h3 { margin-top: 0; }
+    .modal-content .row { margin: 8px 0; font-size: 14px; }
+    .modal-btns { display: flex; gap: 8px; margin-top: 16px; }
+    .modal-btns button { flex: 1; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .btn-upgrade { background: #4ecca3; color: #1a1a2e; }
+    .btn-upgrade:disabled { background: #444; color: #888; cursor: not-allowed; }
+    .btn-close { background: #333; color: #eee; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tabs button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; }
+    .tabs .active { background: #e94560; color: white; }
+    .tabs .inactive { background: #0f3460; color: #eee; }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>个人收藏</h2>
+    <a href="/" class="back">返回主页</a>
+  </header>
+
+  <div class="tabs">
+    <button class="active" onclick="showTab('owned')">已拥有</button>
+    <button class="inactive" onclick="showTab('all')">全部图鉴</button>
+  </div>
+
+  <div class="card-grid" id="grid"></div>
+
+  <div class="modal" id="modal">
+    <div class="modal-content" id="modalContent"></div>
+  </div>
+
+  <script>
+    const owned = {{ cards | tojson }};
+    const allCards = {{ all_cards | tojson }};
+    let currentTab = 'owned';
+
+    function render() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      const list = currentTab === 'owned' ? owned : allCards;
+      list.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        const count = c.count || 0;
+        div.innerHTML = `
+          ${count > 1 ? `<div class="count">×${count}</div>` : ''}
+          <div class="name">${c.name}</div>
+          <div class="nick">${c.nick}</div>
+          <div class="stats">攻 ${c.atk} · 防 ${c.def}</div>
+        `;
+        div.onclick = () => openModal(c, count);
+        grid.appendChild(div);
+      });
+    }
+
+    function showTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tabs button').forEach(b => {
+        b.className = b.textContent.includes(tab === 'owned' ? '已拥有' : '全部') ? 'active' : 'inactive';
+      });
+      render();
+    }
+
+    function openModal(card, count) {
+      const modal = document.getElementById('modal');
+      const content = document.getElementById('modalContent');
+      const canUpgrade = count >= 2;
+      content.innerHTML = `
+        <h3>${card.name} · ${card.nick}</h3>
+        <div class="row">攻击：${card.atk}</div>
+        <div class="row">防御：${card.def}</div>
+        <div class="row">统率：${card.lead} · 武力：${card.might} · 智力：${card.intel}</div>
+        <div class="row">政治：${card.politics} · 魅力：${card.charm}</div>
+        <div class="row">拥有：×${count}</div>
+        <div class="modal-btns">
+          <button class="btn-upgrade" ${canUpgrade ? '' : 'disabled'} onclick="upgrade(${card.id})">升星</button>
+          <button class="btn-close" onclick="closeModal()">关闭</button>
+        </div>
+      `;
+      modal.classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('active');
+    }
+
+    async function upgrade(cardId) {
+      const res = await fetch('/upgrade', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({card_id: cardId})
+      });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      alert('升星成功！');
+      location.reload();
+    }
+
+    render();
+  </script>
+</body>
+</html>
