@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小浣熊水浒卡</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
+           max-width: 700px; margin: 0 auto; padding: 24px; }
+    header { display: flex; justify-content: space-between; align-items: center; }
+    .menu { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+    .menu a { display: block; padding: 20px; background: #16213e; border-radius: 10px;
+              text-align: center; color: #eee; text-decoration: none; font-size: 18px; }
+    .menu a:hover { background: #0f3460; }
+    .logout { color: #888; text-decoration: underline; font-size: 14px; }
+    .draw-area { margin-top: 24px; text-align: center; }
+    .draw-btn { padding: 14px 32px; border: none; border-radius: 10px; cursor: pointer;
+                font-size: 18px; background: #e94560; color: white; }
+    .draw-btn:disabled { background: #444; color: #888; }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>水浒卡 · {{ username }}</h2>
+    <a href="/logout" class="logout">退出</a>
+  </header>
+
+  <div class="draw-area">
+    <button class="draw-btn" onclick="drawFree()">每日免费抽卡</button>
+    <div id="drawResult" style="margin-top:16px;"></div>
+  </div>
+
+  <div class="menu">
+    <a href="/collection">📖 个人收藏</a>
+    <a href="/buildings">🏛️ 挂机建筑</a>
+    <a href="/challenge">⚔️ 挑战</a>
+    <a href="/boka">🎲 博卡</a>
+  </div>
+
+  <script>
+    async function drawFree() {
+      const res = await fetch('/draw', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({free: true})
+      });
+      const data = await res.json();
+      const el = document.getElementById('drawResult');
+      if (data.error) { el.textContent = data.error; return; }
+      if (data.type === 'empty') {
+        el.innerHTML = '<p>厂商忘放卡了</p>';
+      } else if (data.type === 'double') {
+        el.innerHTML = '<p>双黄蛋！</p>' + data.cards.map(c => `<p>${c.name} 攻${c.atk} 防${c.def}</p>`).join('');
+      } else {
+        el.innerHTML = data.cards.map(c => `<p>${c.name} 攻${c.atk} 防${c.def}</p>`).join('');
+      }
+    }
+  </script>
+</body>
+</html>
