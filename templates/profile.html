@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的资料 · 搏卡游戏</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
+           max-width: 700px; margin: 0 auto; padding: 16px; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .back { color: #888; text-decoration: none; }
+    .panel { background: #16213e; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .panel h3 { margin-top: 0; }
+    .trophy { display: inline-block; text-align: center; margin: 8px; }
+    .trophy .icon { font-size: 32px; }
+    .trophy .month { font-size: 12px; color: #aaa; }
+    input { width: 100%; padding: 10px; margin: 6px 0; border-radius: 6px;
+            border: 1px solid #444; background: #0f3460; color: #eee; box-sizing: border-box; }
+    .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer;
+           background: #4a90d9; color: white; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>我的资料</h2>
+    <a href="/" class="back">返回主页</a>
+  </header>
+
+  <div class="panel">
+    <h3>我的荣誉</h3>
+    <p>搏卡月度冠军 × {{ trophies|length }} 个</p>
+    {% for m in trophies %}
+    <div class="trophy">
+      <div class="icon">🏆</div>
+      <div class="month">{{ m }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="panel">
+    <h3>我的头像</h3>
+    <img src="/static/avatars/{{ username }}.jpg" style="width:80px;height:80px;border-radius:8px;">
+    <form method="post" action="/upload_avatar" enctype="multipart/form-data">
+      <input type="file" name="avatar" accept="image/*">
+      <button class="btn" type="submit">更换头像</button>
+    </form>
+    <p style="font-size:12px;color:#aaa;">每周一 6:00 至下周一 6:00 可更换一次</p>
+  </div>
+
+  <div class="panel">
+    <h3>修改密码</h3>
+    <form method="post" action="/change_password">
+      <input type="password" name="old_password" placeholder="当前密码" required>
+      <input type="password" name="new_password" placeholder="新密码" required>
+      <input type="password" name="confirm_password" placeholder="确认新密码" required>
+      <button class="btn" type="submit">保存新密码</button>
+    </form>
+  </div>
+</body>
+</html>
