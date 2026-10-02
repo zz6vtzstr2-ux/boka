@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据 · 搏卡游戏</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
+           max-width: 700px; margin: 0 auto; padding: 16px; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .back { color: #888; text-decoration: none; }
+    .panel { background: #16213e; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .tabs button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;
+                   background: #0f3460; color: #eee; }
+    .tabs button.active { background: #4a90d9; color: white; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #0f3460; font-size: 14px; }
+    th { color: #aaa; }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>数据</h2>
+    <a href="/" class="back">返回主页</a>
+  </header>
+
+  <div class="panel">
+    <div class="tabs">
+      <button class="active" onclick="showMode('boka')">搏卡</button>
+      <button onclick="showMode('challenge')">个人挑战</button>
+      <button onclick="showMode('boss')">世界 Boss</button>
+    </div>
+    <div id="modeTitle">202609 · 搏卡</div>
+  </div>
+
+  <div class="panel">
+    <table>
+      <thead>
+        <tr><th>玩家</th><th id="col2">积分</th><th>场次</th></tr>
+      </thead>
+      <tbody id="rankBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    let mode = 'boka';
+
+    function showMode(m) {
+      mode = m;
+      document.querySelectorAll('.tabs button').forEach(b => {
+        b.className = b.textContent.includes(m === 'boka' ? '搏卡' : m === 'challenge' ? '个人挑战' : '世界 Boss') ? 'active' : '';
+      });
+      document.getElementById('col2').textContent = m === 'challenge' ? '最高关卡' : '积分';
+      loadRank();
+    }
+
+    async function loadRank() {
+      const res = await fetch('/data/' + mode);
+      const data = await res.json();
+      const body = document.getElementById('rankBody');
+      body.innerHTML = '';
+      data.ranks.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.nickname}</td><td>${r.value}</td><td>${r.games}</td>`;
+        body.appendChild(tr);
+      });
+    }
+
+    loadRank();
+  </script>
+</body>
+</html>
