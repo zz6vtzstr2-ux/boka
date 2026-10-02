@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>世界 Boss · 搏卡游戏</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
+           max-width: 900px; margin: 0 auto; padding: 16px; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .back { color: #888; text-decoration: none; }
+    .panel { background: #16213e; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .hp-bar { height: 20px; background: #0f3460; border-radius: 10px; overflow: hidden; }
+    .hp-fill { height: 100%; background: #e94560; }
+    .boss-info { font-size: 14px; color: #aaa; margin: 8px 0; }
+    .main { display: flex; gap: 16px; }
+    .main .left { flex: 1; }
+    .main .right { width: 260px; }
+    .card { background: #0f3460; border-radius: 8px; padding: 10px; margin: 6px 0; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>世界 Boss</h2>
+    <a href="/" class="back">返回主页</a>
+  </header>
+
+  <div class="panel">
+    <h3>{{ boss.name }} · 剩余 {{ boss.days }} 天</h3>
+    <div class="hp-bar"><div class="hp-fill" style="width:{{ boss.hp_percent }}%"></div></div>
+    <div class="boss-info">
+      今日部队：{{ boss.troop }} · 剩余 {{ boss.troop_hours }} 小时
+    </div>
+    <div class="boss-info">
+      易伤五维：{{ boss.weak_attr }}（伤害 ×3）
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="left">
+      <div class="panel">
+        <h3>我的卡组</h3>
+        <div id="decks"></div>
+        <button class="refresh" onclick="createDeck()">新建卡组</button>
+      </div>
+    </div>
+    <div class="right">
+      <div class="panel">
+        <h3>本周期排名</h3>
+        <div id="rankList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadBoss() {
+      const res = await fetch('/world_boss/status');
+      const data = await res.json();
+      // 更新界面
+    }
+
+    async function createDeck() {
+      // 新建卡组逻辑
+    }
+
+    loadBoss();
+  </script>
+</body>
+</html>
