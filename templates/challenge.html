@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>个人挑战 · 搏卡游戏</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
+           max-width: 700px; margin: 0 auto; padding: 16px; }
+    .top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .top img { width: 48px; height: 48px; border-radius: 8px; }
+    .money { display: flex; gap: 8px; font-size: 13px; }
+    .money span { background: #16213e; padding: 4px 8px; border-radius: 6px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+    .row a, .row button { padding: 8px 14px; border-radius: 8px; border: none;
+                          background: #4a90d9; color: white; text-decoration: none;
+                          font-size: 14px; cursor: pointer; }
+    .row .white { background: white; color: #4a90d9; }
+    .panel { background: #16213e; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .panel h3 { margin-top: 0; }
+    .level-row { font-size: 16px; margin-bottom: 8px; }
+    .level-row .num { color: #4a90d9; cursor: pointer; text-decoration: underline; }
+    .win-loss { font-size: 14px; color: #aaa; }
+    .cards { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+    .card { background: #0f3460; border-radius: 8px; padding: 10px; width: 100px; text-align: center; font-size: 13px; }
+    .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; }
+    .btn-start { background: #4a90d9; color: white; }
+    .btn-start:disabled { background: #444; color: #888; cursor: not-allowed; }
+    .btn-edit { background: #0f3460; color: #eee; }
+    .picker { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+              background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 100; }
+    .picker.active { display: flex; }
+    .picker-content { background: #16213e; border-radius: 12px; padding: 24px; max-width: 400px; width: 90%;
+                      max-height: 70vh; overflow-y: auto; }
+    .picker-content .lvl { padding: 10px; border-bottom: 1px solid #0f3460; cursor: pointer; }
+    .picker-content .lvl:hover { background: #0f3460; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <img src="/static/avatars/{{ username }}.jpg" alt="">
+    <div class="money">
+      <span>🪙 {{ gold }}</span>
+      <span>🥈 {{ silver }}</span>
+      <span>🥉 {{ copper }}</span>
+    </div>
+  </div>
+
+  <div class="row">
+    <a href="/">房间</a>
+    <a href="/data">数据</a>
+    <a href="/draw">抽卡</a>
+    <a href="/buildings">家园</a>
+    <a href="/collection">个人收藏册</a>
+    <a href="/class_collection">班级收藏册</a>
+    <a href="/boka">创建搏卡房间</a>
+    <a href="/challenge">个人挑战</a>
+    <a href="/world_boss">世界 Boss</a>
+  </div>
+
+  <div class="panel">
+    <div class="level-row">
+      当前关卡：<span class="num" onclick="openPicker()">{{ level }}</span>
+    </div>
+    <div class="win-loss">
+      胜利次数：{{ wins }} · 失败次数：{{ losses }}
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>我的卡组</h3>
+    <div class="cards" id="deckCards"></div>
+    <button class="btn btn-edit" onclick="editDeck()">编辑卡组</button>
+  </div>
+
+  <div class="panel">
+    <button class="btn btn-start" id="startBtn" onclick="startChallenge()" disabled>开始挑战</button>
+  </div>
+
+  <div class="picker" id="picker">
+    <div class="picker-content" id="pickerContent"></div>
+  </div>
+
+  <script>
+    let deck = [];
+
+    function renderDeck() {
+      const el = document.getElementById('deckCards');
+      el.innerHTML = '';
+      deck.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `${c.name}<br>攻${c.atk} 防${c.def}`;
+        el.appendChild(div);
+      });
+      document.getElementById('startBtn').disabled = deck.length === 0;
+    }
+
+    function openPicker() {
+      const picker = document.getElementById('picker');
+      const content = document.getElementById('pickerContent');
+      content.innerHTML = '';
+      for (let i = 1; i <= {{ level }}; i++) {
+        const div = document.createElement('div');
+        div.className = 'lvl';
+        div.textContent = '第 ' + i + ' 关';
+        div.onclick = () => {
+          window.location.href = '/challenge?level=' + i;
+        };
+        content.appendChild(div);
+      }
+      picker.classList.add('active');
+    }
+
+    function editDeck() {
+      window.location.href = '/challenge/deck';
+    }
+
+    async function startChallenge() {
+      const res = await fetch('/challenge/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({level: {{ level }}, deck: deck})
+      });
+      const data = await res.json();
+      window.location.href = '/challenge/battle';
+    }
+
+    renderDeck();
+  </script>
+</body>
+</html>
