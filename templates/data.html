@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据 · 搏卡游戏</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
+           max-width: 700px; margin: 0 auto; padding: 16px; }
+    .header { display: flex; justify-content: space-between; align-items: center;
+              margin-bottom: 16px; }
+    .page-name { color: #4a90d9; font-size: 18px; }
+    .back-btn { background: white; color: #4a90d9; padding: 8px 14px;
+                border-radius: 8px; text-decoration: none; font-size: 14px; }
+    .panel { background: #16213e; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .tabs button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;
+                   background: #0f3460; color: #eee; }
+    .tabs button.active { background: #4a90d9; color: white; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #0f3460; font-size: 14px; }
+    th { color: #aaa; }
+    td img { width: 28px; height: 28px; border-radius: 4px; vertical-align: middle; margin-right: 6px; }
+    td a { color: #eee; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="page-name">数据</span>
+    <a href="/" class="back-btn">返回主页</a>
+  </div>
+
+  <div class="panel">
+    <div class="tabs">
+      <button class="active" onclick="showMode('boka', this)">搏卡</button>
+      <button onclick="showMode('challenge', this)">个人挑战</button>
+      <button onclick="showMode('boss', this)">世界 Boss</button>
+    </div>
+    <div id="modeTitle">202609 · 搏卡</div>
+  </div>
+
+  <div class="panel">
+    <table>
+      <thead>
+        <tr><th>玩家</th><th id="col2">积分</th><th>场次</th></tr>
+      </thead>
+      <tbody id="rankBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    let mode = 'boka';
+
+    function showMode(m, btn) {
+      mode = m;
+      document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('col2').textContent = m === 'challenge' ? '最高关卡' : '积分';
+      loadRank();
+    }
+
+    async function loadRank() {
+      const res = await fetch('/data/' + mode);
+      const data = await res.json();
+      const body = document.getElementById('rankBody');
+      body.innerHTML = '';
+      data.ranks.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><img src="/static/avatars/${r.username}.jpg"><a href="/user/${r.username}">${r.nickname}</a></td><td>${r.value}</td><td>${r.games}</td>`;
+        body.appendChild(tr);
+      });
+    }
+
+    loadRank();
+  </script>
+</body>
+</html>
