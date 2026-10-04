@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>家园 · 搏卡游戏</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
+           max-width: 700px; margin: 0 auto; padding: 16px; }
+    .header { display: flex; justify-content: space-between; align-items: center;
+              margin-bottom: 16px; }
+    .page-name { color: #4a90d9; font-size: 18px; }
+    .back-btn { background: white; color: #4a90d9; padding: 8px 14px;
+                border-radius: 8px; text-decoration: none; font-size: 14px; }
+    .info-bar { background: #16213e; border-radius: 10px; padding: 12px; margin-bottom: 12px;
+                display: flex; justify-content: space-between; align-items: center; }
+    .total-bar { background: #0f3460; border-radius: 10px; padding: 12px; margin-bottom: 16px;
+                 display: flex; justify-content: space-between; align-items: center; }
+    .building { border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+    .building h3 { margin: 0 0 8px 0; }
+    .building .rule { font-size: 13px; color: #ccc; margin-bottom: 8px; }
+    .building .slot { background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px;
+                      min-height: 80px; display: flex; align-items: center; justify-content: center; }
+    .building .slot img { width: 60px; border-radius: 6px; }
+    .building .empty { color: #888; font-style: italic; }
+    .building .output { font-size: 14px; color: #f5c542; margin: 8px 0; }
+    .progress-bar { height: 12px; background: rgba(0,0,0,0.3); border-radius: 6px;
+                    overflow: hidden; margin: 8px 0; }
+    .progress-fill { height: 100%; background: #4ecca3; }
+    .progress-text { font-size: 12px; color: #aaa; }
+    .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;
+           background: #4a90d9; color: white; font-size: 14px; margin-top: 8px; }
+    .btn-green { background: #4ecca3; color: #1a1a2e; }
+    .btn-green:disabled { background: #444; color: #888; cursor: not-allowed; }
+    .btn-row { display: flex; gap: 8px; margin-top: 8px; }
+    .picker { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+              background: rgba(0,0,0,0.8); z-index: 100; overflow-y: auto; }
+    .picker.active { display: block; }
+    .picker-inner { max-width: 700px; margin: 20px auto; padding: 16px; }
+    .picker .sort-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .picker .sort-bar button { padding: 6px 12px; border-radius: 6px; border: none;
+                                background: #0f3460; color: #eee; cursor: pointer; }
+    .picker .sort-bar button.active { background: #4a90d9; color: white; }
+    .picker .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+    .picker .grid .card { background: #16213e; border-radius: 8px; padding: 6px; text-align: center; cursor: pointer; }
+    .picker .grid .card img { width: 100%; border-radius: 4px; }
+    .picker .grid .card .name { font-size: 12px; margin-top: 4px; }
+    .b1 { background: #2a3a5e; }
+    .b2 { background: #3a2a4e; }
+    .b3 { background: #2a4e3a; }
+    .b4 { background: #4e3a2a; }
+    .b5 { background: #4e2a3a; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="page-name">家园</span>
+    <a href="/" class="back-btn">返回主页</a>
+  </div>
+
+  <div class="info-bar">
+    <div>建材：{{ materials }}</div>
+  </div>
+
+  <div class="total-bar">
+    <div>总计每小时：{{ total_output }} 铜币</div>
+    <button class="btn btn-green" onclick="collectAll()">一键领取</button>
+  </div>
+
+  {% for b in buildings %}
+  <div class="building b{{ b.bid }}">
+    <h3>{{ b.name }} · Lv.{{ b.level }}</h3>
+    <div class="rule">每小时产出驻守英雄{{ b.attr }}的铜币。</div>
+    <div class="slot" id="slot-{{ b.bid }}">
+      {% if b.card %}
+        <img src="/static/cards/{{ b.card.name }}.png" alt="{{ b.card.name }}">
+        <div style="margin-left:8px;">{{ b.card.nick }}·{{ b.card.name }}</div>
+      {% else %}
+        <span class="empty">未派驻英雄</span>
+      {% endif %}
+    </div>
+    <div class="output">每小时产出：{{ b.output }} 铜币</div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width:{{ b.progress }}%"></div>
+    </div>
+    <div class="progress-text">{{ b.accumulated }} / {{ b.max_hours }} 小时</div>
+    <div class="btn-row">
+      <button class="btn btn-green" onclick="collectOne({{ b.bid }})">领取</button>
+      <button class="btn" onclick="upgradeBuilding({{ b.bid }})"
+              {% if b.level >= 100 %}disabled{% endif %}>
+        {% if b.level >= 100 %}已满级{% else %}升级：{{ (b.level + 1) * 10 }} 建材{% endif %}
+      </button>
+    </div>
+    <button class="btn" onclick="openPicker({{ b.bid }})">派驻英雄</button>
+  </div>
+  {% endfor %}
+
+  <div class="picker" id="picker">
+    <div class="picker-inner">
+      <div class="sort-bar">
+        <button class="active" onclick="sortBy('rank', this)">名次</button>
+        <button onclick="sortBy('lead', this)">统率</button>
+        <button onclick="sortBy('might', this)">武力</button>
+        <button onclick="sortBy('intel', this)">智力</button>
+        <button onclick="sortBy('politics', this)">政治</button>
+        <button onclick="sortBy('charm', this)">魅力</button>
+      </div>
+      <div class="grid" id="pickerGrid"></div>
+      <button class="btn btn-green" onclick="confirmPick()">确定</button>
+      <button class="btn" onclick="closePicker()">取消</button>
+    </div>
+  </div>
+
+  <script>
+    const ownedCards = {{ cards | tojson }};
+    let currentBid = null;
+    let selectedCard = null;
+    let sortKey = 'rank';
+
+    function openPicker(bid) {
+      currentBid = bid;
+      selectedCard = null;
+      renderPicker();
+      document.getElementById('picker').classList.add('active');
+    }
+
+    function closePicker() {
+      document.getElementById('picker').classList.remove('active');
+    }
+
+    function sortBy(key, btn) {
+      sortKey = key;
+      document.querySelectorAll('.sort-bar button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderPicker();
+    }
+
+    function renderPicker() {
+      const grid = document.getElementById('pickerGrid');
+      const sorted = [...ownedCards].sort((a, b) => {
+        if (sortKey === 'rank') return a.id - b.id;
+        return b[sortKey] - a[sortKey];
+      });
+      grid.innerHTML = '';
+      sorted.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        if (selectedCard && selectedCard.id === c.id) {
+          div.style.border = '2px solid #4ecca3';
+        }
+        div.innerHTML = `<img loading="lazy" src="/static/cards/${c.name}.png"><div class="name">${c.name}</div>`;
+        div.onclick = () => { selectedCard = c; renderPicker(); };
+        grid.appendChild(div);
+      });
+    }
+
+    async function confirmPick() {
+      if (!selectedCard) { alert('请选择英雄'); return; }
+      await fetch('/set_building_card', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({bid: currentBid, card_id: selectedCard.id})
+      });
+      location.reload();
+    }
+
+    async function collectAll() {
+      const res = await fetch('/collect_all', {method: 'POST'});
+      const data = await res.json();
+      alert(`获得 ${data.gold} 金币 ${data.silver} 银币 ${data.copper} 铜币`);
+      location.reload();
+    }
+
+    async function collectOne(bid) {
+      const res = await fetch('/collect_one', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({bid: bid})
+      });
+      const data = await res.json();
+      alert(`获得 ${data.gold} 金币 ${data.silver} 银币 ${data.copper} 铜币`);
+      location.reload();
+    }
+
+    async function upgradeBuilding(bid) {
+      const res = await fetch('/upgrade_building', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({bid: bid})
+      });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      location.reload();
+    }
+  </script>
+</body>
+</html>
