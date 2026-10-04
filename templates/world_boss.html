@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>世界 Boss · 搏卡游戏</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
+           max-width: 900px; margin: 0 auto; padding: 16px; }
+    .header { display: flex; justify-content: space-between; align-items: center;
+              margin-bottom: 16px; }
+    .page-name { color: #4a90d9; font-size: 18px; }
+    .back-btn { background: white; color: #4a90d9; padding: 8px 14px;
+                border-radius: 8px; text-decoration: none; font-size: 14px; }
+    .panel { background: #16213e; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .hp-bar { height: 20px; background: #0f3460; border-radius: 10px; overflow: hidden; }
+    .hp-fill { height: 100%; background: #e94560; }
+    .boss-info { font-size: 14px; color: #aaa; margin: 8px 0; }
+    .main { display: flex; gap: 16px; }
+    .main .left { flex: 1; }
+    .main .right { width: 260px; }
+    .card { background: #0f3460; border-radius: 8px; padding: 10px; margin: 6px 0;
+            font-size: 13px; position: relative; }
+    .card .fatigue { position: absolute; top: 4px; left: 6px; font-size: 11px; }
+    .card .bond { position: absolute; top: 4px; right: 6px; font-size: 11px; color: #4ecca3; }
+    .deck { background: #0f3460; border-radius: 8px; padding: 10px; margin: 8px 0; }
+    .deck .deck-dmg { float: right; color: #f5c542; font-size: 13px; }
+    .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;
+           background: #4a90d9; color: white; font-size: 14px; }
+    .fatigue-0 { color: #4ecca3; }
+    .fatigue-1 { color: #8bc34a; }
+    .fatigue-2 { color: #ffc107; }
+    .fatigue-3 { color: #ff9800; }
+    .fatigue-4 { color: #ff5722; }
+    .fatigue-5 { color: #e94560; }
+    .fatigue-6 { color: #c62828; }
+    .fatigue-7 { color: #880e4f; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="page-name">世界 Boss</span>
+    <a href="/" class="back-btn">返回主页</a>
+  </div>
+
+  <div class="panel">
+    <h3>{{ boss.name }} · 本周</h3>
+    <div class="hp-bar"><div class="hp-fill" style="width:100%"></div></div>
+    <div class="boss-info">今日部队：{{ boss.troop }}</div>
+    <div class="boss-info">易伤五维：{{ weak_attr_cn }}（伤害 ×3）</div>
+    <div class="boss-info">规则：多次出战英雄感到疲劳，战力将衰减。</div>
+  </div>
+
+  <div class="main">
+    <div class="left">
+      <div class="panel">
+        <h3>我的卡组</h3>
+        <div id="decks"></div>
+        <button class="btn" onclick="createDeck()">新建卡组</button>
+      </div>
+    </div>
+    <div class="right">
+      <div class="panel">
+        <h3>本周期排名</h3>
+        <div id="rankList">暂无数据</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const weakAttr = "{{ weak_attr }}";
+    const weakAttrCn = "{{ weak_attr_cn }}";
+
+    function fatigueColor(times) {
+      return 'fatigue-' + Math.min(times, 7);
+    }
+
+    async function loadDecks() {
+      const res = await fetch('/world_boss/decks');
+      const data = await res.json();
+      const el = document.getElementById('decks');
+      el.innerHTML = '';
+      data.decks.forEach(d => {
+        const div = document.createElement('div');
+        div.className = 'deck';
+        div.innerHTML = `
+          <span class="deck-dmg">预计伤害：${d.damage} 点</span>
+          <div>${d.name}</div>
+          ${d.cards.map(c => `
+            <div class="card">
+              <span class="fatigue ${fatigueColor(c.times)}">已出战：${c.times} 次</span>
+              ${c.bonds.map(b => `<span class="bond">${b}</span>`).join('')}
+              <div>${c.nick}·${c.name}</div>
+              <div>${weakAttrCn}：${c.real_attr}</div>
+            </div>
+          `).join('')}
+        `;
+        el.appendChild(div);
+      });
+    }
+
+    async function createDeck() {
+      window.location.href = '/world_boss/deck/edit';
+    }
+
+    loadDecks();
+  </script>
+</body>
+</html>
