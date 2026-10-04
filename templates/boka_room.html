@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>搏卡房间 · 搏卡游戏</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
+           max-width: 700px; margin: 0 auto; padding: 16px; }
+    .header { display: flex; justify-content: space-between; align-items: center;
+              margin-bottom: 16px; }
+    .page-name { color: #4a90d9; font-size: 18px; }
+    .leave-btn { background: #f5c542; color: #1a1a2e; padding: 8px 14px;
+                 border-radius: 8px; text-decoration: none; font-size: 14px; }
+    .panel { background: #16213e; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .room-id { font-size: 24px; font-weight: bold; }
+    .invite { font-size: 13px; color: #aaa; word-break: break-all; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer;
+           font-size: 14px; margin: 4px; }
+    .btn-blue { background: #4a90d9; color: white; }
+    .btn-green { background: #4ecca3; color: #1a1a2e; }
+    .btn-red { background: #e94560; color: white; }
+    .btn-yellow { background: #f5c542; color: #1a1a2e; }
+    .player { display: flex; align-items: center; gap: 8px; padding: 8px 0;
+              border-bottom: 1px solid #0f3460; }
+    .player img { width: 36px; height: 36px; border-radius: 6px; }
+    .player .tag { font-size: 11px; background: #4a90d9; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="page-name">搏卡</span>
+    <a href="/boka" class="leave-btn">暂离房间</a>
+  </div>
+
+  <div class="panel">
+    <div class="room-id">房间号 {{ room_id }}</div>
+    <div class="invite">邀请链接：{{ invite_url }}</div>
+    <button class="btn btn-blue" onclick="copyLink()">复制链接</button>
+  </div>
+
+  <div class="panel">
+    <div>已准备 {{ ready_count }}/{{ player_count }}</div>
+    <button class="btn btn-green" id="readyBtn" onclick="toggleReady()">
+      {% if is_ready %}已准备{% else %}准备{% endif %}
+    </button>
+    {% if is_owner %}
+    <button class="btn btn-blue" onclick="startGame()">开始</button>
+    <button class="btn btn-red" onclick="dissolveRoom()">解散房间</button>
+    {% endif %}
+    <button class="btn btn-yellow" onclick="leaveRoom()">暂离房间</button>
+  </div>
+
+  <div class="panel">
+    <h3>玩家列表</h3>
+    {% for p in players %}
+    <div class="player">
+      <img src="/static/avatars/{{ p.username }}.jpg">
+      <span>{{ p.nickname }}</span>
+      {% if p.is_owner %}<span class="tag">房主</span>{% endif %}
+      <span class="tag">{{ '已准备' if p.ready else '未准备' }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    const roomId = "{{ room_id }}";
+
+    function copyLink() {
+      navigator.clipboard.writeText(window.location.href);
+      alert('链接已复制');
+    }
+
+    async function toggleReady() {
+      await fetch('/boka/room/' + roomId + '/ready', {method: 'POST'});
+      location.reload();
+    }
+
+    async function startGame() {
+      const res = await fetch('/boka/room/' + roomId + '/start', {method: 'POST'});
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      window.location.href = '/boka/room/' + roomId + '/battle';
+    }
+
+    async function dissolveRoom() {
+      if (!confirm('确定解散房间？')) return;
+      await fetch('/boka/room/' + roomId + '/dissolve', {method: 'POST'});
+      window.location.href = '/boka';
+    }
+
+    function leaveRoom() {
+      window.location.href = '/boka';
+    }
+  </script>
+</body>
+</html>
