@@ -5,30 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>个人挑战 · 搏卡游戏</title>
   <style>
-    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
-           margin: 0; padding: 12px; }
-    .header { display: flex; justify-content: space-between; align-items: center;
-              margin-bottom: 12px; }
+    body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+           background: #ffffff; color: #333; margin: 0; padding: 12px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .page-name { color: #4a90d9; font-size: 18px; }
-    .exit-btn { background: #e94560; color: white; padding: 8px 14px;
+    .exit-btn { background: #d9534f; color: white; padding: 8px 14px;
                 border-radius: 8px; text-decoration: none; font-size: 14px; }
-    .table { display: flex; justify-content: space-around; align-items: center;
-             min-height: 40vh; }
-    .player-box { text-align: center; }
-    .player-box img { width: 48px; height: 48px; border-radius: 8px; }
-    .center { text-align: center; font-size: 20px; color: #f5c542; }
+    .table { display: flex; flex-direction: column; min-height: 40vh; }
+    .opponent { text-align: center; padding: 12px; }
+    .opponent img { width: 48px; height: 48px; border-radius: 8px; }
+    .center { text-align: center; font-size: 20px; color: #d4a017; margin: 12px 0; }
+    .player-area { text-align: center; padding: 12px; }
+    .player-area img { width: 48px; height: 48px; border-radius: 8px; }
     .bottom { position: fixed; bottom: 0; left: 0; right: 0;
-              background: #16213e; padding: 10px; }
+              background: #f9f9f9; padding: 10px; border-top: 1px solid #eee; }
     .hand, .ready-area { display: flex; gap: 8px; overflow-x: auto; padding: 8px 0; }
-    .card { background: #0f3460; border-radius: 8px; padding: 6px; min-width: 90px;
+    .card { background: #f0f0f0; border-radius: 8px; padding: 6px; min-width: 90px;
             text-align: center; font-size: 12px; cursor: pointer; }
     .card img { width: 80px; border-radius: 4px; }
     .oval { border-radius: 50%; }
     .btn-row { display: flex; gap: 8px; margin-top: 8px; }
-    .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;
-           font-size: 14px; }
+    .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
     .btn-blue { background: #4a90d9; color: white; }
-    .btn-red { background: #e94560; color: white; }
+    .btn-red { background: #d9534f; color: white; }
   </style>
 </head>
 <body>
@@ -38,16 +37,16 @@
   </div>
 
   <div class="table">
-    <div class="player-box">
-      <img src="/static/avatars/{{ username }}.jpg">
-      <div>{{ nickname }}</div>
-      <div>手牌：{{ my_hand_count }}</div>
-    </div>
-    <div class="center" id="roundTip">本轮比攻</div>
-    <div class="player-box">
+    <div class="opponent">
       <img src="/static/images/ai.png">
       <div>电脑</div>
       <div>手牌：{{ ai_hand_count }}</div>
+    </div>
+    <div class="center" id="roundTip">本轮比攻</div>
+    <div class="player-area">
+      <img src="/static/avatars/{{ username }}.jpg">
+      <div>{{ nickname }}</div>
+      <div>手牌：{{ my_hand_count }}</div>
     </div>
   </div>
 
