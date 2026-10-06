@@ -5,27 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>搏卡战斗 · 搏卡游戏</title>
   <style>
-    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
-           margin: 0; padding: 12px; }
-    .table { position: relative; min-height: 60vh; }
+    body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+           background: #ffffff; color: #333; margin: 0; padding: 12px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .page-name { color: #4a90d9; font-size: 18px; }
+    .table { position: relative; min-height: 50vh; }
     .player-ring { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-    .player-box { background: #16213e; border-radius: 8px; padding: 8px;
+    .player-box { background: #f9f9f9; border-radius: 8px; padding: 8px;
                   display: flex; align-items: center; gap: 6px; font-size: 13px; }
     .player-box img { width: 32px; height: 32px; border-radius: 6px; }
-    .center { text-align: center; margin: 16px 0; font-size: 20px; color: #f5c542; }
+    .center { text-align: center; margin: 16px 0; font-size: 20px; color: #d4a017; }
     .bottom { position: fixed; bottom: 0; left: 0; right: 0;
-              background: #16213e; padding: 10px; }
+              background: #f9f9f9; padding: 10px; border-top: 1px solid #eee; }
     .hand, .ready-area { display: flex; gap: 8px; overflow-x: auto; padding: 8px 0; }
-    .card { background: #0f3460; border-radius: 8px; padding: 6px; min-width: 90px;
+    .card { background: #f0f0f0; border-radius: 8px; padding: 6px; min-width: 90px;
             text-align: center; font-size: 12px; cursor: pointer; }
     .card img { width: 80px; border-radius: 4px; }
     .oval { border-radius: 50%; }
     .btn-row { display: flex; gap: 8px; margin-top: 8px; }
-    .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;
-           font-size: 14px; }
+    .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
     .btn-blue { background: #4a90d9; color: white; }
-    .btn-red { background: #e94560; color: white; }
-    .btn-yellow { background: #f5c542; color: #1a1a2e; }
+    .btn-red { background: #d9534f; color: white; }
+    .btn-yellow { background: #f5c542; color: #333; }
   </style>
 </head>
 <body>
