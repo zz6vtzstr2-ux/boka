@@ -8,31 +8,20 @@
     * { box-sizing: border-box; }
     body {
       font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
-      background-color: #f2f0e8;
-      background-image: url('/static/images/主页背景.JPG');
-      background-size: contain;
-      background-position: center top;
-      background-repeat: no-repeat;
-      background-attachment: fixed;
+      background: radial-gradient(circle at center top, #f2f0e8 0%, #e8e0cc 70%);
+      background-color: #e8e0cc;
+      background-image: url('/static/images/主页背景.JPG'),
+                        radial-gradient(circle at center top, #f2f0e8 0%, #e8e0cc 70%);
+      background-size: contain, cover;
+      background-position: center top, center top;
+      background-repeat: no-repeat, no-repeat;
+      background-attachment: fixed, fixed;
       color: #333;
       margin: 0;
       padding: 0;
       min-height: 100vh;
       position: relative;
     }
-    /* 左右竖色条 */
-    body::before, body::after {
-      content: '';
-      position: fixed;
-      top: 0;
-      bottom: 0;
-      width: calc((100% - 868px) / 2);
-      background: #e8e0cc;
-      z-index: -1;
-    }
-    body::before { left: 0; }
-    body::after { right: 0; }
-
     .top-box {
       position: absolute;
       top: 61.8vh;
