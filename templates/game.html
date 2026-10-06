@@ -19,6 +19,11 @@
       margin: 0 auto;
       padding: 16px;
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .spacer-top {
+      flex: 0 0 38.2vh;
     }
     .top-box {
       background: rgba(255,255,255,0.92);
@@ -26,6 +31,7 @@
       border-radius: 16px;
       padding: 20px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      transform: translateY(-50%);
     }
     .header {
       display: flex;
@@ -80,35 +86,25 @@
       border: 1px solid transparent;
     }
     .capsule-score {
-      background: #2c6e5a;
+      background: #e8f0ec;
+      color: #2c6e5a;
+      border-color: #c8d8d0;
+    }
+    .capsule-money {
+      background: #3a5a4a;
       color: #fff;
-      border-color: #235a4a;
-    }
-    .capsule-gold {
-      background: #f5e6b8;
-      color: #8a6d1f;
-      border-color: #e0c97b;
-    }
-    .capsule-silver {
-      background: #e8e8e8;
-      color: #666;
-      border-color: #c8c8c8;
-    }
-    .capsule-copper {
-      background: #f0dcc8;
-      color: #8a5a2b;
-      border-color: #d8b090;
+      border-color: #2c4a3a;
+      gap: 10px;
     }
     .coin {
       display: inline-block;
-      width: 12px;
-      height: 12px;
+      width: 18px;
+      height: 18px;
       border-radius: 50%;
-      margin-left: 2px;
     }
-    .coin-gold { background: #d4a86b; border: 1px solid #b8952f; }
-    .coin-silver { background: #a8a8a8; border: 1px solid #888; }
-    .coin-copper { background: #b87b4a; border: 1px solid #8a5a2b; }
+    .coin-gold { background: #f5d76e; border: 2px solid #d4a86b; }
+    .coin-silver { background: #d8d8d8; border: 2px solid #a8a8a8; }
+    .coin-copper { background: #d89b6e; border: 2px solid #b87b4a; }
     .link-btn {
       background: #fff;
       padding: 6px 14px;
@@ -152,6 +148,7 @@
   </style>
 </head>
 <body>
+  <div class="spacer-top"></div>
   <div class="top-box">
     <div class="header">
       <div class="title-block">
@@ -161,10 +158,12 @@
       <div class="user-block">
         <img src="/static/avatars/{{ username }}.JPG" alt="">
         <span class="nickname">{{ nickname }}</span>
-        <span class="capsule capsule-score">积分 {{ score }}</span>
-        <span class="capsule capsule-gold">{{ gold }}<span class="coin coin-gold"></span></span>
-        <span class="capsule capsule-silver">{{ silver }}<span class="coin coin-silver"></span></span>
-        <span class="capsule capsule-copper">{{ copper }}<span class="coin coin-copper"></span></span>
+        <span class="capsule capsule-score">⚔️ {{ score }}</span>
+        <span class="capsule capsule-money">
+          <span class="coin coin-gold"></span>{{ gold }}
+          <span class="coin coin-silver"></span>{{ silver }}
+          <span class="coin coin-copper"></span>{{ copper }}
+        </span>
         <a href="/profile" class="link-btn">我的资料</a>
         <a href="/logout" class="link-btn">退出登录</a>
       </div>
@@ -173,10 +172,10 @@
     <div class="nav">
       <a href="/buildings">家园<span class="en">Home</span></a>
       <a href="/draw">抽卡<span class="en">Draw</span></a>
-      <a href="/data">数据<span class="en">Stats</span></a>
-      <a href="/collection">收藏<span class="en">Cards</span></a>
+      <a href="/data">数据<span class="en">Data</span></a>
+      <a href="/collection">收藏<span class="en">Collection</span></a>
       <a href="/boka">搏卡<span class="en">Boka</span></a>
-      <a href="/challenge">个人挑战<span class="en">Personal Challenge</span></a>
+      <a href="/challenge">个人挑战<span class="en">Challenge</span></a>
       <a href="/world_boss">世界Boss<span class="en">World Boss</span></a>
     </div>
   </div>
