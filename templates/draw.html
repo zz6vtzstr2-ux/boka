@@ -8,13 +8,15 @@
     body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
            background: #fdf8e8; color: #4a4a4a; max-width: 700px; margin: 0 auto; padding: 16px; text-align: center; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .page-name { color: #7ba7cc; font-size: 18px; font-weight: bold; }
-    .back-btn { background: #fff; color: #7ba7cc; padding: 8px 14px;
+    .page-name { color: #5a8ab5; font-size: 24px; font-weight: bold; letter-spacing: 2px; }
+    .back-btn { background: #e8e4d8; color: #5a8ab5; padding: 8px 16px;
                 border-radius: 8px; text-decoration: none; font-size: 14px;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-    .wallet { display: flex; gap: 16px; justify-content: center; font-size: 14px; margin-bottom: 16px; }
-    .wallet .item { display: flex; align-items: center; gap: 4px; background: #fff;
-                    padding: 6px 12px; border-radius: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+                border: 1px solid #d8d0bc; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .back-btn:hover { background: #ddd8c8; }
+    .wallet { display: inline-flex; gap: 16px; justify-content: center; font-size: 14px;
+              margin-bottom: 16px; background: #f5f0e0; padding: 8px 20px;
+              border-radius: 20px; border: 1px solid #e0d8c0; }
+    .wallet .item { display: flex; align-items: center; gap: 4px; }
     .coin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; }
     .coin-gold { background: #e8c97b; border: 1px solid #d4a86b; }
     .coin-silver { background: #c9c9c9; border: 1px solid #a8a8a8; }
@@ -88,12 +90,12 @@
   </div>
 
   <div class="wallet">
-    <span class="item"><span class="coin coin-gold"></span>{{ gold }}</span>
-    <span class="item"><span class="coin coin-silver"></span>{{ silver }}</span>
-    <span class="item"><span class="coin coin-copper"></span>{{ copper }}</span>
+    <span class="item"><span id="goldDisplay">{{ gold }}</span><span class="coin coin-gold"></span></span>
+    <span class="item"><span id="silverDisplay">{{ silver }}</span><span class="coin coin-silver"></span></span>
+    <span class="item"><span id="copperDisplay">{{ copper }}</span><span class="coin coin-copper"></span></span>
   </div>
 
-  <img class="noodle" src="/static/images/干脆面.jpg" alt="干脆面">
+  <img class="noodle" src="/static/images/干脆面.JPG" alt="干脆面">
   <div class="price">2 金币一包</div>
   <button class="draw-btn" id="drawBtn" onclick="drawCard()">来一包</button>
   <div class="result" id="result"></div>
@@ -117,18 +119,23 @@
 
       if (data.error) {
         el.innerHTML = `<p>${data.error}</p>`;
-      } else if (data.type === 'empty') {
-        el.innerHTML = `<p>${data.message}</p>`;
-      } else if (data.type === 'double') {
-        lastCards = data.cards;
-        el.innerHTML = `<p>${data.message}</p><div class="cards">` +
-          data.cards.map((c, i) => renderCard(c, i, data.first_time.includes(c.name) && i === 0)).join('') +
-          `</div>`;
       } else {
-        lastCards = data.cards;
-        el.innerHTML = `<div class="cards">` +
-          data.cards.map((c, i) => renderCard(c, i, data.first_time.includes(c.name))).join('') +
-          `</div>`;
+        if (data.gold !== undefined) {
+          document.getElementById('goldDisplay').textContent = data.gold;
+        }
+        if (data.type === 'empty') {
+          el.innerHTML = `<p>${data.message}</p>`;
+        } else if (data.type === 'double') {
+          lastCards = data.cards;
+          el.innerHTML = `<p>${data.message}</p><div class="cards">` +
+            data.cards.map((c, i) => renderCard(c, i, data.first_time.includes(c.name) && i === 0)).join('') +
+            `</div>`;
+        } else {
+          lastCards = data.cards;
+          el.innerHTML = `<div class="cards">` +
+            data.cards.map((c, i) => renderCard(c, i, data.first_time.includes(c.name))).join('') +
+            `</div>`;
+        }
       }
 
       drawing = false;
