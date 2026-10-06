@@ -462,9 +462,15 @@ def world_boss():
         current_user.boss_fatigue_reset = today
         db.session.commit()
 
+    week_num = current_user.boss_week
+    random.seed(week_num)
     boss = random.choice(BOSS_LIST)
+
+    day_seed = int(today.strftime("%Y%m%d"))
+    random.seed(day_seed)
     weak_attr = random.choice(list(ATTR_CN.keys()))
-    hp = boss_hp(current_user.boss_week)
+
+    hp = boss_hp(week_num)
     coll = current_user.get_collection()
     owned = [c for c in CARDS if str(c["id"]) in coll]
     fatigue = current_user.get_boss_fatigue()
