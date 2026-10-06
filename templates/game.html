@@ -8,66 +8,146 @@
     * { box-sizing: border-box; }
     body {
       font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+      background-color: #f2f0e8;
       background-image: url('/static/images/主页背景.JPG');
       background-size: cover;
       background-position: center;
+      background-repeat: no-repeat;
       background-attachment: fixed;
       color: #333;
-      max-width: 700px;
+      max-width: 900px;
       margin: 0 auto;
       padding: 16px;
       min-height: 100vh;
     }
-    .top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
-           background: rgba(255,255,255,0.85); border-radius: 12px; padding: 12px;
-           box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .top img { width: 56px; height: 56px; border-radius: 8px; background: #eee;
-               border: 2px solid #d8d0bc; }
-    .info { display: flex; flex-direction: column; gap: 6px; }
-    .nickname { font-size: 16px; font-weight: bold; }
-    .stats { display: flex; gap: 16px; font-size: 14px; color: #555; align-items: center; }
-    .stat-item { display: flex; align-items: center; gap: 4px; }
-    .coin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; }
-    .coin-gold { background: #e8c97b; border: 1px solid #d4a86b; }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
-    .row a, .row button {
-      padding: 10px 16px; border-radius: 10px; border: none;
-      background: rgba(255,255,255,0.9); color: #2c6e5a;
-      text-decoration: none; font-size: 14px; cursor: pointer;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-      border: 1px solid #e0d8c0;
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
-    .row a:hover { background: #fff; }
+    .title-block h1 {
+      font-size: 28px;
+      margin: 0;
+      color: #2c3e50;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    .title-block .en {
+      font-size: 12px;
+      color: #888;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .user-block {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .user-block img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      border: 2px solid #d8d0bc;
+      background: #fff;
+    }
+    .user-block .nickname {
+      font-size: 15px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    .capsule {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #fff;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid #e0d8c0;
+      font-size: 14px;
+      font-weight: bold;
+      color: #2c6e5a;
+    }
+    .capsule-gold { color: #b8952f; }
+    .coin {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #e8c97b;
+      border: 1px solid #d4a86b;
+    }
+    .link-btn {
+      background: #fff;
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid #e0d8c0;
+      font-size: 14px;
+      color: #555;
+      text-decoration: none;
+    }
+    .link-btn:hover { background: #f5f0e0; }
+    .nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    .nav a {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 18px;
+      border-radius: 12px;
+      text-decoration: none;
+      background: #fff;
+      border: 1px solid #e0d8c0;
+      color: #2c6e5a;
+      font-size: 14px;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+      transition: transform 0.15s;
+      min-width: 80px;
+    }
+    .nav a:hover { transform: translateY(-2px); background: #f5f0e0; }
+    .nav a .en {
+      font-size: 10px;
+      color: #999;
+      font-weight: normal;
+      letter-spacing: 1px;
+      margin-top: 2px;
+      text-transform: uppercase;
+    }
   </style>
 </head>
 <body>
-  <div class="top">
-    <img src="/static/avatars/{{ username }}.JPG" alt="">
-    <div class="info">
-      <div class="nickname">{{ nickname }}</div>
-      <div class="stats">
-        <span class="stat-item">积分：{{ score }}</span>
-        <span class="stat-item">{{ gold }}<span class="coin coin-gold"></span></span>
-      </div>
+  <div class="header">
+    <div class="title-block">
+      <h1>欢迎搏卡青年</h1>
+      <div class="en">Welcome Boka Juniors</div>
+    </div>
+    <div class="user-block">
+      <img src="/static/avatars/{{ username }}.JPG" alt="">
+      <span class="nickname">{{ nickname }}</span>
+      <span class="capsule">积分 {{ score }}</span>
+      <span class="capsule capsule-gold">{{ gold }}<span class="coin"></span></span>
+      <a href="/profile" class="link-btn">我的资料</a>
+      <a href="/logout" class="link-btn">退出登录</a>
     </div>
   </div>
 
-  <div class="row">
-    <a href="/profile">我的资料</a>
-    <a href="/logout">退出登录</a>
-  </div>
-
-  <div class="row">
-    <a href="/buildings">家园</a>
-    <a href="/draw">抽卡</a>
-    <a href="/data">数据</a>
-    <a href="/collection">收藏</a>
-  </div>
-
-  <div class="row">
-    <a href="/boka">搏卡</a>
-    <a href="/challenge">个人挑战</a>
-    <a href="/world_boss">世界 Boss</a>
+  <div class="nav">
+    <a href="/buildings">家园<span class="en">Home</span></a>
+    <a href="/draw">抽卡<span class="en">Draw</span></a>
+    <a href="/data">数据<span class="en">Stats</span></a>
+    <a href="/collection">收藏<span class="en">Cards</span></a>
+    <a href="/boka">搏卡<span class="en">Boka</span></a>
+    <a href="/challenge">挑战<span class="en">Quest</span></a>
+    <a href="/world_boss">世界 Boss<span class="en">Boss</span></a>
   </div>
 </body>
 </html>
