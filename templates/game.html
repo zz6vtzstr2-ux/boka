@@ -15,23 +15,23 @@
       background-repeat: no-repeat;
       background-attachment: fixed;
       color: #333;
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 16px;
+      margin: 0;
+      padding: 0;
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    .spacer-top {
-      flex: 0 0 38.2vh;
+      position: relative;
     }
     .top-box {
+      position: absolute;
+      top: 38.2vh;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: calc(100% - 32px);
+      max-width: 868px;
       background: rgba(255,255,255,0.92);
       border: 1px solid #d8d0bc;
       border-radius: 16px;
       padding: 20px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-      transform: translateY(-50%);
     }
     .header {
       display: flex;
@@ -83,17 +83,11 @@
       border-radius: 20px;
       font-size: 14px;
       font-weight: bold;
-      border: 1px solid transparent;
-    }
-    .capsule-score {
       background: #e8f0ec;
       color: #2c6e5a;
-      border-color: #c8d8d0;
+      border: 1px solid #c8d8d0;
     }
     .capsule-money {
-      background: #3a5a4a;
-      color: #fff;
-      border-color: #2c4a3a;
       gap: 10px;
     }
     .coin {
@@ -148,7 +142,6 @@
   </style>
 </head>
 <body>
-  <div class="spacer-top"></div>
   <div class="top-box">
     <div class="header">
       <div class="title-block">
@@ -172,8 +165,8 @@
     <div class="nav">
       <a href="/buildings">家园<span class="en">Home</span></a>
       <a href="/draw">抽卡<span class="en">Draw</span></a>
-      <a href="/data">数据<span class="en">Data</span></a>
-      <a href="/collection">收藏<span class="en">Collection</span></a>
+      <a href="/data">数据<span class="en">Stats</span></a>
+      <a href="/collection">收藏<span class="en">Cards</span></a>
       <a href="/boka">搏卡<span class="en">Boka</span></a>
       <a href="/challenge">个人挑战<span class="en">Challenge</span></a>
       <a href="/world_boss">世界Boss<span class="en">World Boss</span></a>
