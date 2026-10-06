@@ -5,27 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>收藏 · 搏卡游戏</title>
   <style>
-    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
-           max-width: 900px; margin: 0 auto; padding: 16px; }
-    .header { display: flex; justify-content: space-between; align-items: center;
-              margin-bottom: 16px; }
+    body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+           background: #ffffff; color: #333; max-width: 900px; margin: 0 auto; padding: 16px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .page-name { color: #4a90d9; font-size: 18px; }
-    .back-btn { background: white; color: #4a90d9; padding: 8px 14px;
+    .back-btn { background: #f0f0f0; color: #4a90d9; padding: 8px 14px;
                 border-radius: 8px; text-decoration: none; font-size: 14px; }
     .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
     .tabs a { padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px;
               background: #4a90d9; color: white; }
-    .tabs a.inactive { background: #0f3460; color: #eee; }
-    .owned-count { font-size: 14px; color: #aaa; margin-bottom: 12px; }
+    .tabs a.inactive { background: #f0f0f0; color: #4a90d9; }
+    .owned-count { font-size: 14px; color: #888; margin-bottom: 12px; }
     .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-    .card { background: #16213e; border-radius: 10px; padding: 10px; text-align: center; position: relative; }
+    .card { background: #f9f9f9; border-radius: 10px; padding: 10px; text-align: center; position: relative; }
     .card img { width: 100%; border-radius: 6px; display: block; }
-    .card .atk { position: absolute; left: 4px; bottom: 4px; font-size: 13px; color: #e94560; }
-    .card .def { position: absolute; right: 4px; bottom: 4px; font-size: 13px; color: #4ecca3; }
+    .card .atk { position: absolute; left: 4px; bottom: 4px; font-size: 13px; color: #d9534f; }
+    .card .def { position: absolute; right: 4px; bottom: 4px; font-size: 13px; color: #5cb85c; }
     .card .name { font-size: 13px; margin-top: 4px; }
     .card .donor { font-size: 11px; color: #888; }
-    .card.empty { background: #0f3460; display: flex; align-items: center;
-                  justify-content: center; height: 180px; color: #666; font-size: 14px; }
+    .card.empty { background: #fffbe6; display: flex; align-items: center;
+                  justify-content: center; height: 180px; color: #aaa; font-size: 14px; }
   </style>
 </head>
 <body>
