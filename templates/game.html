@@ -8,21 +8,21 @@
     * { box-sizing: border-box; }
     body {
       font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
-      background-color: #f7f5ee;
+      background-color: #e8e0cc;
       color: #333;
       margin: 0;
       padding: 0;
       min-height: 100vh;
       position: relative;
     }
-    /* 左右色带：和背景图同色 */
+    /* 左右色带：比最外层浅 */
     body::before, body::after {
       content: '';
       position: fixed;
       top: 0;
       bottom: 0;
       width: calc((100% - 868px) / 2);
-      background: #e8e0cc;
+      background: #f7f5ee;
       z-index: 1;
     }
     body::before { left: 0; }
