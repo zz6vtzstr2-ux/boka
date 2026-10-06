@@ -77,6 +77,19 @@ def serve_avatar(name):
             return send_from_directory(base, os.path.basename(path))
     return "Not Found", 404
 
+@app.route('/static/images/<name>')
+def serve_image(name):
+    base = os.path.join(app.static_folder, 'images')
+    for ext in ['.JPG', '.jpg', '.PNG', '.png']:
+        if name.lower().endswith(('.png', '.jpg')):
+            stem = name.rsplit('.', 1)[0]
+            path = os.path.join(base, stem + ext)
+        else:
+            path = os.path.join(base, name + ext)
+        if os.path.exists(path):
+            return send_from_directory(base, os.path.basename(path))
+    return "Not Found", 404
+
 # ========== 登录 ==========
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -126,7 +139,7 @@ def draw_card_route():
     cards, result_type = draw_card()
     if result_type == "empty":
         db.session.commit()
-        return jsonify({"type": "empty", "message": "厂商忘放卡了"})
+        return jsonify({"type": "empty", "message": "厂商忘放卡了", "gold": current_user.gold})
     collection = current_user.get_collection()
     first_time = []
     for card in cards:
@@ -137,8 +150,8 @@ def draw_card_route():
     current_user.set_collection(collection)
     db.session.commit()
     if result_type == "double":
-        return jsonify({"type": "double", "cards": cards, "message": "双黄蛋", "first_time": first_time})
-    return jsonify({"type": "normal", "cards": cards, "first_time": first_time})
+        return jsonify({"type": "double", "cards": cards, "message": "双黄蛋", "first_time": first_time, "gold": current_user.gold})
+    return jsonify({"type": "normal", "cards": cards, "first_time": first_time, "gold": current_user.gold})
 
 # ========== 收藏 ==========
 @app.route('/collection')
