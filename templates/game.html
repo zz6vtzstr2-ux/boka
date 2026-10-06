@@ -20,6 +20,19 @@
       min-height: 100vh;
       position: relative;
     }
+    /* 左右竖色条 */
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      width: calc((100% - 868px) / 2);
+      background: #e8e0cc;
+      z-index: -1;
+    }
+    body::before { left: 0; }
+    body::after { right: 0; }
+
     .top-box {
       position: absolute;
       top: 61.8vh;
