@@ -5,31 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>抽卡 · 搏卡游戏</title>
   <style>
-    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
-           max-width: 700px; margin: 0 auto; padding: 16px; text-align: center; }
-    .header { display: flex; justify-content: space-between; align-items: center;
-              margin-bottom: 16px; }
+    body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+           background: #ffffff; color: #333; max-width: 700px; margin: 0 auto; padding: 16px; text-align: center; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .page-name { color: #4a90d9; font-size: 18px; }
-    .back-btn { background: white; color: #4a90d9; padding: 8px 14px;
+    .back-btn { background: #f0f0f0; color: #4a90d9; padding: 8px 14px;
                 border-radius: 8px; text-decoration: none; font-size: 14px; }
-    .wallet { display: flex; gap: 8px; justify-content: center;
-              font-size: 14px; margin-bottom: 16px; }
-    .wallet span { background: #16213e; padding: 6px 12px; border-radius: 6px; }
+    .wallet { display: flex; gap: 8px; justify-content: center; font-size: 14px; margin-bottom: 16px; }
+    .wallet span { background: #f5f5f5; padding: 6px 12px; border-radius: 6px; }
     .noodle { width: 200px; margin: 20px auto; display: block; }
-    .price { font-size: 16px; color: #f5c542; margin: 12px 0; }
+    .price { font-size: 16px; color: #d4a017; margin: 12px 0; }
     .draw-btn { padding: 14px 40px; border: none; border-radius: 10px;
                 background: #4a90d9; color: white; font-size: 18px; cursor: pointer; }
-    .draw-btn:disabled { background: #444; color: #888; cursor: not-allowed; }
+    .draw-btn:disabled { background: #ccc; cursor: not-allowed; }
     .result { margin-top: 20px; }
     .cards { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
-    .card { background: #16213e; border-radius: 10px; padding: 10px; width: 140px;
-            position: relative; }
+    .card { background: #f9f9f9; border-radius: 10px; padding: 10px; width: 140px; position: relative; }
     .card img { width: 100%; border-radius: 6px; display: block; }
-    .card .atk { position: absolute; left: 4px; bottom: 4px; font-size: 13px; color: #e94560; }
-    .card .def { position: absolute; right: 4px; bottom: 4px; font-size: 13px; color: #4ecca3; }
+    .card .atk { position: absolute; left: 4px; bottom: 4px; font-size: 13px; color: #d9534f; }
+    .card .def { position: absolute; right: 4px; bottom: 4px; font-size: 13px; color: #5cb85c; }
     .card .name { font-size: 13px; margin-top: 4px; }
     .first-time { position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
-                  color: #e94560; font-size: 12px; font-weight: bold; white-space: nowrap; }
+                  color: #d9534f; font-size: 12px; font-weight: bold; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -39,9 +36,9 @@
   </div>
 
   <div class="wallet">
-    <span>🪙 {{ gold }}</span>
-    <span>🥈 {{ silver }}</span>
-    <span>🥉 {{ copper }}</span>
+    <span>金币：{{ gold }}</span>
+    <span>银币：{{ silver }}</span>
+    <span>铜币：{{ copper }}</span>
   </div>
 
   <img class="noodle" src="/static/images/干脆面.jpg" alt="干脆面">
