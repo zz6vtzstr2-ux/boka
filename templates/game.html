@@ -5,34 +5,56 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>搏卡游戏</title>
   <style>
-    body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
-           background: #ffffff; color: #333; max-width: 700px; margin: 0 auto; padding: 16px; }
-    .top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-    .top img { width: 56px; height: 56px; border-radius: 8px; background: #eee; }
-    .info { display: flex; flex-direction: column; gap: 4px; }
-    .stats { display: flex; gap: 12px; font-size: 14px; color: #555; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+      background-image: url('/static/images/主页背景.JPG');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      color: #333;
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 16px;
+      min-height: 100vh;
+    }
+    .top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+           background: rgba(255,255,255,0.85); border-radius: 12px; padding: 12px;
+           box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .top img { width: 56px; height: 56px; border-radius: 8px; background: #eee;
+               border: 2px solid #d8d0bc; }
+    .info { display: flex; flex-direction: column; gap: 6px; }
+    .nickname { font-size: 16px; font-weight: bold; }
+    .stats { display: flex; gap: 16px; font-size: 14px; color: #555; align-items: center; }
+    .stat-item { display: flex; align-items: center; gap: 4px; }
+    .coin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; }
+    .coin-gold { background: #e8c97b; border: 1px solid #d4a86b; }
     .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
-    .row a, .row button { padding: 8px 14px; border-radius: 8px; border: none;
-                          background: #4a90d9; color: white; text-decoration: none;
-                          font-size: 14px; cursor: pointer; }
-    .row .white { background: #f0f0f0; color: #4a90d9; }
+    .row a, .row button {
+      padding: 10px 16px; border-radius: 10px; border: none;
+      background: rgba(255,255,255,0.9); color: #2c6e5a;
+      text-decoration: none; font-size: 14px; cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      border: 1px solid #e0d8c0;
+    }
+    .row a:hover { background: #fff; }
   </style>
 </head>
 <body>
   <div class="top">
-    <img src="/static/avatars/{{ username }}.jpg" alt="">
+    <img src="/static/avatars/{{ username }}.JPG" alt="">
     <div class="info">
-      <div style="font-size:16px;">{{ nickname }}</div>
+      <div class="nickname">{{ nickname }}</div>
       <div class="stats">
-        <span>积分：{{ score }}</span>
-        <span>金币：{{ gold }}</span>
+        <span class="stat-item">积分：{{ score }}</span>
+        <span class="stat-item">{{ gold }}<span class="coin coin-gold"></span></span>
       </div>
     </div>
   </div>
 
   <div class="row">
-    <a href="/profile" class="white">我的资料</a>
-    <a href="/logout" class="white">退出登录</a>
+    <a href="/profile">我的资料</a>
+    <a href="/logout">退出登录</a>
   </div>
 
   <div class="row">
