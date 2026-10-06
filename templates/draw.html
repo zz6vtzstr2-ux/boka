@@ -5,100 +5,150 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>抽卡 · 搏卡游戏</title>
   <style>
-    body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
-           background: #fdf8e8; color: #4a4a4a; max-width: 700px; margin: 0 auto; padding: 16px; text-align: center; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .page-name { color: #5a8ab5; font-size: 24px; font-weight: bold; letter-spacing: 2px; }
-    .back-btn { background: #e8e4d8; color: #5a8ab5; padding: 8px 16px;
-                border-radius: 8px; text-decoration: none; font-size: 14px;
-                border: 1px solid #d8d0bc; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-    .back-btn:hover { background: #ddd8c8; }
-    .wallet { display: inline-flex; gap: 16px; justify-content: center; font-size: 14px;
-              margin-bottom: 16px; background: #f5f0e0; padding: 8px 20px;
-              border-radius: 20px; border: 1px solid #e0d8c0; }
-    .wallet .item { display: flex; align-items: center; gap: 4px; }
+    * { box-sizing: border-box; }
+    body { font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+           background: #f2f0e8; color: #333; max-width: 900px; margin: 0 auto; padding: 16px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+    .title-block h1 { font-size: 28px; margin: 0; color: #2c3e50; font-weight: bold; }
+    .title-block p { font-size: 13px; color: #888; margin: 4px 0 0; }
+    .user-block { display: flex; align-items: center; gap: 10px; }
+    .user-block img { width: 48px; height: 48px; border-radius: 8px; border: 2px solid #d8d0bc; }
+    .user-block .money { background: #fff; padding: 6px 14px; border-radius: 20px;
+                         border: 1px solid #e0d8c0; font-size: 14px; display: flex; align-items: center; gap: 4px; }
     .coin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; }
     .coin-gold { background: #e8c97b; border: 1px solid #d4a86b; }
-    .coin-silver { background: #c9c9c9; border: 1px solid #a8a8a8; }
-    .coin-copper { background: #c9a07b; border: 1px solid #a87b5a; }
-    .noodle { width: 200px; margin: 20px auto; display: block; border-radius: 12px;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    .price { font-size: 16px; color: #c9a86b; margin: 12px 0; font-weight: bold; }
-    .draw-btn { padding: 14px 40px; border: none; border-radius: 12px;
-                background: #7ba7cc; color: white;
-                font-size: 18px; cursor: pointer; box-shadow: 0 4px 12px rgba(123,167,204,0.3);
-                transition: transform 0.15s; }
-    .draw-btn:hover { transform: translateY(-2px); }
-    .draw-btn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
-    .result { margin-top: 24px; }
-    .cards { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
-    .card { background: #fff; border-radius: 16px; padding: 14px; width: 200px;
-            position: relative; box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-            border: 2px solid #f0ead5; transition: transform 0.15s; cursor: pointer; }
-    .card:hover { transform: translateY(-4px); box-shadow: 0 10px 28px rgba(0,0,0,0.12); }
-    .card .img-wrap { position: relative; border-radius: 12px; overflow: hidden; }
+    .user-block .link { background: #fff; padding: 6px 14px; border-radius: 8px;
+                        border: 1px solid #e0d8c0; font-size: 14px; color: #555; text-decoration: none; }
+    .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .nav-tabs { display: flex; gap: 0; background: #fff; border-radius: 10px;
+                border: 1px solid #e0d8c0; overflow: hidden; }
+    .nav-tabs a { padding: 10px 24px; text-decoration: none; color: #555; font-size: 14px;
+                  border-right: 1px solid #e0d8c0; }
+    .nav-tabs a:last-child { border-right: none; }
+    .nav-tabs a.active { background: #2c6e5a; color: white; }
+    .back-btn { background: #fff; padding: 10px 18px; border-radius: 8px;
+                border: 1px solid #e0d8c0; text-decoration: none; color: #555; font-size: 14px; }
+    .banner { background: linear-gradient(135deg, #4a3a6e, #6e4a6e); border-radius: 16px;
+              padding: 28px; color: white; display: flex; gap: 24px; margin-bottom: 16px; }
+    .banner-left { flex: 1; }
+    .banner-left .sub { font-size: 12px; letter-spacing: 2px; opacity: 0.7; }
+    .banner-left h2 { font-size: 26px; margin: 8px 0; }
+    .banner-left p { font-size: 14px; opacity: 0.85; margin: 0; }
+    .banner-right { width: 320px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .data-cell { background: rgba(255,255,255,0.12); border-radius: 10px; padding: 12px; }
+    .data-cell .label { font-size: 12px; opacity: 0.75; margin-bottom: 6px; }
+    .data-cell .value { font-size: 16px; font-weight: bold; }
+    .banner-btns { display: flex; gap: 12px; margin-top: 20px; }
+    .banner-btns button { flex: 1; padding: 16px; border: none; border-radius: 10px;
+                          font-size: 16px; font-weight: bold; color: white; cursor: pointer; }
+    .btn-single { background: #2c6e5a; }
+    .btn-single:hover { background: #235a4a; }
+    .btn-single:disabled { background: #555; cursor: not-allowed; }
+    .tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+    .tags span { background: rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 12px; font-size: 12px; }
+    .result-area { background: #fff; border: 1px dashed #d8d0bc; border-radius: 12px;
+                   padding: 40px; text-align: center; color: #aaa; font-size: 14px; min-height: 200px; }
+    .result-area .cards { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .card { background: #fff; border-radius: 14px; padding: 12px; width: 190px;
+            position: relative; box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            border: 2px solid #f0ead5; cursor: pointer; transition: transform 0.15s; }
+    .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .card .img-wrap { border-radius: 10px; overflow: hidden; }
     .card .img-wrap img { width: 100%; display: block; }
-    .badge {
-      position: absolute; width: 38px; height: 38px; border-radius: 50%;
-      background: #fff; display: flex; align-items: center; justify-content: center;
-      font-weight: bold; font-size: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.12);
-      z-index: 2;
-    }
-    .badge-atk { left: -8px; bottom: 8px; color: #c97b7b; border: 2px solid #c97b7b; }
-    .badge-def { right: -8px; bottom: 8px; color: #a0876b; border: 2px solid #a0876b; }
-    .badge::before {
-      content: ''; position: absolute; width: 2px; height: 52px;
-      z-index: -1; border-radius: 1px;
-    }
-    .badge-atk::before { background: #c97b7b; transform: rotate(45deg); }
-    .badge-def::before { background: #a0876b; transform: rotate(-45deg); }
-    .card .name { font-size: 16px; font-weight: bold; margin-top: 12px;
-                  padding-top: 10px; border-top: 1px solid #f5f0e0; color: #4a4a4a; }
+    .card .info-row { display: flex; justify-content: space-between; align-items: center;
+                      margin-top: 10px; padding-top: 8px; border-top: 1px solid #f5f0e0; }
+    .card .name { font-size: 13px; font-weight: bold; color: #333; }
+    .card .atk-pill, .card .def-pill { display: flex; align-items: center; gap: 2px;
+            padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold;
+            background: #f5f0e0; }
+    .card .atk-pill { color: #c97b7b; }
+    .card .def-pill { color: #a0876b; }
     .first-time { position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
-                  color: #c97b7b; font-size: 13px; font-weight: bold; white-space: nowrap;
+                  color: #c97b7b; font-size: 12px; font-weight: bold; white-space: nowrap;
                   background: #fff; padding: 3px 12px; border-radius: 12px;
-                  box-shadow: 0 2px 8px rgba(201,123,123,0.2); }
+                  box-shadow: 0 2px 8px rgba(201,123,123,0.2); z-index: 2; }
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
              background: rgba(0,0,0,0.4); justify-content: center; align-items: center; z-index: 100; }
     .modal.active { display: flex; }
-    .modal-content { background: #fff; border-radius: 16px; padding: 24px; max-width: 360px;
-                     width: 90%; text-align: left; }
-    .modal-content h3 { margin-top: 0; color: #4a4a4a; }
-    .modal-content .bio { font-size: 13px; color: #888; line-height: 1.6; margin-bottom: 16px; }
-    .attr-bars { display: flex; justify-content: space-around; align-items: flex-end;
-                 height: 120px; margin-top: 16px; }
-    .attr-bar { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-    .attr-bar .bar {
-      width: 20px; border-radius: 6px 6px 0 0; transition: height 0.3s;
-    }
+    .modal-content { background: #fff; border-radius: 16px; padding: 24px; max-width: 400px; width: 90%; }
+    .modal-content h3 { margin-top: 0; }
+    .bio { font-size: 13px; color: #888; line-height: 1.6; margin-bottom: 16px;
+           padding-bottom: 16px; border-bottom: 1px solid #f0ead5; }
+    .attr-bars { display: flex; justify-content: space-around; align-items: flex-end; height: 140px; }
+    .attr-bar { display: flex; flex-direction: column; align-items: center; gap: 6px;
+                height: 100%; justify-content: flex-start; }
     .attr-bar .label { font-size: 12px; color: #888; }
-    .attr-bar .value { font-size: 12px; color: #4a4a4a; font-weight: bold; }
+    .attr-bar .bar-wrap { flex: 1; display: flex; align-items: flex-end; }
+    .attr-bar .bar { width: 22px; border-radius: 6px 6px 0 0; }
+    .attr-bar .value { font-size: 12px; font-weight: bold; }
     .b-lead { background: #7ba7cc; }
     .b-might { background: #cc8a8a; }
     .b-intel { background: #a68cc9; }
     .b-politics { background: #8cc9a0; }
     .b-charm { background: #d4a86b; }
-    .modal-content .btn-close { margin-top: 20px; padding: 10px 20px; border: none;
+    .modal-content .btn-close { margin-top: 20px; padding: 10px; border: none;
                                 border-radius: 8px; background: #f5f0e0; color: #4a4a4a;
                                 cursor: pointer; font-size: 14px; width: 100%; }
   </style>
 </head>
 <body>
   <div class="header">
-    <span class="page-name">抽卡</span>
+    <div class="title-block">
+      <h1>抽卡</h1>
+      <p>每包干脆面可获得一张水浒卡。</p>
+    </div>
+    <div class="user-block">
+      <img src="/static/avatars/{{ nickname }}.JPG" alt="">
+      <div class="money"><span id="goldDisplay">{{ gold }}</span><span class="coin coin-gold"></span></div>
+      <a href="/profile" class="link">我的资料</a>
+      <a href="/logout" class="link">退出登录</a>
+    </div>
+  </div>
+
+  <div class="nav">
+    <div class="nav-tabs">
+      <a href="/">家园</a>
+      <a href="/collection">图鉴</a>
+      <a href="/draw" class="active">抽卡</a>
+    </div>
     <a href="/" class="back-btn">返回主页</a>
   </div>
 
-  <div class="wallet">
-    <span class="item"><span id="goldDisplay">{{ gold }}</span><span class="coin coin-gold"></span></span>
-    <span class="item"><span id="silverDisplay">{{ silver }}</span><span class="coin coin-silver"></span></span>
-    <span class="item"><span id="copperDisplay">{{ copper }}</span><span class="coin coin-copper"></span></span>
+  <div class="banner">
+    <div class="banner-left">
+      <div class="sub">SUMMON</div>
+      <h2>英雄召集</h2>
+      <p>每包干脆面可获得一张水浒卡。</p>
+      <div class="banner-btns">
+        <button class="btn-single" id="drawBtn" onclick="drawCard()">来一包 · 2 金币</button>
+      </div>
+      <div class="tags">
+        <span>108 将等概率</span>
+        <span>双黄蛋 2%</span>
+        <span>空包 1%</span>
+      </div>
+    </div>
+    <div class="banner-right">
+      <div class="data-cell">
+        <div class="label">当前金币</div>
+        <div class="value">{{ gold }}</div>
+      </div>
+      <div class="data-cell">
+        <div class="label">当前银币</div>
+        <div class="value">{{ silver }}</div>
+      </div>
+      <div class="data-cell">
+        <div class="label">当前铜币</div>
+        <div class="value">{{ copper }}</div>
+      </div>
+      <div class="data-cell">
+        <div class="label">卡池数量</div>
+        <div class="value">108 张</div>
+      </div>
+    </div>
   </div>
 
-  <img class="noodle" src="/static/images/干脆面.JPG" alt="干脆面">
-  <div class="price">2 金币一包</div>
-  <button class="draw-btn" id="drawBtn" onclick="drawCard()">来一包</button>
-  <div class="result" id="result"></div>
+  <div class="result-area" id="result">抽卡结果会显示在这里</div>
 
   <div class="modal" id="modal">
     <div class="modal-content" id="modalContent"></div>
@@ -148,10 +198,12 @@
           ${firstTime ? '<div class="first-time">首次抽到</div>' : ''}
           <div class="img-wrap">
             <img loading="lazy" src="/static/cards/${c.name}.PNG" alt="${c.name}">
-            <div class="badge badge-atk">${c.atk}</div>
-            <div class="badge badge-def">${c.def}</div>
           </div>
-          <div class="name">${c.nick}·${c.name}</div>
+          <div class="info-row">
+            <span class="atk-pill">🗡️${c.atk}</span>
+            <span class="name">${c.nick}·${c.name}</span>
+            <span class="def-pill">${c.def}🛡️</span>
+          </div>
         </div>
       `;
     }
@@ -167,29 +219,29 @@
         <div class="bio">${c.info || ''}</div>
         <div class="attr-bars">
           <div class="attr-bar">
-            <div class="value">${c.lead}</div>
-            <div class="bar b-lead" style="height:${c.lead/maxAttr*100}px"></div>
             <div class="label">统率</div>
+            <div class="bar-wrap"><div class="bar b-lead" style="height:${c.lead/maxAttr*100}%"></div></div>
+            <div class="value">${c.lead}</div>
           </div>
           <div class="attr-bar">
-            <div class="value">${c.might}</div>
-            <div class="bar b-might" style="height:${c.might/maxAttr*100}px"></div>
             <div class="label">武力</div>
+            <div class="bar-wrap"><div class="bar b-might" style="height:${c.might/maxAttr*100}%"></div></div>
+            <div class="value">${c.might}</div>
           </div>
           <div class="attr-bar">
-            <div class="value">${c.intel}</div>
-            <div class="bar b-intel" style="height:${c.intel/maxAttr*100}px"></div>
             <div class="label">智力</div>
+            <div class="bar-wrap"><div class="bar b-intel" style="height:${c.intel/maxAttr*100}%"></div></div>
+            <div class="value">${c.intel}</div>
           </div>
           <div class="attr-bar">
-            <div class="value">${c.politics}</div>
-            <div class="bar b-politics" style="height:${c.politics/maxAttr*100}px"></div>
             <div class="label">政治</div>
+            <div class="bar-wrap"><div class="bar b-politics" style="height:${c.politics/maxAttr*100}%"></div></div>
+            <div class="value">${c.politics}</div>
           </div>
           <div class="attr-bar">
-            <div class="value">${c.charm}</div>
-            <div class="bar b-charm" style="height:${c.charm/maxAttr*100}px"></div>
             <div class="label">魅力</div>
+            <div class="bar-wrap"><div class="bar b-charm" style="height:${c.charm/maxAttr*100}%"></div></div>
+            <div class="value">${c.charm}</div>
           </div>
         </div>
         <button class="btn-close" onclick="closeModal()">关闭</button>
