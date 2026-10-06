@@ -5,51 +5,51 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>家园 · 搏卡游戏</title>
   <style>
-    body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee;
-           max-width: 700px; margin: 0 auto; padding: 16px; }
-    .header { display: flex; justify-content: space-between; align-items: center;
-              margin-bottom: 16px; }
+    body { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+           background: #ffffff; color: #333; max-width: 700px; margin: 0 auto; padding: 16px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .page-name { color: #4a90d9; font-size: 18px; }
-    .back-btn { background: white; color: #4a90d9; padding: 8px 14px;
+    .back-btn { background: #f0f0f0; color: #4a90d9; padding: 8px 14px;
                 border-radius: 8px; text-decoration: none; font-size: 14px; }
-    .info-bar { background: #16213e; border-radius: 10px; padding: 12px; margin-bottom: 12px;
+    .info-bar { background: #f5f5f5; border-radius: 10px; padding: 12px; margin-bottom: 12px;
                 display: flex; justify-content: space-between; align-items: center; }
-    .total-bar { background: #0f3460; border-radius: 10px; padding: 12px; margin-bottom: 16px;
+    .total-bar { background: #eaf3fc; border-radius: 10px; padding: 12px; margin-bottom: 16px;
                  display: flex; justify-content: space-between; align-items: center; }
     .building { border-radius: 10px; padding: 16px; margin-bottom: 12px; }
     .building h3 { margin: 0 0 8px 0; }
-    .building .rule { font-size: 13px; color: #ccc; margin-bottom: 8px; }
-    .building .slot { background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px;
+    .building .rule { font-size: 13px; color: #666; margin-bottom: 8px; }
+    .building .slot { background: rgba(255,255,255,0.6); border-radius: 8px; padding: 10px;
                       min-height: 80px; display: flex; align-items: center; justify-content: center; }
     .building .slot img { width: 60px; border-radius: 6px; }
-    .building .empty { color: #888; font-style: italic; }
-    .building .output { font-size: 14px; color: #f5c542; margin: 8px 0; }
-    .progress-bar { height: 12px; background: rgba(0,0,0,0.3); border-radius: 6px;
+    .building .empty { color: #aaa; font-style: italic; }
+    .building .output { font-size: 14px; color: #d4a017; margin: 8px 0; }
+    .progress-bar { height: 12px; background: #e0e0e0; border-radius: 6px;
                     overflow: hidden; margin: 8px 0; }
-    .progress-fill { height: 100%; background: #4ecca3; }
-    .progress-text { font-size: 12px; color: #aaa; }
+    .progress-fill { height: 100%; background: #5cb85c; }
+    .progress-text { font-size: 12px; color: #888; }
     .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;
            background: #4a90d9; color: white; font-size: 14px; margin-top: 8px; }
-    .btn-green { background: #4ecca3; color: #1a1a2e; }
-    .btn-green:disabled { background: #444; color: #888; cursor: not-allowed; }
+    .btn-green { background: #5cb85c; color: white; }
+    .btn-green:disabled { background: #ccc; cursor: not-allowed; }
     .btn-row { display: flex; gap: 8px; margin-top: 8px; }
     .picker { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-              background: rgba(0,0,0,0.8); z-index: 100; overflow-y: auto; }
+              background: rgba(0,0,0,0.5); z-index: 100; overflow-y: auto; }
     .picker.active { display: block; }
-    .picker-inner { max-width: 700px; margin: 20px auto; padding: 16px; }
+    .picker-inner { max-width: 700px; margin: 20px auto; padding: 16px; background: #fff; border-radius: 12px; }
     .picker .sort-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
     .picker .sort-bar button { padding: 6px 12px; border-radius: 6px; border: none;
-                                background: #0f3460; color: #eee; cursor: pointer; }
+                                background: #f0f0f0; color: #333; cursor: pointer; }
     .picker .sort-bar button.active { background: #4a90d9; color: white; }
     .picker .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
-    .picker .grid .card { background: #16213e; border-radius: 8px; padding: 6px; text-align: center; cursor: pointer; }
+    .picker .grid .card { background: #f9f9f9; border-radius: 8px; padding: 6px;
+                          text-align: center; cursor: pointer; }
     .picker .grid .card img { width: 100%; border-radius: 4px; }
     .picker .grid .card .name { font-size: 12px; margin-top: 4px; }
-    .b1 { background: #2a3a5e; }
-    .b2 { background: #3a2a4e; }
-    .b3 { background: #2a4e3a; }
-    .b4 { background: #4e3a2a; }
-    .b5 { background: #4e2a3a; }
+    .b1 { background: #f0f6ff; }
+    .b2 { background: #f5f0ff; }
+    .b3 { background: #f0fff5; }
+    .b4 { background: #fff8f0; }
+    .b5 { background: #fff0f5; }
   </style>
 </head>
 <body>
@@ -98,7 +98,7 @@
   <div class="picker" id="picker">
     <div class="picker-inner">
       <div class="sort-bar">
-        <button class="active" onclick="sortBy('rank', this)">名次</button>
+        <button class="active" onclick="sortBy('rank', this)">座次</button>
         <button onclick="sortBy('lead', this)">统率</button>
         <button onclick="sortBy('might', this)">武力</button>
         <button onclick="sortBy('intel', this)">智力</button>
@@ -146,7 +146,7 @@
         const div = document.createElement('div');
         div.className = 'card';
         if (selectedCard && selectedCard.id === c.id) {
-          div.style.border = '2px solid #4ecca3';
+          div.style.border = '2px solid #5cb85c';
         }
         div.innerHTML = `<img loading="lazy" src="/static/cards/${c.name}.png"><div class="name">${c.name}</div>`;
         div.onclick = () => { selectedCard = c; renderPicker(); };
@@ -167,7 +167,7 @@
     async function collectAll() {
       const res = await fetch('/collect_all', {method: 'POST'});
       const data = await res.json();
-      alert(`获得 ${data.gold} 金币 ${data.silver} 银币 ${data.copper} 铜币`);
+      alert(`获得 ${data.copper} 铜币`);
       location.reload();
     }
 
@@ -178,7 +178,7 @@
         body: JSON.stringify({bid: bid})
       });
       const data = await res.json();
-      alert(`获得 ${data.gold} 金币 ${data.silver} 银币 ${data.copper} 铜币`);
+      alert(`获得 ${data.copper} 铜币`);
       location.reload();
     }
 
