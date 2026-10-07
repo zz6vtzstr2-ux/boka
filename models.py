@@ -119,3 +119,44 @@ class ClassCollection(db.Model):
     card_id = db.Column(db.Integer, unique=True, nullable=False)
     donor_username = db.Column(db.String(50), nullable=False)
     donated_at = db.Column(db.DateTime, nullable=False)
+class WorldBoss(db.Model):
+    """全服共享的世界 Boss 状态，永远只有 1 行（id=1）"""
+    __tablename__ = "world_boss"
+
+    id = db.Column(db.Integer, primary_key=True)
+    week_num = db.Column(db.Integer, nullable=False, default=1)
+    boss_name = db.Column(db.String(50), nullable=False)
+    boss_troop = db.Column(db.String(50), nullable=False)
+    max_hp = db.Column(db.Integer, nullable=False)
+    current_hp = db.Column(db.Integer, nullable=False)
+    # 7 天弱点序列，JSON 数组，索引 0=周一 ... 6=周日
+    weak_schedule = db.Column(db.Text, default="[]")
+    started_at = db.Column(db.DateTime, nullable=True)
+    killed_at = db.Column(db.DateTime, nullable=True)
+    payout_done = db.Column(db.Boolean, default=False)
+
+
+class BossDeck(db.Model):
+    """玩家的 Boss 卡组，每人最多 20 个"""
+    __tablename__ = "boss_deck"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    name = db.Column(db.String(50), default="")
+    # JSON 数组，比如 [1, 5, 12, 30, 88]
+    card_ids = db.Column(db.Text, default="[]")
+    created_at = db.Column(db.DateTime, nullable=True)
+
+class BossDamage(db.Model):
+    """玩家每周对 Boss 造成的总伤害"""
+    __tablename__ = "boss_damage"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    week_num = db.Column(db.Integer, nullable=False)
+    total_damage = db.Column(db.Integer, default=0)
+    last_hit_at = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "week_num", name="uq_boss_damage_user_week"),
+    )
