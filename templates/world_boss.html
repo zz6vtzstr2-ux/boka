@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>世界 Boss · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background-color: #e8e0cc;
+      color: #333;
+      margin: 0;
+      padding: 16px;
+      min-height: 100vh;
+    }
+    .container { max-width: 868px; margin: 0 auto; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .title-block .page-name {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 4px;
+      text-indent: 4px;
+    }
+    .title-block .en {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .back-btn {
+      background: #fce8ec;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid #e8c8d0;
+      font-size: 15px;
+      color: #b85a6a;
+      text-decoration: none;
+    }
+    .back-btn:hover { background: #f8d8de; }
+
+    .panel {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+
+    /* 鹅黄胶囊 */
+    .panel-title {
+      display: inline-block;
+      background: #fdf6d8;
+      color: #8a6d1f;
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: 1px solid #f0e0a0;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-indent: 3px;
+      margin-bottom: 16px;
+    }
+
+    /* ===== Boss 面板 ===== */
+    .boss-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .boss-name-tag {
+      display: inline-block;
+      background: #fdf6d8;
+      color: #8a6d1f;
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: 1px solid #f0e0a0;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+    .retreat-tag {
+      font-size: 13px;
+      color: #999;
+      background: #f5f0e0;
+      padding: 6px 14px;
+      border-radius: 14px;
+    }
+    .hp-bar {
+      height: 24px;
+      background: #e8e0d0;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+      position: relative;
+    }
+    .hp-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #d9534f, #e77);
+      transition: width 0.4s;
+    }
+    .hp-text {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+    .troop-line {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 14px;
+      color: #555;
+    }
+    .troop-name {
+      background: #f5f0e0;
+      padding: 6px 14px;
+      border-radius: 10px;
+      font-weight: bold;
+      color: #4a4a4a;
+    }
+    .troop-note {
+      color: #b85a6a;
+      font-weight: bold;
+    }
+    .killed-note {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #b85a6a;
+      background: #fce8ec;
+      padding: 10px 14px;
+      border-radius: 10px;
+    }
+
+    /* ===== 今日出战 ===== */
+    .battle-empty {
+      color: #999;
+      font-size: 14px;
+      padding: 10px 0;
+    }
+    .battle-item {
+      background: #f9f5e8;
+      border: 1px solid #e0d8c0;
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .battle-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .battle-badge {
+      display: inline-block;
+      background: #fce8ec;
+      color: #b85a6a;
+      border: 1px solid #e8c8d0;
+      padding: 4px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+    .battle-time {
+      font-size: 13px;
+      color: #888;
+    }
+    .battle-cards {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .mini-card {
+      width: 90px;
+      background: #fff;
+      border-radius: 8px;
+      padding: 6px;
+      text-align: center;
+      font-size: 11px;
+      border: 2px solid #e0d8c0;
+    }
+    .mini-card img { width: 100%; border-radius: 4px; }
+    .mini-card .mn { margin-top: 3px; color: #4a4a4a; }
+    .mini-card .ft { font-size: 10px; margin-top: 2px; }
+
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .progress-bar-bg {
+      flex: 1;
+      height: 14px;
+      background: #e8e0d0;
+      border-radius: 7px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #5cb85c;
+      transition: width 0.5s;
+    }
+    .collect-btn {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 12px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 2px;
+    }
+    .collect-btn:hover:not(:disabled) { background: #4aa8d8; }
+    .collect-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+    /* ===== 卡组 ===== */
+    .deck-list { display: flex; flex-direction: column; gap: 12px; }
+    .deck {
+      background: #f9f5e8;
+      border: 1px solid #e0d8c0;
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .deck-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .deck-name {
+      font-size: 16px;
+      font-weight: bold;
+      color: #2c3e50;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .deck-name:hover { background: #f0e8d0; }
+    .deck-dmg {
+      font-size: 13px;
+      color: #b85a6a;
+      font-weight: bold;
+    }
+    .deck-cards {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .deck-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .deck-actions button {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      background: #5bb8e8;
+      color: #fff;
+    }
+    .deck-actions button:hover:not(:disabled) { background: #4aa8d8; }
+    .deck-actions button:disabled { background: #ccc; cursor: not-allowed; }
+    .deck-actions .danger { background: #e8a8a8; }
+    .deck-actions .danger:hover { background: #d88888; }
+
+    .new-deck-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 2px;
+      margin-top: 8px;
+    }
+    .new-deck-btn:hover { background: #4aa8d8; }
+    .new-deck-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+    /* ===== 羁绊展示 ===== */
+    .bonds-row {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .bond-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #fdf6d8;
+      color: #8a6d1f;
+      border: 1px solid #f0e0a0;
+      padding: 3px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      cursor: help;
+    }
+    .bond-tag.enemy {
+      background: #fce8ec;
+      color: #b85a6a;
+      border-color: #e8c8d0;
+    }
+    .bond-tag .bond-bonus {
+      font-weight: bold;
+    }
+
+    /* ===== 排名 ===== */
+    .rank-list { display: flex; flex-direction: column; gap: 6px; }
+    .rank-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: #f9f5e8;
+      font-size: 14px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .rank-item.me {
+      background: #e8f0ec;
+      border: 1px solid #c8d8d0;
+      font-weight: bold;
+    }
+    .rank-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+    .rank-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 2px solid #d8d0bc;
+      background: #fff;
+    }
+    .rank-no {
+      width: 26px;
+      font-weight: bold;
+      color: #b85a6a;
+    }
+    .rank-name { color: #2c3e50; }
+    .rank-dmg { color: #666; font-size: 13px; }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      background: rgba(44,110,90,0.95);
+      color: #fff;
+      padding: 14px 24px;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title-block">
+        <div class="page-name">世界 Boss</div>
+        <div class="en">World Boss</div>
+      </div>
+      <a href="/" class="back-btn">返回主页</a>
+    </div>
+
+    <!-- 板块 2：Boss -->
+    <div class="panel">
+      <div class="boss-line">
+        <span class="boss-name-tag">{{ boss.name }} · Lv.{{ week_num }}</span>
+        <span class="retreat-tag">{{ retreat_str }}</span>
+      </div>
+      <div class="hp-bar">
+        <div class="hp-fill" style="width:{{ hp_percent }}%;"></div>
+        <div class="hp-text">{{ '%.2f'|format(hp_current / 10000) }}万 / {{ '%.2f'|format(hp_max / 10000) }}万</div>
+      </div>
+      <div class="troop-line">
+        <span class="troop-name" style="background:{{ today_color }};">今日部队：{{ boss.troop }}</span>
+        <span class="troop-note">受到{{ today_weak_cn }}伤害 ×3</span>
+      </div>
+      {% if killed %}
+      <div class="killed-note">⚠️ 本周 Boss 已被击杀，奖励正常发放；继续攻击可提升排名。</div>
+      {% endif %}
+    </div>
+
+    <!-- 板块 3：今日出战 -->
+    <div class="panel">
+      <div class="panel-title">今日出战（{{ today_count }}/2）</div>
+      <div id="battleArea"></div>
+    </div>
+
+    <!-- 板块 4：我的卡组 -->
+    <div class="panel">
+      <div class="panel-title">我的卡组</div>
+      <div class="deck-list" id="deckList"></div>
+      <button class="new-deck-btn" id="newDeckBtn" onclick="createDeck()">＋ 新建卡组</button>
+    </div>
+
+    <!-- 板块 5：本周排名 -->
+    <div class="panel">
+      <div class="panel-title">本周排名</div>
+      <div class="rank-list" id="rankList"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const decksData = {{ decks | tojson }};
+    const fatigueData = {{ fatigue | tojson }};
+    const ranksData = {{ ranks | tojson }};
+    const activeBattle = {{ active_battle | tojson }};
+    const remaining = {{ remaining }};
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function fatigueColor(times) {
+      const colors = ['#5cb85c','#8bc34a','#ffc107','#ff9800','#ff5722','#d9534f','#c62828','#880e4f'];
+      return colors[Math.min(times, 7)];
+    }
+
+    // ===== 板块 3：出战中 =====
+    function renderBattle() {
+      const el = document.getElementById('battleArea');
+      if (!activeBattle) {
+        el.innerHTML = '<div class="battle-empty">暂无出战队伍，从下方卡组选择出战</div>';
+        return;
+      }
+      const cardsHtml = activeBattle.cards.map(c => {
+        const times = fatigueData[c.id] || 0;
+        return `
+          <div class="mini-card">
+            <img src="/static/cards/${c.name}.PNG" alt="${c.name}">
+            <div class="mn">${c.name}</div>
+            <div class="ft" style="color:${fatigueColor(times)};">出战 ${times} 次</div>
+          </div>
+        `;
+      }).join('');
+      const btnDisabled = !activeBattle.is_finished;
+      el.innerHTML = `
+        <div class="battle-item">
+          <div class="battle-head">
+            <span class="battle-badge">出战中</span>
+            <span class="battle-time">${activeBattle.started_at} - ${activeBattle.ends_at}</span>
+          </div>
+          <div class="battle-cards">${cardsHtml}</div>
+          <div class="progress-row">
+            <div class="progress-bar-bg">
+              <div class="progress-fill" style="width:${activeBattle.progress}%;"></div>
+            </div>
+            <button class="collect-btn" ${btnDisabled ? 'disabled' : ''} onclick="finishBattle(${activeBattle.id})">
+              ${btnDisabled ? '行军中' : '收兵'}
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // ===== 板块 4：卡组 =====
+    function renderDecks() {
+      const el = document.getElementById('deckList');
+      el.innerHTML = '';
+      if (decksData.length === 0) {
+        el.innerHTML = '<div class="battle-empty">还没有卡组，点下方按钮新建</div>';
+        return;
+      }
+      decksData.forEach(d => {
+        const div = document.createElement('div');
+        div.className = 'deck';
+        const cardsHtml = d.cards.map(c => {
+          const times = fatigueData[c.id] || 0;
+          return `
+            <div class="mini-card">
+              <img src="/static/cards/${c.name}.PNG" alt="${c.name}">
+              <div class="mn">${c.name}</div>
+              <div class="ft" style="color:${fatigueColor(times)};">出战 ${times} 次</div>
+            </div>
+          `;
+        }).join('');
+
+        // 羁绊
+        let bondsHtml = '';
+        if (d.bonds && d.bonds.length > 0) {
+          const tags = d.bonds.map(b => {
+            const tip = `${b.name}（${b.members.join(' + ')}）`;
+            if (b.type === 'enemy') {
+              return `<span class="bond-tag enemy" title="${tip}">${b.name} <span class="bond-bonus">-${Math.round(b.penalty*100)}%</span></span>`;
+            } else {
+              return `<span class="bond-tag" title="${tip}">${b.name} <span class="bond-bonus">+${Math.round(b.bonus*100)}%</span></span>`;
+            }
+          }).join('');
+          bondsHtml = `<div class="bonds-row"><span style="font-size:12px;color:#888;">羁绊：</span>${tags}</div>`;
+        }
+
+        const canAttack = !activeBattle && remaining > 0 && d.cards.length > 0;
+        const attackBtn = d.cards.length === 0
+          ? `<button disabled>出战</button>`
+          : (canAttack
+              ? `<button onclick="attack(${d.id})">出战</button>`
+              : `<button disabled>出战</button>`);
+
+        div.innerHTML = `
+          <div class="deck-head">
+            <span class="deck-name" onclick="renameDeck(${d.id}, '${(d.name||'').replace(/'/g,"\\'")}')">
+              ${d.name || '未命名'} ✎
+            </span>
+            <span class="deck-dmg">预计伤害：${d.damage}</span>
+          </div>
+          <div class="deck-cards">${cardsHtml || '<span class="battle-empty">空卡组</span>'}</div>
+          ${bondsHtml}
+          <div class="deck-actions">
+            <button onclick="editDeck(${d.id})">编辑</button>
+            ${attackBtn}
+            <button class="danger" onclick="deleteDeck(${d.id})">删除</button>
+          </div>
+        `;
+        el.appendChild(div);
+      });
+    }
+
+    // ===== 板块 5：排名 =====
+    function renderRanks() {
+      const el = document.getElementById('rankList');
+      if (ranksData.length === 0) {
+        el.innerHTML = '<div class="battle-empty">暂无数据</div>';
+        return;
+      }
+      el.innerHTML = ranksData.map(r => `
+        <a class="rank-item ${r.is_me ? 'me' : ''}" href="/user/${r.username}">
+          <div class="rank-left">
+            <span class="rank-no">#${r.rank}</span>
+            <img class="rank-avatar" src="${r.avatar}" alt="${r.nickname}">
+            <span class="rank-name">${r.nickname}</span>
+          </div>
+          <span class="rank-dmg">${r.damage}</span>
+        </a>
+      `).join('');
+    }
+
+    // ===== 操作 =====
+    async function createDeck() {
+      const res = await fetch('/world_boss/deck/new', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      // 跳到选卡页面
+      window.location.href = '/world_boss/picker';
+    }
+
+    function editDeck(deckId) {
+      window.location.href = '/world_boss/picker?deck_id=' + deckId;
+    }
+
+    async function deleteDeck(deckId) {
+      if (!confirm('确定删除这个卡组？')) return;
+      const res = await fetch('/world_boss/deck/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({deck_id: deckId})
+      });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      location.reload();
+    }
+
+    async function renameDeck(deckId, oldName) {
+      const newName = prompt('修改卡组名：', oldName);
+      if (newName === null) return;
+      if (!newName.trim()) return;
+      const res = await fetch('/world_boss/deck/rename', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({deck_id: deckId, name: newName.trim()})
+      });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      location.reload();
+    }
+
+    async function attack(deckId) {
+      if (!confirm('确定让此卡组出战 2 小时？')) return;
+      const res = await fetch('/world_boss/attack', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({deck_id: deckId})
+      });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      showToast('出战！预计伤害 ' + data.damage);
+      setTimeout(() => location.reload(), 800);
+    }
+
+    async function finishBattle(battleId) {
+      const res = await fetch('/world_boss/finish', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({battle_id: battleId})
+      });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      showToast('收兵！造成 ' + data.damage + ' 伤害');
+      setTimeout(() => location.reload(), 800);
+    }
+
+    renderBattle();
+    renderDecks();
+    renderRanks();
+
+    // 进度条自动前进
+    if (activeBattle && !activeBattle.is_finished) {
+      setInterval(() => {
+        const el = document.querySelector('.progress-fill');
+        if (el) {
+          const w = parseFloat(el.style.width) || 0;
+          if (w < 100) el.style.width = Math.min(100, w + 0.3) + '%';
+        }
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
