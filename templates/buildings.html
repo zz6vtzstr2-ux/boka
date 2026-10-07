@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>家园 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background-color: #e8e0cc;
+      color: #333;
+      margin: 0;
+      padding: 16px;
+      min-height: 100vh;
+    }
+    .container { max-width: 868px; margin: 0 auto; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .title-block .page-name {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 4px;
+      text-indent: 4px;
+    }
+    .title-block .en {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .back-btn {
+      background: #fce8ec;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid #e8c8d0;
+      font-size: 15px;
+      color: #b85a6a;
+      text-decoration: none;
+    }
+    .back-btn:hover { background: #f8d8de; }
+
+    .user-panel {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .user-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .user-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .user-link img {
+      width: 52px;
+      height: 52px;
+      border-radius: 10px;
+      border: 2px solid #d8d0bc;
+      background: #fff;
+    }
+    .user-link .nickname {
+      font-size: 18px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    .capsule {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 15px;
+      font-weight: bold;
+      background: #e8f0ec;
+      color: #000;
+      border: 1px solid #c8d8d0;
+    }
+    .money-item { display: flex; align-items: center; gap: 3px; }
+    .coin { display: inline-block; width: 16px; height: 16px; border-radius: 50%; }
+    .coin-gold { background: #f5d76e; border: 2px solid #d4a86b; }
+    .coin-silver { background: #d8d8d8; border: 2px solid #a8a8a8; }
+    .coin-copper { background: #d89b6e; border: 2px solid #b87b4a; }
+
+    .output-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid #e8e0cc;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .collect-btn {
+      padding: 12px 28px;
+      border: none;
+      border-radius: 12px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 16px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-indent: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+      transition: transform 0.15s;
+    }
+    .collect-btn:hover { transform: translateY(-2px); background: #4aa8d8; }
+
+    .building {
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      border: 1px solid #d8d0bc;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+    .b1 { background: #c8e0c8; }
+    .b2 { background: #e8c8b8; }
+    .b3 { background: #d8c8e8; }
+    .b4 { background: #f0dcb0; }
+    .b5 { background: #e8b8c8; }
+
+    .building-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .building-title {
+      font-size: 22px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 2px;
+    }
+    .building-output {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.6);
+      padding: 6px 14px;
+      border-radius: 16px;
+      font-size: 15px;
+      font-weight: bold;
+      color: #555;
+    }
+
+    .slot-area {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+    .slot {
+      width: 300px;
+      height: 480px;
+      border: 6px double #f0e0a0;
+      border-radius: 20px;
+      background: #fffdf5;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .slot .img-wrap {
+      flex: 1;
+      overflow: hidden;
+      border-radius: 10px;
+    }
+    .slot .img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .slot .info-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #f0e0a0;
+      height: 44px;
+    }
+    .slot .name {
+      font-size: 20px;
+      font-weight: bold;
+      color: #4a4a4a;
+      white-space: nowrap;
+      letter-spacing: 2px;
+      text-indent: 2px;
+    }
+    .slot.empty {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #aaa;
+      font-size: 16px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      flex: 1;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 12px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 15px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-indent: 2px;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+      transition: transform 0.15s;
+    }
+    .btn:hover { transform: translateY(-2px); background: #4aa8d8; }
+    .btn:disabled { background: #999; cursor: not-allowed; box-shadow: none; }
+
+    @media (max-width: 420px) {
+      .slot { width: 100%; height: 400px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title-block">
+        <div class="page-name">家园</div>
+        <div class="en">Home</div>
+      </div>
+      <a href="/" class="back-btn">返回主页</a>
+    </div>
+
+    <div class="user-panel">
+      <div class="user-row">
+        <a href="/profile" class="user-link">
+          <img src="/static/avatars/{{ current_user.username }}.jpg" alt="">
+          <span class="nickname">{{ current_user.nickname or current_user.username }}</span>
+        </a>
+        <span class="capsule">
+          <span class="money-item"><span id="goldDisplay">{{ current_user.gold }}</span><span class="coin coin-gold"></span></span>
+          <span class="money-item">{{ current_user.silver }}<span class="coin coin-silver"></span></span>
+          <span class="money-item">{{ current_user.copper }}<span class="coin coin-copper"></span></span>
+        </span>
+        <span class="capsule">建材 {{ materials }}</span>
+      </div>
+      <div class="output-row">
+        <span class="capsule">产量 {{ total_output }}<span class="coin coin-copper"></span></span>
+        <button class="collect-btn" onclick="collectAll()">一键领取</button>
+      </div>
+    </div>
+
+    {% for b in buildings %}
+    <div class="building b{{ b.bid }}">
+      <div class="building-header">
+        <span class="building-title">{{ b.name }} · Lv.{{ b.level }}</span>
+        <span class="building-output">{{ b.output }}<span class="coin coin-copper"></span> / 小时</span>
+      </div>
+
+      <div class="slot-area">
+        {% if b.card %}
+        <div class="slot">
+          <div class="img-wrap">
+            <img src="/static/cards/{{ b.card.name }}.PNG" alt="{{ b.card.name }}">
+          </div>
+          <div class="info-row">
+            <span class="name">{{ b.card.nick }}·{{ b.card.name }}</span>
+          </div>
+        </div>
+        {% else %}
+        <div class="slot empty">未派驻英雄</div>
+        {% endif %}
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" onclick="upgradeBuilding({{ b.bid }})" {% if b.level >= 100 %}disabled{% endif %}>
+          {% if b.level >= 100 %}已满级{% else %}升级：{{ (b.level + 1) * 10 }} 建材{% endif %}
+        </button>
+        <button class="btn" onclick="openPicker({{ b.bid }})">派驻英雄</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    async function collectAll() {
+      const res = await fetch('/collect_all', {method: 'POST'});
+      const data = await res.json();
+      alert(`获得 ${data.copper} 铜币`);
+      location.reload();
+    }
+
+    async function upgradeBuilding(bid) {
+      const res = await fetch('/upgrade_building', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({bid: bid})
+      });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      location.reload();
+    }
+
+    function openPicker(bid) {
+      window.location.href = '/buildings/picker/' + bid;
+    }
+  </script>
+</body>
+</html>
