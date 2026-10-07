@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>世界 Boss · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background-color: #e8e0cc;
+      color: #333;
+      margin: 0;
+      padding: 16px;
+      min-height: 100vh;
+    }
+    .container { max-width: 868px; margin: 0 auto; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .title-block .page-name {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 4px;
+      text-indent: 4px;
+    }
+    .title-block .en {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .back-btn {
+      background: #fce8ec;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid #e8c8d0;
+      font-size: 15px;
+      color: #b85a6a;
+      text-decoration: none;
+    }
+    .back-btn:hover { background: #f8d8de; }
+
+    .panel {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .panel h3 {
+      margin: 0 0 14px 0;
+      font-size: 18px;
+      color: #2c3e50;
+      letter-spacing: 2px;
+    }
+
+    /* ===== Boss 面板 ===== */
+    .boss-panel { background: rgba(255,255,255,0.92); }
+    .boss-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .boss-name {
+      font-size: 24px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 2px;
+    }
+    .boss-troop {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin-left: 8px;
+      /* 颜色由 JS 动态设置 */
+    }
+    .week-tag {
+      font-size: 12px;
+      color: #999;
+      background: #f5f0e0;
+      padding: 4px 10px;
+      border-radius: 10px;
+    }
+    .hp-bar {
+      height: 24px;
+      background: #e8e0d0;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 8px;
+      position: relative;
+    }
+    .hp-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #d9534f, #e77);
+      transition: width 0.4s;
+    }
+    .hp-text {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+    .boss-meta {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      font-size: 13px;
+      color: #666;
+    }
+    .meta-tag {
+      background: #f5f0e0;
+      padding: 5px 12px;
+      border-radius: 10px;
+    }
+    .weak-tag {
+      padding: 5px 12px;
+      border-radius: 10px;
+      font-weight: bold;
+      color: #333;
+    }
+    .killed-note {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #b85a6a;
+      background: #fce8ec;
+      padding: 8px 12px;
+      border-radius: 10px;
+    }
+
+    /* ===== 卡组区 ===== */
+    .deck-list { display: flex; flex-direction: column; gap: 12px; }
+    .deck {
+      background: #f9f5e8;
+      border: 1px solid #e0d8c0;
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .deck-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .deck-name {
+      font-size: 16px;
+      font-weight: bold;
+      color: #2c3e50;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .deck-name:hover { background: #f0e8d0; }
+    .deck-dmg {
+      font-size: 13px;
+      color: #b85a6a;
+      font-weight: bold;
+    }
+    .deck-cards {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .mini-card {
+      width: 90px;
+      background: #fff;
+      border-radius: 8px;
+      padding: 6px;
+      text-align: center;
+      font-size: 11px;
+      border: 2px solid #e0d8c0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .mini-card img { width: 100%; border-radius: 4px; }
+    .mini-card .mn { font-size: 11px; margin-top: 3px; color: #4a4a4a; }
+    .mini-card .ft { font-size: 10px; margin-top: 2px; }
+    .deck-empty { color: #999; font-size: 13px; padding: 8px 0; }
+    .deck-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .deck-actions button {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      background: #5bb8e8;
+      color: #fff;
+    }
+    .deck-actions button:hover { background: #4aa8d8; }
+    .deck-actions .danger { background: #e8a8a8; }
+    .deck-actions .danger:hover { background: #d88888; }
+
+    .new-deck-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 2px;
+      margin-top: 8px;
+    }
+    .new-deck-btn:hover { background: #4aa8d8; }
+
+    /* ===== 排名 ===== */
+    .rank-list { display: flex; flex-direction: column; gap: 6px; }
+    .rank-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: #f9f5e8;
+      font-size: 14px;
+    }
+    .rank-item.me {
+      background: #e8f0ec;
+      border: 1px solid #c8d8d0;
+      font-weight: bold;
+    }
+    .rank-no {
+      width: 30px;
+      font-weight: bold;
+      color: #b85a6a;
+    }
+    .rank-name { flex: 1; padding-left: 8px; color: #2c3e50; }
+    .rank-dmg { color: #666; font-size: 13px; }
+
+    /* ===== 选卡弹窗 ===== */
+    .picker {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .picker.active { display: block; }
+    .picker-inner {
+      max-width: 868px;
+      margin: 0 auto;
+      background: #fffdf5;
+      border-radius: 16px;
+      padding: 20px;
+    }
+    .picker-inner h3 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+      color: #2c3e50;
+    }
+    .picker-hint {
+      font-size: 13px;
+      color: #999;
+      margin-bottom: 12px;
+    }
+    .sort-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .sort-bar button {
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid #d8d0bc;
+      background: #f5f0e0;
+      color: #4a4a4a;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+    }
+    .sort-bar button.active {
+      background: #5bb8e8;
+      color: #fff;
+      border-color: #4aa8d8;
+    }
+    .picker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      gap: 10px;
+      max-height: 60vh;
+      overflow-y: auto;
+      padding: 4px;
+    }
+    .pk-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 6px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 11px;
+      border: 2px solid #e0d8c0;
+      transition: border-color 0.15s;
+    }
+    .pk-card.selected { border-color: #5cb85c; background: #eef8ee; }
+    .pk-card img { width: 100%; border-radius: 4px; }
+    .pk-card .mn { margin-top: 3px; color: #4a4a4a; }
+
+    .picker-btns {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+      justify-content: flex-end;
+    }
+    .picker-btns button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .picker-btns .ok { background: #5cb85c; color: #fff; }
+    .picker-btns .cancel { background: #eee; color: #333; }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      background: rgba(44,110,90,0.95);
+      color: #fff;
+      padding: 14px 24px;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    .reward-tip {
+      font-size: 13px;
+      color: #666;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #fdf6d8;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title-block">
+        <div class="page-name">世界 Boss</div>
+        <div class="en">World Boss</div>
+      </div>
+      <a href="/" class="back-btn">返回主页</a>
+    </div>
+
+    <!-- Boss 面板 -->
+    <div class="panel boss-panel">
+      <div class="boss-header">
+        <div>
+          <span class="boss-name">{{ boss.name }}</span>
+          <span class="boss-troop" style="background:{{ today_color }};">{{ boss.troop }}</span>
+        </div>
+        <span class="week-tag">第 {{ week_num }} 周</span>
+      </div>
+      <div class="hp-bar">
+        <div class="hp-fill" style="width:{{ hp_percent }}%;"></div>
+        <div class="hp-text">{{ hp_current }} / {{ hp_max }}</div>
+      </div>
+      <div class="boss-meta">
+        <span class="meta-tag">今日弱点：<span style="color:#b85a6a;font-weight:bold;">{{ today_weak_cn }}</span></span>
+        <span class="meta-tag">本周总伤害：{{ my_total_damage }}</span>
+      </div>
+      {% if killed %}
+      <div class="killed-note">⚠️ 本周 Boss 已被击杀，奖励将正常发放；继续攻击可提升排名。</div>
+      {% endif %}
+      {% if my_potential_reward > 0 %}
+      <div class="reward-tip">按当前排名预计可得 <b>{{ my_potential_reward }}</b> 金币（周一 6:00 发放）</div>
+      {% endif %}
+    </div>
+
+    <!-- 我的卡组 -->
+    <div class="panel">
+      <h3>我的卡组（{{ decks|length }}/20）</h3>
+      <div class="deck-list" id="deckList"></div>
+      <button class="new-deck-btn" onclick="createDeck()">＋ 新建卡组</button>
+    </div>
+
+    <!-- 本周期排名 -->
+    <div class="panel">
+      <h3>本周期排名</h3>
+      <div class="rank-list" id="rankList"></div>
+    </div>
+  </div>
+
+  <!-- 选卡弹窗 -->
+  <div class="picker" id="picker">
+    <div class="picker-inner">
+      <h3 id="pickerTitle">选择出战英雄（最多 5 张）</h3>
+      <div class="picker-hint">点卡牌选择 / 取消，最多选 5 张</div>
+      <div class="sort-bar">
+        <button class="active" onclick="sortBy('id', this)">座次</button>
+        <button onclick="sortBy('lead', this)">统率</button>
+        <button onclick="sortBy('might', this)">武力</button>
+        <button onclick="sortBy('intel', this)">智力</button>
+        <button onclick="sortBy('politics', this)">政治</button>
+        <button onclick="sortBy('charm', this)">魅力</button>
+      </div>
+      <div class="picker-grid" id="pickerGrid"></div>
+      <div class="picker-btns">
+        <button class="cancel" onclick="closePicker()">取消</button>
+        <button class="ok" onclick="confirmPick()">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const ownedCards = {{ cards | tojson }};
+    const fatigueData = {{ fatigue | tojson }};
+    const decksData = {{ decks | tojson }};
+    const weakAttr = "{{ today_weak }}";
+
+    let selectedCards = [];  // 当前选卡弹窗选中的卡对象
+    let sortKey = 'id';
+    let editingDeckId = null;
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function fatigueClass(times) {
+      if (times === 0) return 'fatigue-0';
+      if (times <= 1) return 'fatigue-1';
+      if (times <= 2) return 'fatigue-2';
+      if (times <= 3) return 'fatigue-3';
+      if (times <= 4) return 'fatigue-4';
+      if (times <= 5) return 'fatigue-5';
+      if (times <= 7) return 'fatigue-6';
+      return 'fatigue-7';
+    }
+    function fatigueColor(times) {
+      const colors = ['#5cb85c','#8bc34a','#ffc107','#ff9800','#ff5722','#d9534f','#c62828','#880e4f'];
+      return colors[Math.min(times, 7)];
+    }
+
+    function renderDecks() {
+      const el = document.getElementById('deckList');
+      el.innerHTML = '';
+      if (decksData.length === 0) {
+        el.innerHTML = '<div class="deck-empty">还没有卡组，点下方按钮新建</div>';
+        return;
+      }
+      decksData.forEach(d => {
+        const div = document.createElement('div');
+        div.className = 'deck';
+        const cardsHtml = d.cards.map(c => {
+          const times = fatigueData[c.id] || 0;
+          return `
+            <div class="mini-card">
+              <img src="/static/cards/${c.name}.PNG" alt="${c.name}">
+              <div class="mn">${c.name}</div>
+              <div class="ft" style="color:${fatigueColor(times)};">出战 ${times} 次</div>
+            </div>
+          `;
+        }).join('');
+        div.innerHTML = `
+          <div class="deck-head">
+            <span class="deck-name" onclick="renameDeck(${d.id}, '${(d.name||'').replace(/'/g,"\\'")}')">
+              ${d.name || '未命名'} ✎
+            </span>
+            <span class="deck-dmg">预计伤害：${d.damage}</span>
+          </div>
+          <div class="deck-cards">${cardsHtml || '<span class="deck-empty">空卡组</span>'}</div>
+          <div class="deck-actions">
+            <button onclick="editDeck(${d.id})">编辑</button>
+            <button onclick="attack(${d.id})">出战</button>
+            <button class="danger" onclick="deleteDeck(${d.id})">删除</button>
+          </div>
+        `;
+        el.appendChild(div);
+      });
+    }
+
+    function renderRanks() {
+      const el = document.getElementById('rankList');
+      const ranks = {{ ranks | tojson }};
+      if (ranks.length === 0) {
+        el.innerHTML = '<div class="deck-empty">暂无数据</div>';
+        return;
+      }
+      el.innerHTML = ranks.map(r => `
+        <div class="rank-item ${r.is_me ? 'me' : ''}">
+          <span class="rank-no">#${r.rank}</span>
+          <span class="rank-name">${r.nickname}</span>
+          <span class="rank-dmg">${r.damage}</span>
+        </div>
+      `).join('');
+    }
+
+    async function createDeck() {
+      const res = await fetch('/world_boss/deck/new', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      // 打开选卡弹窗
+      editingDeckId = data.deck_id;
+      selectedCards = [];
+      openPicker('新建卡组 - 选择英雄');
+    }
+
+    function editDeck(deckId) {
+      const d = decksData.find(x => x.id === deckId);
+      if (!d) return;
+      editingDeckId = deckId;
+      // 找到原卡对象
+      selectedCards = d.cards.map(c => ownedCards.find(o => o.id === c.id)).filter(Boolean);
+      openPicker('编辑卡组 - 选择英雄');
+    }
+
+    async function deleteDeck(deckId) {
+      if (!confirm('确定删除这个卡组？')) return;
+      const res = await fetch('/world_boss/deck/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({deck_id: deckId})
+      });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      location.reload();
+    }
+
+    async function renameDeck(deckId, oldName) {
+      const newName = prompt('修改卡组名：', oldName);
+      if (newName === null) return;
+      if (!newName.trim()) return;
+      const res = await fetch('/world_boss/deck/rename', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({deck_id: deckId, name: newName.trim()})
+      });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      location.reload();
+    }
+
+    async function attack(deckId) {
+      const res = await fetch('/world_boss/attack', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({deck_id: deckId})
+      });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      showToast('造成 ' + data.damage + ' 伤害');
+      setTimeout(() => location.reload(), 700);
+    }
+
+    // ===== 选卡弹窗 =====
+    function openPicker(title) {
+      document.getElementById('pickerTitle').textContent = title;
+      renderPicker();
+      document.getElementById('picker').classList.add('active');
+    }
+    function closePicker() {
+      document.getElementById('picker').classList.remove('active');
+      editingDeckId = null;
+      selectedCards = [];
+    }
+    function sortBy(key, btn) {
+      sortKey = key;
+      document.querySelectorAll('.sort-bar button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderPicker();
+    }
+    function renderPicker() {
+      const grid = document.getElementById('pickerGrid');
+      const sorted = [...ownedCards].sort((a, b) => {
+        if (sortKey === 'id') return a.id - b.id;
+        return b[sortKey] - a[sortKey];
+      });
+      grid.innerHTML = '';
+      sorted.forEach(c => {
+        const selected = selectedCards.find(x => x.id === c.id);
+        const times = fatigueData[c.id] || 0;
+        const div = document.createElement('div');
+        div.className = 'pk-card' + (selected ? ' selected' : '');
+        div.innerHTML = `
+          <img src="/static/cards/${c.name}.PNG" alt="${c.name}">
+          <div class="mn">${c.name}</div>
+          <div style="font-size:10px;color:${fatigueColor(times)};">出战 ${times} 次</div>
+        `;
+        div.onclick = () => {
+          if (selectedCards.find(x => x.id === c.id)) {
+            selectedCards = selectedCards.filter(x => x.id !== c.id);
+          } else {
+            if (selectedCards.length >= 5) { showToast('最多 5 张'); return; }
+            selectedCards.push(c);
+          }
+          renderPicker();
+        };
+        grid.appendChild(div);
+      });
+    }
+    async function confirmPick() {
+      if (selectedCards.length === 0) { showToast('请至少选 1 张卡'); return; }
+      const res = await fetch('/world_boss/deck/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          deck_id: editingDeckId,
+          card_ids: selectedCards.map(c => c.id)
+        })
+      });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      closePicker();
+      location.reload();
+    }
+
+    renderDecks();
+    renderRanks();
+  </script>
+
+  <style>
+    /* 疲劳颜色，动态用 */
+    .fatigue-0 { color: #5cb85c; }
+  </style>
+</body>
+</html>
