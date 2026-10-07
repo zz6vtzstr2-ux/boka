@@ -883,19 +883,12 @@ def world_boss_picker():
 @app.route('/world_boss/deck/new', methods=['POST'])
 @login_required
 def world_boss_deck_new():
+    """点新建卡组：检查上限，返回默认名，不实际创建（创建交给 picker 提交）"""
     count = BossDeck.query.filter_by(user_id=current_user.id).count()
     if count >= 20:
         return jsonify({"error": "最多 20 个卡组"}), 400
     default_name = f"卡组{count + 1}"
-    d = BossDeck(
-        user_id=current_user.id,
-        name=default_name,
-        card_ids="[]",
-        created_at=datetime.now(),
-    )
-    db.session.add(d)
-    db.session.commit()
-    return jsonify({"success": True, "deck_id": d.id, "name": default_name})
+    return jsonify({"success": True, "name": default_name})
 
 @app.route('/world_boss/deck/save', methods=['POST'])
 @login_required
