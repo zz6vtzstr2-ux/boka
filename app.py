@@ -294,60 +294,17 @@ def buildings_set_card():
     db.session.commit()
     return jsonify({"success": True})
 
-def calc_building_output(bid, buildings_data, building_cards, deputies, last_collect_map):
-    """计算单个建筑的产出（铜币），按实际积累时间"""
-    attr_map = {1: "lead", 2: "might", 3: "intel", 4: "politics", 5: "charm"}
-    attr = attr_map.get(int(bid))
-    if not attr:
-        return 0
-
-    level = buildings_data.get(str(bid), 0)
-    max_hours = 8 + (level // 10)
-
-    card_id = building_cards.get(str(bid))
-    card = CARD_BY_ID.get(card_id) if card_id else None
-    hourly = 0
-    if card:
-        hourly += building_output(card, attr, level)
-    dep_id = deputies.get(str(bid))
-    dep_card = CARD_BY_ID.get(dep_id) if dep_id else None
-    if dep_card:
-        hourly += building_output(dep_card, attr, level)
-
-    # 按该建筑的实际积累时间算
-    now = datetime.now()
-    last_str = last_collect_map.get(str(bid))
-    if last_str:
-        try:
-            last = datetime.fromisoformat(last_str)
-            elapsed = (now - last).total_seconds() / 3600
-        except:
-            elapsed = max_hours
-    else:
-        elapsed = max_hours
-
-    hours = min(elapsed, max_hours)
-    return int(hourly * hours)
-
-
 @app.route('/collect_all', methods=['POST'])
 @login_required
 def collect_all():
     buildings_data = current_user.get_buildings()
     building_cards = current_user.get_building_cards()
     deputies = current_user.get_deputies()
-    last_collect_map = current_user.get_building_last_collect()
-
-    copper_total = 0
-    now = datetime.now()
-    for bid in ATTR_MAP.keys():
-        copper_total += calc_building_output(bid, buildings_data, building_cards, deputies, last_collect_map)
-        last_collect_map[str(bid)] = now.isoformat()
-
+    output = total_output(buildings_data, building_cards, deputies)
+    copper_total = int(output * 8)
     gold = copper_total // 1000000
     silver = (copper_total % 1000000) // 10000
     copper = (copper_total % 10000) // 100
-
     current_user.gold += gold
     current_user.silver += silver
     current_user.copper += copper
@@ -355,28 +312,35 @@ def collect_all():
     current_user.copper = current_user.copper % 100
     current_user.gold += current_user.silver // 100
     current_user.silver = current_user.silver % 100
-
-    current_user.set_building_last_collect(last_collect_map)
-    current_user.last_collect = now
+    current_user.last_collect = datetime.now()
     db.session.commit()
     return jsonify({"gold": gold, "silver": silver, "copper": copper})
-
 
 @app.route('/collect_one', methods=['POST'])
 @login_required
 def collect_one():
-    bid = request.json.get('bid')
+    bid = str(request.json.get('bid'))
     buildings_data = current_user.get_buildings()
     building_cards = current_user.get_building_cards()
     deputies = current_user.get_deputies()
-    last_collect_map = current_user.get_building_last_collect()
-
-    copper_total = calc_building_output(bid, buildings_data, building_cards, deputies, last_collect_map)
-
+    attr_map = {1: "lead", 2: "might", 3: "intel", 4: "politics", 5: "charm"}
+    attr = attr_map.get(int(bid))
+    if not attr:
+        return jsonify({"error": "无效建筑"}), 400
+    level = buildings_data.get(bid, 0)
+    card_id = building_cards.get(bid)
+    card = CARD_BY_ID.get(card_id) if card_id else None
+    output = 0
+    if card:
+        output += building_output(card, attr, level)
+    dep_id = deputies.get(bid)
+    dep_card = CARD_BY_ID.get(dep_id) if dep_id else None
+    if dep_card:
+        output += building_output(dep_card, attr, level)
+    copper_total = int(output * 8)
     gold = copper_total // 1000000
     silver = (copper_total % 1000000) // 10000
     copper = (copper_total % 10000) // 100
-
     current_user.gold += gold
     current_user.silver += silver
     current_user.copper += copper
@@ -384,9 +348,6 @@ def collect_one():
     current_user.copper = current_user.copper % 100
     current_user.gold += current_user.silver // 100
     current_user.silver = current_user.silver % 100
-
-    last_collect_map[str(bid)] = datetime.now().isoformat()
-    current_user.set_building_last_collect(last_collect_map)
     db.session.commit()
     return jsonify({"gold": gold, "silver": silver, "copper": copper})
 
