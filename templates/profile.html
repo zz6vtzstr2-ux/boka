@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的资料 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background-color: #e8e0cc;
+      color: #333;
+      margin: 0;
+      padding: 16px;
+      min-height: 100vh;
+    }
+    .container { max-width: 868px; margin: 0 auto; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .title-block .page-name {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 4px;
+      text-indent: 4px;
+    }
+    .title-block .en {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .back-btn {
+      background: #fce8ec;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid #e8c8d0;
+      font-size: 15px;
+      color: #b85a6a;
+      text-decoration: none;
+    }
+    .back-btn:hover { background: #f8d8de; }
+
+    .panel {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .panel-title {
+      display: inline-block;
+      background: #fdf6d8;
+      color: #8a6d1f;
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: 1px solid #f0e0a0;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-indent: 3px;
+      margin-bottom: 16px;
+    }
+    .trophy { display: inline-block; text-align: center; margin: 8px; }
+    .trophy .icon { font-size: 36px; }
+    .trophy .month { font-size: 13px; color: #888; margin-top: 4px; }
+
+    .data-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .data-tabs button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 15px;
+      font-weight: bold;
+      font-family: inherit;
+      letter-spacing: 3px;
+      text-indent: 3px;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+      transition: transform 0.15s;
+    }
+    .data-tabs button:hover { transform: translateY(-2px); background: #4aa8d8; }
+    .data-tabs button.active { background: #3d8ec9; }
+
+    .data-content { display: none; font-size: 15px; }
+    .data-content.active { display: block; }
+    .data-content .row { margin: 8px 0; color: #555; }
+    .data-content .best { color: #b8952f; font-weight: bold; }
+
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      margin: 8px 0;
+      border-radius: 10px;
+      border: 1px solid #d8d0bc;
+      background: #fff;
+      color: #333;
+      font-size: 15px;
+      font-family: inherit;
+    }
+    input:focus { outline: none; border-color: #5bb8e8; }
+    input[type="file"] {
+      font-size: 15px;
+    }
+    input[type="file"]::file-selector-button {
+      background: #f0f0f0;
+      color: #333;
+      border: 1px solid #d8d0bc;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 15px;
+      font-family: inherit;
+      cursor: pointer;
+      margin-right: 12px;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 12px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 16px;
+      font-weight: bold;
+      font-family: inherit;
+      letter-spacing: 4px;
+      text-indent: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+      transition: transform 0.15s;
+    }
+    .btn:hover { transform: translateY(-2px); background: #4aa8d8; }
+
+    .error { color: #c97b7b; font-size: 14px; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title-block">
+        <div class="page-name">我的资料</div>
+        <div class="en">My Profile</div>
+      </div>
+      <a href="/" class="back-btn">返回主页</a>
+    </div>
+
+    {% if error %}<div class="panel"><p class="error">{{ error }}</p></div>{% endif %}
+
+    <div class="panel">
+      <div class="panel-title">我的荣誉</div>
+      <p>搏卡月度冠军 × {{ trophies|length }}</p>
+      {% for m in trophies %}
+      <div class="trophy">
+        <div class="icon">🏆</div>
+        <div class="month">{{ m }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">我的数据</div>
+      <div class="data-tabs">
+        <button onclick="showData('boka', this)">搏卡</button>
+        <button onclick="showData('challenge', this)">个人挑战</button>
+        <button onclick="showData('boss', this)">世界Boss</button>
+      </div>
+      <div class="data-content" id="data-boka">
+        <div class="row best">历史最高：{{ boka_best }}（达成时间：{{ boka_best_time }}）</div>
+        <div class="row">平均分数：--</div>
+        <div class="row">平均排名：--</div>
+        <div class="row">平均场次：--</div>
+      </div>
+      <div class="data-content" id="data-challenge">
+        <div class="row">目前关卡：--</div>
+        <div class="row">获胜场次：--</div>
+        <div class="row">失败场次：--</div>
+      </div>
+      <div class="data-content" id="data-boss">
+        <div class="row best">历史最高：{{ boss_best }}（达成时间：{{ boss_best_time }}）</div>
+        <div class="row">平均伤害：--</div>
+        <div class="row">平均排名：--</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">我的头像</div>
+      <div style="margin-top:12px;">
+        <img src="/static/avatars/{{ current_user.username }}.jpg" style="width:80px;height:80px;border-radius:10px;border:2px solid #d8d0bc;">
+      </div>
+      <form method="post" action="/upload_avatar" enctype="multipart/form-data" style="margin-top:12px;">
+        <input type="file" name="avatar" accept="image/*">
+        <button class="btn" type="submit">保存新头像</button>
+      </form>
+      <p style="font-size:13px;color:#aaa;">每周一 6:00 至下周一 6:00 可更换一次</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">修改密码</div>
+      <form method="post" action="/change_password">
+        <input type="password" name="old_password" placeholder="当前密码" required>
+        <input type="password" name="new_password" placeholder="新密码" required>
+        <input type="password" name="confirm_password" placeholder="确认新密码" required>
+        <button class="btn" type="submit">保存新密码</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function showData(key, btn) {
+      document.querySelectorAll('.data-tabs button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.data-content').forEach(d => d.classList.remove('active'));
+      document.getElementById('data-' + key).classList.add('active');
+    }
+  </script>
+</body>
+</html>
