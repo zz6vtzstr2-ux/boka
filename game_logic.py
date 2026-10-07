@@ -3,7 +3,10 @@ import random
 import math
 from cards_data import CARDS, CARD_BY_NAME
 from combos_data import COMBOS, SPECIAL_CARDS
-
+from bonds_data import (
+    RELATION_BONDS, REGION_BONDS, REGION_BONUS_BY_COUNT,
+    POSITION_BONDS, POSITION_BONUS, ENEMY_BONDS,
+)
 # ========== 抽卡 ==========
 def draw_card():
     roll = random.random()
@@ -137,6 +140,153 @@ def fatigue_coef(times):
 def real_attr(value, times):
     return int(value * fatigue_coef(times))
 
+# ========== 羁绊计算 ==========
+def calc_relation_bonus(deck_names):
+    """
+    关系类：返回 {card_name: bonus}，只对参与羁绊的卡加成。
+    同类只取最高加成。
+    """
+    result = {}
+    best = 0.0
+    best_names = []
+
+    for bond in RELATION_BONDS:
+        for group in bond["groups"]:
+            # 整组都在卡组里，才算触发
+            if all(n in deck_names for n in group):
+                bonus_rule = bond["bonus"]
+                if isinstance(bonus_rule, dict):
+                    # 按人数取加成
+                    cnt = len(group)
+                    bonus = bonus_rule.get(cnt, bonus_rule.get(max(bonus_rule.keys()), 0))
+                else:
+                    bonus = bonus_rule
+                if bonus > best:
+                    best = bonus
+                    best_names = list(group)
+
+    if best > 0:
+        for n in best_names:
+            result[n] = best
+    return result
+
+
+def calc_region_bonus(deck_names):
+    """
+    地域类：返回 {card_name: bonus}，只对参与羁绊的卡加成。
+    同类只取最高加成。
+    """
+    result = {}
+    best = 0.0
+    best_names = []
+
+    for region in REGION_BONDS:
+        members_in_deck = [n for n in region["members"] if n in deck_names]
+        cnt = len(members_in_deck)
+        if cnt < 2:
+            continue
+        bonus = REGION_BONUS_BY_COUNT.get(min(cnt, 5), 0)
+        if bonus > best:
+            best = bonus
+            best_names = members_in_deck
+
+    if best > 0:
+        for n in best_names:
+            result[n] = best
+    return result
+
+
+def calc_position_bonus(deck_names):
+    """
+    职位类：返回 {card_name: bonus}，只对参与羁绊的卡加成。
+    同类只取最高加成。
+    """
+    result = {}
+    best = 0.0
+    best_names = []
+
+    for position in POSITION_BONDS:
+        members_in_deck = [n for n in position["members"] if n in deck_names]
+        cnt = len(members_in_deck)
+        if cnt < 2:
+            continue
+        tier = position.get("tier", "normal")
+        bonus_table = POSITION_BONUS.get(tier, POSITION_BONUS["normal"])
+        bonus = bonus_table.get(min(cnt, 5), 0)
+        if bonus > best:
+            best = bonus
+            best_names = members_in_deck
+
+    if best > 0:
+        for n in best_names:
+            result[n] = best
+    return result
+
+
+def calc_enemy_bonus(deck_names):
+    """
+    仇敌类：返回 {card_name: penalty}（正数表示要减掉的百分比）。
+    同类只取最重的一项。
+    """
+    result = {}
+    worst = 0.0
+    worst_names = []
+
+    for bond in ENEMY_BONDS:
+        for group in bond["groups"]:
+            if all(n in deck_names for n in group):
+                if bond["penalty"] > worst:
+                    worst = bond["penalty"]
+                    worst_names = list(group)
+
+    if worst > 0:
+        for n in worst_names:
+            result[n] = worst
+    return result
+
+
+def calc_bond_bonus_for_deck(deck):
+    """
+    输入：deck 是卡的字典列表（每张卡有 name 字段）
+    输出：{card_name: (bonus, penalty)}，bonus 为正加成比例，penalty 为要减掉的比例
+    只有触发了羁绊的卡才在 dict 里。
+    """
+    deck_names = [c["name"] for c in deck]
+
+    rel = calc_relation_bonus(deck_names)
+    reg = calc_region_bonus(deck_names)
+    pos = calc_position_bonus(deck_names)
+    ene = calc_enemy_bonus(deck_names)
+
+    # 汇总：每张卡可能有多个加成/减益
+    result = {}
+    all_names = set(rel.keys()) | set(reg.keys()) | set(pos.keys()) | set(ene.keys())
+    for n in all_names:
+        bonus = rel.get(n, 0) + reg.get(n, 0) + pos.get(n, 0)
+        penalty = ene.get(n, 0)
+        result[n] = (bonus, penalty)
+    return result
+
+def boss_deck_damage_with_bond(deck, weak_attr, fatigue_data):
+    """
+    计算卡组对 Boss 的伤害，含羁绊加成。
+    deck: 卡的字典列表
+    weak_attr: 今日弱点属性 key
+    fatigue_data: {card_id_str: times}
+    """
+    bond_map = calc_bond_bonus_for_deck(deck)
+    total = 0
+    for card in deck:
+        times = fatigue_data.get(str(card["id"]), 0)
+        bonus, penalty = bond_map.get(card["name"], (0.0, 0.0))
+        # 基础伤害
+        dmg = boss_card_damage(card, weak_attr, times, 0.0)
+        # 加成 - 减益
+        multiplier = 1.0 + bonus - penalty
+        multiplier = max(0.0, multiplier)
+        total += int(dmg * multiplier)
+    return total
+    
 # ========== 世界 Boss 伤害 ==========
 def boss_card_damage(card, weak_attr, fatigue_times, bond_bonus=0.0):
     attrs = ["lead", "might", "intel", "politics", "charm"]
