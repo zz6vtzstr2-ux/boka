@@ -109,3 +109,12 @@ class User(UserMixin, db.Model):
 
     def set_boss_fatigue(self, data):
         self.boss_fatigue = json.dumps(data)
+
+class ClassCollection(db.Model):
+    """班级收藏册：每张卡只保留最早捐献的一条记录"""
+    __tablename__ = "class_collection"
+
+    id = db.Column(db.Integer, primary_key=True)
+    card_id = db.Column(db.Integer, unique=True, nullable=False)
+    donor_username = db.Column(db.String(50), nullable=False)
+    donated_at = db.Column(db.DateTime, nullable=False)
