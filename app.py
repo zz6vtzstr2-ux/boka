@@ -115,17 +115,19 @@ def level_to_quality_star(level):
     return qualities[quality_index], star
 
 # ========== 世界 Boss 周期管理 ==========
+# 世界 Boss 第 1 周基准日：2026-10-05（周一）6:00
+BOSS_EPOCH_MONDAY = datetime(2026, 10, 5, 6, 0, 0)
+
 def get_current_week_num():
-    """从 epoch 开始，每周一 6 点作为一周开始。"""
+    """从基准日开始算，本周 = 1。"""
     now = datetime.now()
-    weekday = now.weekday()  # 0=周一
+    weekday = now.weekday()
     monday_6 = now.replace(hour=6, minute=0, second=0, microsecond=0)
     if weekday > 0 or now < monday_6:
         monday_6 = monday_6 - timedelta(days=weekday if weekday > 0 else 7)
-    epoch_monday = datetime(2026, 1, 5, 6, 0, 0)
-    delta_days = (monday_6 - epoch_monday).days
+    delta_days = (monday_6 - BOSS_EPOCH_MONDAY).days
     return max(1, delta_days // 7 + 1)
-
+    
 def get_current_week_start():
     """返回本周一 6:00 的 datetime"""
     now = datetime.now()
@@ -741,55 +743,110 @@ def world_boss():
     fatigue = current_user.get_boss_fatigue()
 
     # 我的卡组
+    from bonds_data import (
+        RELATION_BONDS, REGION_BONDS, POSITION_BONDS, ENEMY_BONDS,
+    )
+    from game_logic import (
+        calc_relation_bonus, calc_region_bonus,
+        calc_position_bonus, calc_enemy_bonus,
+    )
+
     decks = BossDeck.query.filter_by(user_id=current_user.id).all()
     my_decks = []
     for d in decks:
         card_ids = json_loads_safe(d.card_ids)
         cards = [CARD_BY_ID.get(cid) for cid in card_ids if CARD_BY_ID.get(cid)]
         dmg = boss_deck_damage_with_bond(cards, today_weak, fatigue) if cards else 0
-        # 羁绊列表
-        bond_list = []
-        if cards:
-            names = [c["name"] for c in cards]
-            from game_logic import (
-                calc_relation_bonus, calc_region_bonus,
-                calc_position_bonus, calc_enemy_bonus,
-            )
-            rel = calc_relation_bonus(names)
-            reg = calc_region_bonus(names)
-            pos = calc_position_bonus(names)
-            ene = calc_enemy_bonus(names)
-            # 收集命中的羁绊名
-            for bond in __import__('bonds_data').RELATION_BONDS:
+
+        # 计算每个类别的加成
+        names = [c["name"] for c in cards] if cards else []
+        rel = calc_relation_bonus(names) if names else {}
+        reg = calc_region_bonus(names) if names else {}
+        pos = calc_position_bonus(names) if names else {}
+        ene = calc_enemy_bonus(names) if names else {}
+
+        # 找命中的具体羁绊（每类最多一条，即当前生效的那条）
+        active_bonds = []  # [{"type": ..., "name": ..., "members": [...], "value": 数字}]
+
+        # 关系类：命中且加成等于 rel 里的值（即最高那个）
+        if rel:
+            best_val = max(rel.values())
+            for bond in RELATION_BONDS:
+                hit_bond = None
                 for g in bond["groups"]:
-                    if all(n in names for n in g) and any(n in rel for n in g):
-                        bond_list.append({"name": bond["name"], "members": g, "type": "relation",
-                                          "bonus": rel.get(g[0], 0)})
+                    if all(n in names for n in g) and rel.get(g[0], None) == best_val:
+                        hit_bond = {"name": bond["name"], "members": g}
                         break
-            for bond in __import__('bonds_data').REGION_BONDS:
+                if hit_bond:
+                    active_bonds.append({
+                        "type": "relation",
+                        "name": hit_bond["name"],
+                        "members": hit_bond["members"],
+                        "value": best_val,
+                    })
+                    break
+
+        # 地域类
+        if reg:
+            best_val = max(reg.values())
+            for bond in REGION_BONDS:
                 hit = [n for n in bond["members"] if n in names]
-                if len(hit) >= 2 and any(n in reg for n in hit):
-                    bond_list.append({"name": bond["name"], "members": hit, "type": "region",
-                                      "bonus": reg.get(hit[0], 0)})
-            for bond in __import__('bonds_data').POSITION_BONDS:
+                if len(hit) >= 2 and reg.get(hit[0], None) == best_val:
+                    active_bonds.append({
+                        "type": "region",
+                        "name": bond["name"],
+                        "members": hit,
+                        "value": best_val,
+                    })
+                    break
+
+        # 职位类
+        if pos:
+            best_val = max(pos.values())
+            for bond in POSITION_BONDS:
                 hit = [n for n in bond["members"] if n in names]
-                if len(hit) >= 2 and any(n in pos for n in hit):
-                    bond_list.append({"name": bond["name"], "members": hit, "type": "position",
-                                      "bonus": pos.get(hit[0], 0)})
-            for bond in __import__('bonds_data').ENEMY_BONDS:
+                if len(hit) >= 2 and pos.get(hit[0], None) == best_val:
+                    active_bonds.append({
+                        "type": "position",
+                        "name": bond["name"],
+                        "members": hit,
+                        "value": best_val,
+                    })
+                    break
+
+        # 仇敌类
+        if ene:
+            worst_val = max(ene.values())
+            for bond in ENEMY_BONDS:
                 for g in bond["groups"]:
-                    if all(n in names for n in g) and any(n in ene for n in g):
-                        bond_list.append({"name": bond["name"], "members": g, "type": "enemy",
-                                          "penalty": ene.get(g[0], 0)})
+                    if all(n in names for n in g) and ene.get(g[0], None) == worst_val:
+                        active_bonds.append({
+                            "type": "enemy",
+                            "name": bond["name"],
+                            "members": g,
+                            "value": worst_val,
+                        })
                         break
+                else:
+                    continue
+                break
+
+        # 给每张卡附加"它自己参与的羁绊"
+        for c in cards:
+            my_bonds = []
+            for b in active_bonds:
+                if c["name"] in b["members"]:
+                    my_bonds.append(b)
+            c["my_bonds"] = my_bonds
+
         my_decks.append({
             "id": d.id,
             "name": d.name or f"卡组{d.id}",
             "cards": cards,
             "damage": dmg,
-            "bonds": bond_list,
+            "bonds": active_bonds,  # 卡组级别的（备用）
         })
-
+    
     # 我的伤害记录
     my_dmg = BossDamage.query.filter_by(user_id=current_user.id, week_num=current_week).first()
     my_total_damage = my_dmg.total_damage if my_dmg else 0
@@ -1192,6 +1249,21 @@ with app.app_context():
         print("✅ DB migration done")
     except Exception as e:
         print("⚠️ DB migration error:", e)
+
+    # 一次性清理：删除所有空卡组（card_ids 为空数组的）
+    try:
+        empty_decks = BossDeck.query.all()
+        removed = 0
+        for d in empty_decks:
+            ids = json_loads_safe(d.card_ids)
+            if not ids:
+                db.session.delete(d)
+                removed += 1
+        if removed:
+            db.session.commit()
+            print(f"🧹 清理了 {removed} 个空卡组")
+    except Exception as e:
+        print("⚠️ 清理空卡组出错:", e)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
