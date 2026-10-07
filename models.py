@@ -19,6 +19,7 @@ class User(UserMixin, db.Model):
 
     # 收藏
     collection = db.Column(db.Text, default="{}")
+    collection_migrated = db.Column(db.Boolean, default=False)
 
     # 建筑
     buildings = db.Column(db.Text, default="{}")
