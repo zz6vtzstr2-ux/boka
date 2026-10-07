@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的资料 · 搏卡游戏</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+      background-color: #e8e0cc;
+      color: #333;
+      margin: 0;
+      padding: 16px;
+      min-height: 100vh;
+    }
+    .container { max-width: 868px; margin: 0 auto; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .title-block .page-name {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 2px;
+    }
+    .title-block .en {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+    .back-btn {
+      background: #fce8ec;
+      padding: 8px 18px;
+      border-radius: 10px;
+      border: 1px solid #e8c8d0;
+      font-size: 15px;
+      color: #b85a6a;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .back-btn:hover { background: #f8d8de; }
+    .panel {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .panel h3 {
+      margin-top: 0;
+      font-size: 20px;
+      color: #2c3e50;
+      letter-spacing: 1px;
+    }
+    .trophy { display: inline-block; text-align: center; margin: 8px; }
+    .trophy .icon { font-size: 36px; }
+    .trophy .month { font-size: 13px; color: #888; margin-top: 4px; }
+    .data-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .data-tabs button {
+      padding: 8px 18px; border: none; border-radius: 10px; cursor: pointer;
+      background: #fff; color: #2c6e5a; font-size: 14px; font-weight: bold;
+      border: 1px solid #e0d8c0;
+    }
+    .data-tabs button.active { background: #2c6e5a; color: #fff; border-color: #235a4a; }
+    .data-content { display: none; font-size: 14px; }
+    .data-content.active { display: block; }
+    .data-content .row { margin: 6px 0; color: #555; }
+    .data-content .best { color: #b8952f; font-weight: bold; }
+    input {
+      width: 100%; padding: 12px 14px; margin: 8px 0;
+      border-radius: 8px; border: 1px solid #d8d0bc;
+      background: #fff; color: #333; font-size: 15px;
+      font-family: inherit;
+    }
+    input:focus { outline: none; border-color: #6aafdd; }
+    input[type="file"] {
+      font-size: 15px;
+    }
+    .btn {
+      padding: 12px 24px; border: none; border-radius: 10px;
+      background: #6aafdd; color: white; font-size: 16px; font-weight: bold;
+      letter-spacing: 4px;
+      cursor: pointer; font-family: inherit;
+      box-shadow: 0 2px 6px rgba(106,175,221,0.3);
+      transition: transform 0.15s;
+    }
+    .btn:hover { transform: translateY(-2px); background: #5a9fcd; }
+    .error { color: #c97b7b; font-size: 14px; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title-block">
+        <div class="page-name">我的资料</div>
+        <div class="en">My Profile</div>
+      </div>
+      <a href="/" class="back-btn">返回主页</a>
+    </div>
+
+    {% if error %}<div class="panel"><p class="error">{{ error }}</p></div>{% endif %}
+
+    <div class="panel">
+      <h3>我的荣誉</h3>
+      <p>搏卡月度冠军 × {{ trophies|length }} 个</p>
+      {% for m in trophies %}
+      <div class="trophy">
+        <div class="icon">🏆</div>
+        <div class="month">{{ m }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="panel">
+      <h3>我的数据</h3>
+      <div class="data-tabs">
+        <button onclick="showData('boka', this)">搏卡</button>
+        <button onclick="showData('challenge', this)">个人挑战</button>
+        <button onclick="showData('boss', this)">世界 Boss</button>
+      </div>
+      <div class="data-content" id="data-boka">
+        <div class="row best">历史最高：{{ boka_best }}（达成时间：{{ boka_best_time }}）</div>
+        <div class="row">平均分：--</div>
+        <div class="row">平均排名：--</div>
+        <div class="row">平均场次：--</div>
+      </div>
+      <div class="data-content" id="data-challenge">
+        <div class="row">目前关卡：--</div>
+        <div class="row">获胜场次：--</div>
+        <div class="row">失败场次：--</div>
+      </div>
+      <div class="data-content" id="data-boss">
+        <div class="row best">历史最高：{{ boss_best }}（达成时间：{{ boss_best_time }}）</div>
+        <div class="row">平均伤害：--</div>
+        <div class="row">平均排名：--</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>我的头像</h3>
+      <img src="/static/avatars/{{ current_user.username }}.JPG" style="width:80px;height:80px;border-radius:10px;border:2px solid #d8d0bc;">
+      <form method="post" action="/upload_avatar" enctype="multipart/form-data">
+        <input type="file" name="avatar" accept="image/*">
+        <button class="btn" type="submit">更换头像</button>
+      </form>
+      <p style="font-size:12px;color:#aaa;">每周一 6:00 至下周一 6:00 可更换一次</p>
+    </div>
+
+    <div class="panel">
+      <h3>修改密码</h3>
+      <form method="post" action="/change_password">
+        <input type="password" name="old_password" placeholder="当前密码" required>
+        <input type="password" name="new_password" placeholder="新密码" required>
+        <input type="password" name="confirm_password" placeholder="确认新密码" required>
+        <button class="btn" type="submit">保存新密码</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function showData(key, btn) {
+      document.querySelectorAll('.data-tabs button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.data-content').forEach(d => d.classList.remove('active'));
+      document.getElementById('data-' + key).classList.add('active');
+    }
+  </script>
+</body>
+</html>
