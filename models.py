@@ -160,3 +160,17 @@ class BossDamage(db.Model):
     __table_args__ = (
         db.UniqueConstraint("user_id", "week_num", name="uq_boss_damage_user_week"),
     )
+
+class BossBattle(db.Model):
+    """世界 Boss 出战记录：每次出战一条，2 小时后可收兵"""
+    __tablename__ = "boss_battle"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    week_num = db.Column(db.Integer, nullable=False)
+    deck_id = db.Column(db.Integer, nullable=True)  # 来源卡组 id（可被删）
+    card_ids = db.Column(db.Text, default="[]")     # 出战时的卡快照
+    damage = db.Column(db.Integer, default=0)       # 出战那一刻算好的伤害
+    started_at = db.Column(db.DateTime, nullable=False)
+    ends_at = db.Column(db.DateTime, nullable=False)
+    finished = db.Column(db.Boolean, default=False)
