@@ -57,7 +57,8 @@ class User(UserMixin, db.Model):
     # 世界 Boss 疲劳值
     boss_fatigue = db.Column(db.Text, default="{}")
     boss_fatigue_reset = db.Column(db.Date, nullable=True)
-
+    boss_fatigue_week = db.Column(db.Integer, default=0)
+    
     # 世界 Boss 血量
     boss_week = db.Column(db.Integer, default=1)
     boss_hp_current = db.Column(db.Integer, default=300000)
