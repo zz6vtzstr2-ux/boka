@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>班级收藏 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background-color: #e8e0cc;
+      color: #333;
+      margin: 0;
+      padding: 16px;
+      min-height: 100vh;
+    }
+    .container { max-width: 868px; margin: 0 auto; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .title-block .page-name {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 4px;
+      text-indent: 4px;
+    }
+    .title-block .en {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .back-btn {
+      background: #fce8ec;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid #e8c8d0;
+      font-size: 15px;
+      color: #b85a6a;
+      text-decoration: none;
+    }
+    .back-btn:hover { background: #f8d8de; }
+
+    .tabs {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .tabs a {
+      padding: 10px 24px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-indent: 2px;
+      background: #e0e0e0;
+      color: #888;
+      border: 1px solid #d0d0d0;
+      transition: background 0.2s, color 0.2s;
+    }
+    .tabs a.active {
+      background: #5bb8e8;
+      color: #fff;
+      border-color: #4aa8d8;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+    }
+    .tabs a:hover:not(.active) {
+      background: #d0d0d0;
+    }
+
+    .owned-count {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 16px;
+      padding-left: 4px;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 16px;
+    }
+
+    .card-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* 卡牌本体，尺寸同个人收藏 */
+    .card-flip {
+      perspective: 1200px;
+      width: 100%;
+      max-width: 180px;
+      aspect-ratio: 300 / 480;
+      cursor: pointer;
+      position: relative;
+    }
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.5s;
+      transform-style: preserve-3d;
+    }
+    .card-flip.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+    .card-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 14px;
+      background: #fffdf5;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      overflow: hidden;
+      /* 班级收藏统一金色双线边框 */
+      border: 4px double #f0e0a0;
+    }
+    .card-back {
+      transform: rotateY(180deg);
+    }
+    .card-face .img-wrap {
+      flex: 1;
+      overflow: hidden;
+      border-radius: 8px;
+    }
+    .card-face .img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .card-face .info-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid #f0e0a0;
+      min-height: 32px;
+    }
+    .card-face .name {
+      font-size: 14px;
+      font-weight: bold;
+      color: #4a4a4a;
+      white-space: nowrap;
+      letter-spacing: 1px;
+    }
+
+    /* 背面简介 */
+    .card-back .back-title {
+      display: inline-block;
+      background: #fdf6d8;
+      color: #8a6d1f;
+      padding: 3px 10px;
+      border-radius: 10px;
+      border: 1px solid #f0e0a0;
+      font-size: 11px;
+      font-weight: bold;
+      margin-bottom: 6px;
+      align-self: flex-start;
+    }
+    .card-back .back-bio {
+      font-size: 10px;
+      color: #666;
+      line-height: 1.4;
+      margin-bottom: 6px;
+      max-height: 70px;
+      overflow-y: auto;
+    }
+    .card-back .attr-bars {
+      flex: 1;
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+    }
+    .card-back .attr-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100%;
+      width: 20%;
+    }
+    .card-back .attr-bar .label {
+      font-size: 9px;
+      color: #888;
+      margin-bottom: 3px;
+    }
+    .card-back .attr-bar .bar-wrap {
+      flex: 1;
+      width: 12px;
+      background: #f5f0e0;
+      border-radius: 3px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      overflow: hidden;
+    }
+    .card-back .attr-bar .bar {
+      width: 100%;
+      border-radius: 3px;
+    }
+    .card-back .attr-bar .value {
+      font-size: 9px;
+      font-weight: bold;
+      color: #555;
+      margin-top: 3px;
+    }
+    .b-lead { background: #c8e0c8; }
+    .b-might { background: #e8c8b8; }
+    .b-intel { background: #d8c8e8; }
+    .b-politics { background: #f0dcb0; }
+    .b-charm { background: #e8b8c8; }
+
+    /* 未拥有 */
+    .card-empty {
+      width: 100%;
+      max-width: 180px;
+      aspect-ratio: 300 / 480;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f5f0e0;
+      border: 2px dashed #d0c8b0;
+      border-radius: 14px;
+      color: #b0a890;
+      font-size: 13px;
+    }
+
+    /* 捐献信息 */
+    .donate-info {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #888;
+      text-align: center;
+      max-width: 180px;
+      line-height: 1.4;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title-block">
+        <div class="page-name">收藏</div>
+        <div class="en">Collection</div>
+      </div>
+      <a href="/" class="back-btn">返回主页</a>
+    </div>
+
+    <div class="tabs">
+      <a href="/collection" id="tab-personal">个人收藏</a>
+      <a href="/class_collection" id="tab-class">班级收藏</a>
+    </div>
+
+    <div class="owned-count">已收藏 {{ owned_count }}/108</div>
+
+    <div class="card-grid" id="grid"></div>
+  </div>
+
+  <script>
+    const cards = {{ cards | tojson }};
+    document.getElementById('tab-class').classList.add('active');
+
+    function render() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      cards.forEach(c => {
+        const slot = document.createElement('div');
+        slot.className = 'card-slot';
+
+        if (c.owned) {
+          slot.innerHTML = `
+            <div style="width:100%;max-width:180px;">
+              <div class="card-flip" onclick="flipCard(this)">
+                <div class="card-inner">
+                  <div class="card-face card-front">
+                    <div class="img-wrap">
+                      <img loading="lazy" src="/static/cards/${c.name}.PNG" alt="${c.name}">
+                    </div>
+                    <div class="info-row">
+                      <span class="name">${c.nick}·${c.name}</span>
+                    </div>
+                  </div>
+                  <div class="card-face card-back">
+                    <div class="back-title">人物简介</div>
+                    <div class="back-bio">${c.info || ''}</div>
+                    <div class="attr-bars">
+                      <div class="attr-bar">
+                        <div class="label">统率</div>
+                        <div class="bar-wrap"><div class="bar b-lead" style="height:${c.lead}%"></div></div>
+                        <div class="value">${c.lead}</div>
+                      </div>
+                      <div class="attr-bar">
+                        <div class="label">武力</div>
+                        <div class="bar-wrap"><div class="bar b-might" style="height:${c.might}%"></div></div>
+                        <div class="value">${c.might}</div>
+                      </div>
+                      <div class="attr-bar">
+                        <div class="label">智力</div>
+                        <div class="bar-wrap"><div class="bar b-intel" style="height:${c.intel}%"></div></div>
+                        <div class="value">${c.intel}</div>
+                      </div>
+                      <div class="attr-bar">
+                        <div class="label">政治</div>
+                        <div class="bar-wrap"><div class="bar b-politics" style="height:${c.politics}%"></div></div>
+                        <div class="value">${c.politics}</div>
+                      </div>
+                      <div class="attr-bar">
+                        <div class="label">魅力</div>
+                        <div class="bar-wrap"><div class="bar b-charm" style="height:${c.charm}%"></div></div>
+                        <div class="value">${c.charm}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="donate-info">${c.donated_at} 由 ${c.donor} 捐献</div>
+          `;
+        } else {
+          slot.innerHTML = `<div class="card-empty">待收集</div>`;
+        }
+
+        grid.appendChild(slot);
+      });
+    }
+
+    function flipCard(el) {
+      el.classList.toggle('flipped');
+    }
+
+    render();
+  </script>
+</body>
+</html>
