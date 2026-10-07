@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>抽卡 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background-color: #e8e0cc;
+      color: #333;
+      margin: 0;
+      padding: 16px;
+      min-height: 100vh;
+    }
+    .container { max-width: 868px; margin: 0 auto; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .title-block .page-name {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 4px;
+      text-indent: 4px;
+    }
+    .title-block .en {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .back-btn {
+      background: #fce8ec;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid #e8c8d0;
+      font-size: 15px;
+      color: #b85a6a;
+      text-decoration: none;
+    }
+    .back-btn:hover { background: #f8d8de; }
+
+    .user-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 14px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .user-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .user-link:hover { opacity: 0.8; }
+    .user-link img {
+      width: 52px;
+      height: 52px;
+      border-radius: 10px;
+      border: 2px solid #d8d0bc;
+      background: #fff;
+    }
+    .user-link .nickname {
+      font-size: 18px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    .capsule-money {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 16px;
+      font-weight: bold;
+      background: #e8f0ec;
+      color: #000;
+      border: 1px solid #c8d8d0;
+    }
+    .money-item { display: flex; align-items: center; gap: 3px; }
+    .coin { display: inline-block; width: 18px; height: 18px; border-radius: 50%; }
+    .coin-gold { background: #f5d76e; border: 2px solid #d4a86b; }
+    .coin-silver { background: #d8d8d8; border: 2px solid #a8a8a8; }
+    .coin-copper { background: #d89b6e; border: 2px solid #b87b4a; }
+
+    .draw-area {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .draw-btn {
+      padding: 16px 40px;
+      border: none;
+      border-radius: 12px;
+      background: #5bb8e8;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-indent: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+      transition: transform 0.15s;
+    }
+    .draw-btn:hover { transform: translateY(-2px); background: #4aa8d8; }
+    .draw-btn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
+
+    .result-area {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      text-align: center;
+      color: #aaa;
+      font-size: 15px;
+      min-height: 200px;
+    }
+    .result-message {
+      font-size: 22px;
+      font-weight: bold;
+      color: #b85a6a;
+      letter-spacing: 4px;
+      text-indent: 4px;
+      margin-bottom: 20px;
+    }
+    .result-area .cards {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .card-flip {
+      perspective: 1200px;
+      width: 300px;
+      height: 480px;
+      cursor: pointer;
+    }
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.5s;
+      transform-style: preserve-3d;
+    }
+    .card-flip.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+    .card-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border: 6px double #f0e0a0;
+      border-radius: 20px;
+      background: #fffdf5;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
+    .card-back {
+      transform: rotateY(180deg);
+    }
+    .card-face .img-wrap {
+      flex: 1;
+      overflow: hidden;
+      border-radius: 10px;
+    }
+    .card-face .img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .card-face .info-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #f0e0a0;
+      height: 44px;
+    }
+    .card-face .name {
+      font-size: 20px;
+      font-weight: bold;
+      color: #4a4a4a;
+      white-space: nowrap;
+      letter-spacing: 2px;
+      text-indent: 2px;
+    }
+
+    .first-time {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #c97b7b;
+      font-size: 15px;
+      font-weight: bold;
+      white-space: nowrap;
+      background: #fff;
+      padding: 4px 16px;
+      border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(201,123,123,0.2);
+      z-index: 3;
+    }
+
+    .back-title {
+      display: inline-block;
+      background: #fdf6d8;
+      color: #8a6d1f;
+      padding: 5px 16px;
+      border-radius: 14px;
+      border: 1px solid #f0e0a0;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-indent: 2px;
+      margin-bottom: 10px;
+      align-self: flex-start;
+    }
+    .back-bio {
+      font-size: 13px;
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 10px;
+      flex: 0 0 auto;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .attr-bars {
+      flex: 1;
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+      padding-bottom: 4px;
+    }
+    .attr-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100%;
+      width: 20%;
+    }
+    .attr-bar .label {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 6px;
+    }
+    .attr-bar .bar-wrap {
+      flex: 1;
+      width: 22px;
+      background: #f5f0e0;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      overflow: hidden;
+    }
+    .attr-bar .bar {
+      width: 100%;
+      border-radius: 4px;
+    }
+    .attr-bar .value {
+      font-size: 12px;
+      font-weight: bold;
+      color: #555;
+      margin-top: 6px;
+    }
+    .b-lead { background: #c8e0c8; }
+    .b-might { background: #e8c8b8; }
+    .b-intel { background: #d8c8e8; }
+    .b-politics { background: #f0dcb0; }
+    .b-charm { background: #e8b8c8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title-block">
+        <div class="page-name">抽卡</div>
+        <div class="en">Draw</div>
+      </div>
+      <a href="/" class="back-btn">返回主页</a>
+    </div>
+
+    <div class="user-bar">
+      <a href="/profile" class="user-link">
+        <img src="/static/avatars/{{ current_user.username }}.jpg" alt="">
+        <span class="nickname">{{ current_user.nickname or current_user.username }}</span>
+      </a>
+      <span class="capsule-money">
+        <span class="money-item"><span id="goldDisplay">{{ current_user.gold }}</span><span class="coin coin-gold"></span></span>
+        <span class="money-item">{{ current_user.silver }}<span class="coin coin-silver"></span></span>
+        <span class="money-item">{{ current_user.copper }}<span class="coin coin-copper"></span></span>
+      </span>
+    </div>
+
+    <div class="draw-area">
+      <button class="draw-btn" id="drawBtn" onclick="drawCard()">买一包干脆面 · 2金币</button>
+    </div>
+
+    <div class="result-area" id="result">抽卡结果会显示在这里</div>
+  </div>
+
+  <script>
+    let drawing = false;
+
+    async function drawCard() {
+      if (drawing) return;
+      drawing = true;
+      document.getElementById('drawBtn').disabled = true;
+
+      const res = await fetch('/draw_card', { method: 'POST' });
+      const data = await res.json();
+      const el = document.getElementById('result');
+
+      if (data.error) {
+        el.innerHTML = `<p>${data.error}</p>`;
+      } else {
+        if (data.gold !== undefined) {
+          document.getElementById('goldDisplay').textContent = data.gold;
+        }
+        if (data.type === 'empty') {
+          el.innerHTML = `<div class="result-message">${data.message}</div>`;
+        } else if (data.type === 'double') {
+          el.innerHTML = `<div class="result-message">${data.message}</div><div class="cards">` +
+            data.cards.map((c, i) => renderCard(c, i, false)).join('') +
+            `</div>`;
+        } else {
+          el.innerHTML = `<div class="cards">` +
+            data.cards.map((c, i) => renderCard(c, i, data.first_time.includes(c.name))).join('') +
+            `</div>`;
+        }
+      }
+
+      drawing = false;
+      document.getElementById('drawBtn').disabled = false;
+    }
+
+    function renderCard(c, index, firstTime) {
+      const maxAttr = 100;
+      return `
+        <div class="card-flip" id="card-${index}" onclick="flipCard(${index})">
+          ${firstTime ? '<div class="first-time">首次抽到</div>' : ''}
+          <div class="card-inner">
+            <div class="card-face card-front">
+              <div class="img-wrap">
+                <img loading="lazy" src="/static/cards/${c.name}.PNG" alt="${c.name}">
+              </div>
+              <div class="info-row">
+                <span class="name">${c.nick}·${c.name}</span>
+              </div>
+            </div>
+            <div class="card-face card-back">
+              <div class="back-title">人物简介</div>
+              <div class="back-bio">${c.info || ''}</div>
+              <div class="attr-bars">
+                <div class="attr-bar">
+                  <div class="label">统率</div>
+                  <div class="bar-wrap"><div class="bar b-lead" style="height:${c.lead/maxAttr*100}%"></div></div>
+                  <div class="value">${c.lead}</div>
+                </div>
+                <div class="attr-bar">
+                  <div class="label">武力</div>
+                  <div class="bar-wrap"><div class="bar b-might" style="height:${c.might/maxAttr*100}%"></div></div>
+                  <div class="value">${c.might}</div>
+                </div>
+                <div class="attr-bar">
+                  <div class="label">智力</div>
+                  <div class="bar-wrap"><div class="bar b-intel" style="height:${c.intel/maxAttr*100}%"></div></div>
+                  <div class="value">${c.intel}</div>
+                </div>
+                <div class="attr-bar">
+                  <div class="label">政治</div>
+                  <div class="bar-wrap"><div class="bar b-politics" style="height:${c.politics/maxAttr*100}%"></div></div>
+                  <div class="value">${c.politics}</div>
+                </div>
+                <div class="attr-bar">
+                  <div class="label">魅力</div>
+                  <div class="bar-wrap"><div class="bar b-charm" style="height:${c.charm/maxAttr*100}%"></div></div>
+                  <div class="value">${c.charm}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function flipCard(index) {
+      document.getElementById('card-' + index).classList.toggle('flipped');
+    }
+  </script>
+</body>
+</html>
