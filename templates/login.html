@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 · 搏卡boka</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+      background-color: #e8e0cc;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .login-box {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 40px 32px;
+      width: 340px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+    .login-box h1 {
+      font-size: 34px;
+      margin: 0 0 6px;
+      color: #2c3e50;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+    .login-box .en {
+      font-size: 13px;
+      color: #999;
+      letter-spacing: 2px;
+      margin-bottom: 28px;
+      text-transform: uppercase;
+    }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      margin: 8px 0;
+      border-radius: 8px;
+      border: 1px solid #d8d0bc;
+      background: #fff;
+      color: #333;
+      font-size: 15px;
+      font-family: inherit;
+    }
+    input:focus {
+      outline: none;
+      border-color: #6aafdd;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 16px;
+      border: none;
+      border-radius: 10px;
+      background: #6aafdd;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      letter-spacing: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 2px 6px rgba(106,175,221,0.3);
+      transition: transform 0.15s;
+    }
+    button:hover { transform: translateY(-2px); background: #5a9fcd; }
+    .error {
+      color: #c97b7b;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h1>搏卡boka</h1>
+    <div class="en">Welcome Boka Juniors</div>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <form method="post">
+      <input name="username" placeholder="账号" required>
+      <input name="password" type="password" placeholder="密码" required>
+      <button type="submit">登录</button>
+    </form>
+  </div>
+</body>
+</html>
