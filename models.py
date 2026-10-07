@@ -25,8 +25,6 @@ class User(UserMixin, db.Model):
     building_cards = db.Column(db.Text, default="{}")
     deputies = db.Column(db.Text, default="{}")
     materials = db.Column(db.Integer, default=0)
-    # 每个建筑上次领取时间：JSON {bid: "2026-01-01T00:00:00"}
-    building_last_collect = db.Column(db.Text, default="{}")
 
     # 挑战
     challenge_level = db.Column(db.Integer, default=1)
