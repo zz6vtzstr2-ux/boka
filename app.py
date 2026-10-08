@@ -864,26 +864,23 @@ def boka_start(room_code):
     if not all(p.ready for p in players):
         return jsonify({"error": "还有玩家未准备"}), 400
 
-    # 检查班级收藏
     class_records = ClassCollection.query.all()
-    if not class_records:
-        return jsonify({"error": "班级收藏册为空，无法开始"}), 400
-
+    n_players = len(players)
+    min_cards = n_players * 3
+    if len(class_records) < min_cards:
+        return jsonify({"error": f"班级收藏册只有 {len(class_records)} 张，{n_players} 人至少需要 {min_cards} 张"}), 400
     class_card_ids = [r.card_id for r in class_records]
 
-    # 优先池：36 天罡 + 6 地煞 = 42 张
+    # 优先池：36 天罡 + 6 地煞
     PRIORITY_EXTRA = ["扈三娘", "凌振", "陶宗旺", "樊瑞", "白胜", "孙二娘"]
     priority_ids = []
     for c in CARDS:
         if c["id"] <= 36 or c["name"] in PRIORITY_EXTRA:
             priority_ids.append(c["id"])
 
-    # 优先池 ∩ 班级收藏
     available_priority = [cid for cid in priority_ids if cid in class_card_ids]
-    # 非优先池
     available_rest = [cid for cid in class_card_ids if cid not in priority_ids]
 
-    # 卡池 = 优先池 42 张（若班级收藏里够）+ 其余随机补足至 42
     random.shuffle(available_priority)
     random.shuffle(available_rest)
     pool = available_priority[:42]
@@ -892,9 +889,8 @@ def boka_start(room_code):
         pool += available_rest[:need]
 
     if len(pool) < len(players):
-        return jsonify({"error": "班级收藏卡不足"}), 400
+        return jsonify({"error": f"卡池只有 {len(pool)} 张，不够 {len(players)} 人分"}), 400
 
-    # 创建对局
     game = BokaGame(
         room_id=room.id,
         round_no=0,
@@ -906,11 +902,9 @@ def boka_start(room_code):
     db.session.add(game)
     db.session.flush()
 
-    # 发牌：每人 min(6, len(pool) // n) 张
     n = len(players)
     cards_per_player = min(6, len(pool) // n)
 
-    # 洗牌
     random.shuffle(pool)
     for i, p in enumerate(players):
         start = i * cards_per_player
@@ -926,21 +920,18 @@ def boka_start(room_code):
         )
         db.session.add(gp)
 
-    # 剩下的牌留在卡袋（pool[cards_per_player * n:]）
     remaining_pool = pool[cards_per_player * n:]
     game.card_pool = json_dumps_safe(remaining_pool)
 
-    # 更新房间状态
     room.status = "playing"
     room.started_at = datetime.now()
 
-    # 初始化第 1 轮
     game.round_no = 1
     game.phase = "selecting"
 
     db.session.commit()
     return jsonify({"success": True})
-
+    
 @app.route('/boka/room/<room_code>/dissolve', methods=['POST'])
 @login_required
 def boka_dissolve(room_code):
