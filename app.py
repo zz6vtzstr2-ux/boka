@@ -1083,6 +1083,8 @@ def boka_play(room_code):
 
 @app.route('/boka/room/<room_code>/battle_state')
 @login_required
+@app.route('/boka/room/<room_code>/battle_state')
+@login_required
 def boka_battle_state(room_code):
     """轮询战斗状态"""
     room = BokaRoom.query.filter_by(room_code=room_code).first()
@@ -1092,64 +1094,77 @@ def boka_battle_state(room_code):
     if not game:
         return jsonify({"error": "无对局"}), 404
 
+    # 检查 revealing 阶段是否已过 3 秒
+    if game.phase == "revealing" and game.revealed_at:
+        elapsed = (datetime.now() - game.revealed_at).total_seconds()
+        if elapsed >= 3.0:
+            # 检查游戏是否已结束
+            gps_check = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+            alive = [g for g in gps_check if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
+            if len(alive) <= 1 and game.phase != "finished":
+                finish_boka_game(game, alive)
+            else:
+                game.round_no += 1
+                game.phase = "selecting"
+                game.revealed_at = None
+                game.round_winner_card_id = None
+                game.winner_card_id = None
+                game.winner_username = None
+                db.session.commit()
+
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     me = next((g for g in gps if g.username == current_user.username), None)
-
-    # 是否所有人都锁定了
     all_locked = all(g.locked for g in gps)
 
     players_view = []
     for g in gps:
-        # 结算阶段，其他人可以看到彼此的备战卡
         ready_cards = json_loads_safe(g.ready_card)
-        show_cards = (game.phase == "revealing") or (g.username == current_user.username)
+        # 只在 revealing / finished 阶段展示所有人的卡
+        # 或者自己能看到自己的卡
+        show_cards = (game.phase in ("revealing", "finished")) or (g.username == current_user.username)
         players_view.append({
             "username": g.username,
             "nickname": g.nickname,
             "is_me": g.username == current_user.username,
             "hand_count": len(json_loads_safe(g.hand)),
             "locked": g.locked,
-            "ready_cards": ready_cards if show_cards else [],
+            "ready_cards": [
+                CARD_BY_ID.get(cid) for cid in (ready_cards if show_cards else []) if CARD_BY_ID.get(cid)
+            ],
             "rank": g.rank,
-            "finished_order": g.finished_order,
+            "score_change": g.score_change or 0,
             "surrendered": g.surrendered,
         })
 
     my_hand_ids = json_loads_safe(me.hand) if me else []
-    my_hand = [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)]
     my_ready_ids = json_loads_safe(me.ready_card) if me else []
-    my_ready = [CARD_BY_ID.get(cid) for cid in my_ready_ids if CARD_BY_ID.get(cid)]
 
     return jsonify({
         "round_no": game.round_no,
         "phase": game.phase,
         "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
         "all_locked": all_locked,
-        "my_hand": my_hand,
-        "my_ready": my_ready,
+        "my_hand": [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)],
+        "my_ready": [CARD_BY_ID.get(cid) for cid in my_ready_ids if CARD_BY_ID.get(cid)],
         "players": players_view,
-        "winner_card_id": game.winner_card_id,
+        "winner_card_id": game.round_winner_card_id,
         "winner_username": game.winner_username,
+        "pool_count": len(json_loads_safe(game.card_pool)),
         "history": json_loads_safe(game.history),
         "finished": game.phase == "finished",
     })
 
-
 def resolve_boka_round(game):
-    """
-    一轮的所有人都锁定后，结算本轮。
-    - 找最大卡（比攻/防）
-    - 最大卡进卡袋
-    - 其余卡进赢家手牌
-    - 更新 game.round_no, phase
+    """所有人都锁定后，结算本轮。
+    流程：找出最大卡 → 更新手牌/卡袋 → 切到 revealing 状态
+    下一轮由 boka_battle_state 在 3 秒后自动切换。
     """
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     is_atk_round = (game.round_no % 2 == 1)
     dim = "atk" if is_atk_round else "def"
     other_dim = "def" if is_atk_round else "atk"
 
-    # 收集本轮的卡
-    played = []  # [{"username": ..., "card_ids": [...], "value": number, "other": number, "is_combo": bool}]
+    played = []
     for g in gps:
         card_ids = json_loads_safe(g.ready_card)
         if not card_ids:
@@ -1162,10 +1177,8 @@ def resolve_boka_round(game):
             other = cards[0][other_dim]
             is_combo = False
         else:
-            # 组合技
             atk, dfn, combo_name = calc_combo_stats(cards)
             if atk is None:
-                # 不是有效组合，按单张最大处理（取攻或防最高的）
                 value = max(c[dim] for c in cards)
                 other = max(c[other_dim] for c in cards)
                 is_combo = False
@@ -1182,21 +1195,17 @@ def resolve_boka_round(game):
         })
 
     if not played:
+        game.revealed_at = datetime.now()
+        game.phase = "revealing"
+        db.session.commit()
         return
 
-    # 检查是否有炸弹（白胜/孙二娘）— 本轮任何一张卡是炸弹
+    # 炸弹检测
     BOMB_NAMES = {"白胜", "孙二娘"}
-    has_bomb = False
-    for p in played:
-        for cid in p["card_ids"]:
-            card = CARD_BY_ID.get(cid)
-            if card and card["name"] in BOMB_NAMES:
-                has_bomb = True
-                break
-        if has_bomb:
-            break
-
-    # 免疫炸弹的组合（bomb_eater / bomb_eater_steal1）
+    has_bomb = any(
+        CARD_BY_ID.get(cid, {}).get("name") in BOMB_NAMES
+        for p in played for cid in p["card_ids"]
+    )
     immune = False
     if has_bomb:
         for p in played:
@@ -1210,26 +1219,19 @@ def resolve_boka_round(game):
             if immune:
                 break
 
-    # 记录本轮
     pool = json_loads_safe(game.card_pool)
-    round_record = {
-        "round": game.round_no,
-        "dim": dim,
-        "played": [],
-    }
+    round_record = {"round": game.round_no, "dim": dim, "played": []}
 
     if has_bomb and not immune:
         # 炸弹生效：所有卡进卡袋
         for p in played:
             pool.extend(p["card_ids"])
-            # 从玩家手牌移除
             g = next(x for x in gps if x.username == p["username"])
             hand = json_loads_safe(g.hand)
             hand = [cid for cid in hand if cid not in p["card_ids"]]
             g.hand = json_dumps_safe(hand)
             g.ready_card = json_dumps_safe([])
             g.locked = False
-
             cards = [CARD_BY_ID.get(cid) for cid in p["card_ids"]]
             round_record["played"].append({
                 "username": p["username"],
@@ -1237,22 +1239,24 @@ def resolve_boka_round(game):
                 "value": p["value"],
                 "result": "bombed",
             })
-        game.winner_card_id = None
+        game.round_winner_card_id = None
         game.winner_username = None
     else:
         # 正常比大小
-        # 排序：value 降序，value 相同比 other，都相同则并列（视为同一名次）
         best = max(played, key=lambda x: (x["value"], x["other"]))
         best_value = best["value"]
         best_other = best["other"]
         winners = [p for p in played if p["value"] == best_value and p["other"] == best_other]
-
-        # 取最大卡 id：用 winners 中的第一个（并列情况简单处理）
         winner = winners[0]
 
-        # 其余所有卡给赢家
         winner_g = next(x for x in gps if x.username == winner["username"])
         winner_hand = json_loads_safe(winner_g.hand)
+
+        # 找最大卡
+        max_card_id = max(
+            winner["card_ids"],
+            key=lambda cid: (CARD_BY_ID.get(cid, {}).get(dim, 0), CARD_BY_ID.get(cid, {}).get(other_dim, 0))
+        )
 
         for p in played:
             g = next(x for x in gps if x.username == p["username"])
@@ -1260,10 +1264,7 @@ def resolve_boka_round(game):
             hand = [cid for cid in hand if cid not in p["card_ids"]]
 
             if p["username"] == winner["username"]:
-                # 赢家：自己的最大卡进卡袋，其他所有卡（含自己的其他）进手牌
-                # 最大卡 ids：取 value/other == best 的第一张（简化）
-                # 为简单：赢家打出的卡里，选一张"最大卡"进卡袋，其他卡进手牌
-                max_card_id = max(p["card_ids"], key=lambda cid: (CARD_BY_ID.get(cid, {}).get(dim, 0), CARD_BY_ID.get(cid, {}).get(other_dim, 0)))
+                # 赢家：最大卡进卡袋，其他所有卡（含自己的其他）进手牌
                 pool.append(max_card_id)
                 for cid in p["card_ids"]:
                     if cid != max_card_id:
@@ -1285,32 +1286,32 @@ def resolve_boka_round(game):
             })
 
         winner_g.hand = json_dumps_safe(winner_hand)
-        game.winner_card_id = max_card_id
+        game.round_winner_card_id = max_card_id
         game.winner_username = winner["username"]
 
     # 检查出完手牌的人
     for g in gps:
         hand = json_loads_safe(g.hand)
         if len(hand) == 0 and g.finished_order is None and not g.surrendered:
-            # 记录出完顺序
             max_order = db.session.query(db.func.max(BokaGamePlayer.finished_order)).filter_by(game_id=game.id).scalar() or 0
             g.finished_order = max_order + 1
 
-    # 判断游戏是否结束
+    # 游戏是否结束
     alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
-    if len(alive) <= 1:
-        # 游戏结束
-        finish_boka_game(game, alive)
-    else:
-        game.round_no += 1
-        game.phase = "selecting"
-
     game.card_pool = json_dumps_safe(pool)
     history = json_loads_safe(game.history)
     history.append(round_record)
     game.history = json_dumps_safe(history)
-    db.session.commit()
 
+    if len(alive) <= 1:
+        # 结束
+        finish_boka_game(game, alive)
+    else:
+        # 进入 revealing 阶段（3 秒后由 battle_state 切下一轮）
+        game.phase = "revealing"
+        game.revealed_at = datetime.now()
+
+    db.session.commit()
 
 def finish_boka_game(game, alive):
     """游戏结束，计算名次、积分"""
@@ -1390,55 +1391,40 @@ def finish_boka_game(game, alive):
         BokaPlayer.query.filter_by(room_id=room.id).update({"ready": False})
         db.session.commit()
 
-
 def calc_boka_score_change(my_score, rank, total_players, avg_score):
     """计算搏卡一局的积分变化"""
-    # 基础分表
+    # 基础分表（按人数、名次）
     base_table = {
-        2: [25],
-        3: [45, 15],
-        4: [60, 15, -15],
-        5: [75, 30, 0, -30],
-        6: [85, 40, 10, -10, -40],
-        7: [95, 50, 20, 0, -20, -50],
-        8: [100, 60, 30, 10, -10, -30, -60],
-        9: [105, 65, 35, 15, -5, -15, -35, -65],
-        10: [110, 70, 40, 20, 0, -20, -40, -70, -90],
-        11: [115, 75, 45, 25, 5, -5, -25, -45, -75, -95],
-        12: [120, 80, 50, 30, 10, 0, -10, -30, -50, -80, -100],
-        13: [125, 85, 55, 35, 15, 5, -5, -15, -35, -55, -85, -105],
-        14: [130, 90, 60, 40, 20, 10, 0, -10, -20, -40, -60, -90, -110],
+        2:  [25, -25],
+        3:  [45, 15, -45],
+        4:  [60, 15, -15, -60],
+        5:  [75, 30, 0, -30, -75],
+        6:  [85, 40, 10, -10, -40, -85],
+        7:  [95, 50, 20, 0, -20, -50, -95],
+        8:  [100, 60, 30, 10, -10, -30, -60, -100],
+        9:  [105, 65, 35, 15, -5, -15, -35, -65, -105],
+        10: [110, 70, 40, 20, 0, -20, -40, -70, -90, -110],
+        11: [115, 75, 45, 25, 5, -5, -25, -45, -75, -95, -115],
+        12: [120, 80, 50, 30, 10, 0, -10, -30, -50, -80, -100, -120],
+        13: [125, 85, 55, 35, 15, 5, -5, -15, -35, -55, -85, -105, -125],
+        14: [130, 90, 60, 40, 20, 10, 0, -10, -20, -40, -60, -90, -110, -130],
     }
-    if total_players < 2:
-        return 0
-    if total_players > 14:
-        total_players = 14
-    if total_players == 2:
-        base = base_table[2][0] if rank == 1 else -25
-    else:
-        # 补齐表长度
-        row = base_table[total_players]
-        if rank <= len(row):
-            base = row[rank - 1]
-        else:
-            base = -25
-        if rank == 1:
-            base = base_table[total_players][0]
-        elif rank == total_players:
-            base = -base_table[total_players][0]
-        elif rank > len(row) - 1:
-            # 中间的位置
-            pass
+    n = max(2, min(14, total_players))
+    row = base_table.get(n, base_table[14])
+    if rank < 1:
+        rank = 1
+    if rank > n:
+        rank = n
+    base = row[rank - 1]
 
-    # 系数
+    # 系数：低分赢加得多，高分赢加得少
     coef = 1 + 0.5 * math.log((avg_score + 1000) / (my_score + 1000))
     coef = max(0.5, min(3.0, coef))
 
     if base >= 0:
         return int(base * coef)
     else:
-        return int(base / coef)
-
+        return -int(-base / coef)
 
 @app.route('/boka/room/<room_code>/surrender', methods=['POST'])
 @login_required
