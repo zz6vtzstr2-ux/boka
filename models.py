@@ -201,3 +201,53 @@ class BokaPlayer(db.Model):
     seat = db.Column(db.Integer, default=0)  # 座位号（按加入顺序，用于布局）
     is_temporary_away = db.Column(db.Boolean, default=False)  # 暂离标记
     joined_at = db.Column(db.DateTime, nullable=True)
+class BokaGame(db.Model):
+    """一局搏卡游戏"""
+    __tablename__ = "boka_game"
+
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.Integer, db.ForeignKey("boka_room.id"), nullable=False)
+    round_no = db.Column(db.Integer, default=0)  # 当前轮次（0=未开始）
+    phase = db.Column(db.String(20), default="waiting")  # waiting / selecting / revealing / finished
+    card_pool = db.Column(db.Text, default="[]")  # 卡袋（剩的牌），JSON 数组 of card_id
+    winner_card_id = db.Column(db.Integer, nullable=True)  # 本轮最大卡 id（用于公告）
+    winner_username = db.Column(db.String(50), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=True)
+    finished_at = db.Column(db.DateTime, nullable=True)
+    # 每轮的记录（用于"记录"弹窗），JSON 数组
+    history = db.Column(db.Text, default="[]")
+
+class BokaGamePlayer(db.Model):
+    """搏卡一局中的玩家状态"""
+    __tablename__ = "boka_game_player"
+
+    id = db.Column(db.Integer, primary_key=True)
+    game_id = db.Column(db.Integer, db.ForeignKey("boka_game.id"), nullable=False)
+    username = db.Column(db.String(50), nullable=False)
+    nickname = db.Column(db.String(50), default="")
+    hand = db.Column(db.Text, default="[]")  # 手牌，JSON 数组 of card_id
+    ready_card = db.Column(db.Text, default="[]")  # 本轮备战区（1 张，或组合技 n 张）
+    locked = db.Column(db.Boolean, default=False)  # 本轮是否已锁定
+    rank = db.Column(db.Integer, nullable=True)  # 最终名次
+    score_change = db.Column(db.Integer, default=0)  # 本局积分变化
+    finished_order = db.Column(db.Integer, nullable=True)  # 出完手牌的顺序（越小越早出完）
+    surrendered = db.Column(db.Boolean, default=False)  # 是否投降
+    surrendered_rank = db.Column(db.Integer, nullable=True)  # 投降时的名次
+    # 美女剩余使用次数（本局共享，但这里放到玩家上取最小值）
+    beauty_used = db.Column(db.Integer, default=0)  # 本局美女被用次数（游戏级共享，冗余存一份方便）
+
+
+class BokaGameRecord(db.Model):
+    """搏卡战绩历史"""
+    __tablename__ = "boka_game_record"
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), nullable=False)
+    game_id = db.Column(db.Integer, nullable=True)
+    room_code = db.Column(db.String(10), nullable=True)
+    rank = db.Column(db.Integer, nullable=True)
+    player_count = db.Column(db.Integer, default=0)
+    score_before = db.Column(db.Integer, default=0)
+    score_change = db.Column(db.Integer, default=0)
+    score_after = db.Column(db.Integer, default=0)
+    played_at = db.Column(db.DateTime, nullable=True)
