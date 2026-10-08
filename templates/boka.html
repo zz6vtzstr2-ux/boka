@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>搏卡 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background-color: #e8e0cc;
+      color: #333;
+      margin: 0;
+      padding: 16px 16px 90px 16px;
+      min-height: 100vh;
+    }
+    .container { max-width: 868px; margin: 0 auto; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .title-block .page-name {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 4px;
+      text-indent: 4px;
+    }
+    .title-block .en {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .back-btn {
+      background: #fce8ec;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid #e8c8d0;
+      font-size: 15px;
+      color: #b85a6a;
+      text-decoration: none;
+    }
+    .back-btn:hover { background: #f8d8de; }
+
+    .panel {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .panel-title {
+      display: inline-block;
+      background: #fdf6d8;
+      color: #8a6d1f;
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: 1px solid #f0e0a0;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-indent: 3px;
+      margin-bottom: 16px;
+    }
+
+    .stats {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+    .stat-box {
+      flex: 1;
+      background: #f9f5e8;
+      border: 1px solid #e0d8c0;
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+    }
+    .stat-box .label {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 6px;
+      letter-spacing: 2px;
+    }
+    .stat-box .value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #b85a6a;
+      letter-spacing: 1px;
+    }
+
+    .btn-main {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-indent: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+      transition: transform 0.15s;
+      margin-bottom: 4px;
+    }
+    .btn-main:hover { transform: translateY(-2px); background: #4aa8d8; }
+
+    .room-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .room-card {
+      background: #f9f5e8;
+      border: 1px solid #e0d8c0;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .room-card .room-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .room-card .room-id {
+      font-size: 18px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 2px;
+    }
+    .room-card .room-tags {
+      font-size: 13px;
+      color: #888;
+    }
+    .room-card .room-tags span { margin-right: 10px; }
+    .room-card .players {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .room-card .player {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #fff;
+      border: 1px solid #e0d8c0;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    .room-card .player img {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+    }
+    .room-card .player .owner-tag {
+      color: #b85a6a;
+      font-weight: bold;
+    }
+    .join-btn {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 8px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 2px;
+    }
+    .join-btn:hover { background: #4aa8d8; }
+
+    .empty-hint {
+      color: #999;
+      font-size: 14px;
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    /* 悬浮返回房间按钮 */
+    .floating-return {
+      display: none;
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      background: #5bb8e8;
+      color: #fff;
+      padding: 14px 22px;
+      border-radius: 30px;
+      font-size: 15px;
+      font-weight: bold;
+      text-decoration: none;
+      box-shadow: 0 4px 16px rgba(91,184,232,0.5);
+      z-index: 100;
+      letter-spacing: 2px;
+      transition: transform 0.15s;
+    }
+    .floating-return:hover { transform: scale(1.05); }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 100px;
+      background: rgba(44,110,90,0.95);
+      color: #fff;
+      padding: 12px 22px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: bold;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title-block">
+        <div class="page-name">搏卡</div>
+        <div class="en">Boka</div>
+      </div>
+      <a href="/" class="back-btn">返回主页</a>
+    </div>
+
+    <div class="panel">
+      <div class="stats">
+        <div class="stat-box">
+          <div class="label">场次</div>
+          <div class="value">{{ games }}</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">积分</div>
+          <div class="value">{{ score }}</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">排名</div>
+          <div class="value">{{ rank }}</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-main" onclick="createRoom()">创建房间</button>
+
+    <div class="panel">
+      <div class="panel-title">房间列表</div>
+      <div class="room-list" id="roomList"></div>
+    </div>
+  </div>
+
+  {% if current_user.boka_room_id %}
+  <a class="floating-return" id="floatReturn" href="/boka/room/{{ current_user.boka_room_id }}">返回房间</a>
+  {% endif %}
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const myRoomId = {{ current_user.boka_room_id or 0 }};
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    async function createRoom() {
+      const res = await fetch('/boka/create', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      window.location.href = '/boka/room/' + data.room_id;
+    }
+
+    async function refreshRooms() {
+      const res = await fetch('/boka/rooms');
+      const data = await res.json();
+      const list = document.getElementById('roomList');
+      if (!data.rooms || data.rooms.length === 0) {
+        list.innerHTML = '<div class="empty-hint">暂无房间，点上方按钮创建一个</div>';
+        return;
+      }
+      list.innerHTML = '';
+      data.rooms.forEach(r => {
+        const div = document.createElement('div');
+        div.className = 'room-card';
+        div.innerHTML = `
+          <div class="room-head">
+            <span class="room-id">房间 ${r.room_id}</span>
+            <span class="room-tags">
+              <span>${r.count} 人</span>
+              <span>房主：${r.owner}</span>
+            </span>
+          </div>
+          <div class="players">
+            ${r.players.map(p => `
+              <div class="player">
+                <img src="${p.avatar}">
+                <span>${p.name}</span>
+                ${p.is_owner ? '<span class="owner-tag">（房主）</span>' : ''}
+              </div>
+            `).join('')}
+          </div>
+          <button class="join-btn" onclick="joinRoom('${r.room_id}')">
+            ${r.joined ? '返回房间' : '加入房间'}
+          </button>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function joinRoom(roomId) {
+      window.location.href = '/boka/room/' + roomId;
+    }
+
+    refreshRooms();
+    setInterval(refreshRooms, 3000);
+  </script>
+</body>
+</html>
