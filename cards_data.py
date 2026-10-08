@@ -144,7 +144,7 @@ CARDS = [
      "info": "浔阳江人氏，梁山泊四寨水军头领，位列第六十九"},
     {"id": 70, "name": "孟康", "nick": "玉幡竿", "atk": 38, "def": 10, "lead": 48, "might": 62, "intel": 64, "politics": 76, "charm": 79,
      "info": "真定州人氏，梁山泊掌管监造诸事头领，负责监造战船，位列第七十"},
-    {"id": 71, "name": "侯健", "nick": "通背猿", "atk": 50, "def": 10, "lead": 25, "might": 50, "intel": 69, "politics": 71, "charm": 54,
+    {"id": 71, "name": "侯健", "nick": "通臂猿", "atk": 50, "def": 10, "lead": 25, "might": 50, "intel": 69, "politics": 71, "charm": 54,
      "info": "洪都人氏，梁山泊掌管监造诸事头领，负责专造一应旌旗袍袄，位列第七十一"},
     {"id": 72, "name": "陈达", "nick": "跳涧虎", "atk": 45, "def": 15, "lead": 62, "might": 67, "intel": 20, "politics": 18, "charm": 35,
      "info": "邺城人氏，梁山泊马军小彪将兼远探出哨头领，位列第七十二"},
