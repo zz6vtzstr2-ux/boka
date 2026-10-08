@@ -756,7 +756,7 @@
 
     async function pollState() {
       try {
-        const res = await fetch('/boka/room/' + roomCode + '/state');
+        const res = await fetch('/boka/room/' + roomCode + '/battle_state');
         const data = await res.json();
         if (data.error) return;
 
