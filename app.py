@@ -1032,6 +1032,33 @@ def boka_battle(room_code):
                            hand=my_hand,
                            my_ready=json_loads_safe(me.ready_card) if me else [])
 
+@app.route('/boka/room/<room_code>/validate_combo', methods=['POST'])
+@login_required
+def boka_validate_combo(room_code):
+    """前端问：这些卡能否作为一个合法的出战组合？"""
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+
+    card_ids = request.json.get('card_ids', [])
+    if not isinstance(card_ids, list):
+        return jsonify({"error": "参数错误"}), 400
+    if len(card_ids) == 0:
+        return jsonify({"valid": False, "reason": "至少出 1 张"})
+
+    cards = [CARD_BY_ID.get(cid) for cid in card_ids if CARD_BY_ID.get(cid)]
+    if len(cards) != len(card_ids):
+        return jsonify({"valid": False, "reason": "卡不存在"})
+
+    if len(cards) == 1:
+        return jsonify({"valid": True, "type": "single"})
+
+    # 多张：必须是合法组合
+    atk, dfn, combo_name = calc_combo_stats(cards)
+    if atk is None:
+        return jsonify({"valid": False, "reason": "不是有效组合"})
+    return jsonify({"valid": True, "type": "combo", "name": combo_name, "atk": atk, "def": dfn})
+
 @app.route('/boka/room/<room_code>/play', methods=['POST'])
 @login_required
 def boka_play(room_code):
