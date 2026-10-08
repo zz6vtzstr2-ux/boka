@@ -1365,7 +1365,7 @@ def finish_boka_game(game, alive):
     for idx, g in enumerate(rank_order, start=1):
         g.rank = idx
 
-    # 结算积分（暂不做空气墙，只是基础分 + 系数）
+   # 结算积分
     for g in rank_order:
         u = User.query.filter_by(username=g.username).first()
         if not u:
@@ -1373,10 +1373,22 @@ def finish_boka_game(game, alive):
         old_score = u.score or 0
         change = calc_boka_score_change(old_score, g.rank, n, avg_score)
         new_score = old_score + change
-        # 空气墙：每 1000 分一道
-        floor = (new_score // 1000) * 1000
+
+        # 空气墙：不能低于"历史最高分所在档位"
+        if u.max_score is None:
+            u.max_score = 0
+        floor = (u.max_score // 1000) * 1000
         if new_score < floor:
             new_score = floor
+
+        # 兜底：不能为负
+        if new_score < 0:
+            new_score = 0
+
+        # 更新历史最高
+        if new_score > u.max_score:
+            u.max_score = new_score
+
         g.score_change = new_score - old_score
         u.score = new_score
 
@@ -1393,11 +1405,7 @@ def finish_boka_game(game, alive):
             played_at=datetime.now(),
         )
         db.session.add(rec)
-
-    game.phase = "finished"
-    game.finished_at = datetime.now()
-    db.session.commit()
-
+    
     # 房间回到 waiting
     room = BokaRoom.query.get(game.room_id)
     if room:
@@ -2042,9 +2050,10 @@ with app.app_context():
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS collection_migrated BOOLEAN DEFAULT FALSE',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boss_fatigue_week INTEGER DEFAULT 0',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boka_room_id INTEGER',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS max_score INTEGER DEFAULT 0',
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS revealed_at TIMESTAMP',
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS round_winner_card_id INTEGER',
-   ] 
+    ]
     
     try:
         with db.engine.begin() as conn:
