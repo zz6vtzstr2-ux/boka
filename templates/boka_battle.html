@@ -652,6 +652,15 @@
           cards.appendChild(makeHeroCard(c, isWinner ? 'winner' : ''));
         });
 
+        const cards = document.createElement('div');
+        cards.className = 'row-cards';
+        const canShow = (currentPhase === 'revealing' || currentPhase === 'finished');
+        if (canShow) {
+          (p.ready_cards || []).forEach(c => {
+            const isWinner = winnerHighlightActive && p.username === winnerUsername;
+            cards.appendChild(makeHeroCard(c, isWinner ? 'winner' : ''));
+          });
+        }
         row.appendChild(avatar);
         row.appendChild(info);
         row.appendChild(cards);
@@ -685,11 +694,15 @@
 
         const cards = document.createElement('div');
         cards.className = 'cards-row';
-        (p.ready_cards || []).forEach(c => {
-          const isWinner = winnerHighlightActive && p.username === winnerUsername;
-          cards.appendChild(makeHeroCard(c, isWinner ? 'winner' : ''));
-        });
-
+        // 只在 revealing / finished 阶段显示卡
+        const canShow = (currentPhase === 'revealing' || currentPhase === 'finished');
+        if (canShow) {
+          (p.ready_cards || []).forEach(c => {
+            const isWinner = winnerHighlightActive && p.username === winnerUsername;
+            cards.appendChild(makeHeroCard(c, isWinner ? 'winner' : ''));
+          });
+        }
+        
         if (pos.side === 'top') {
           div.appendChild(avatar);
           div.appendChild(info);
@@ -750,20 +763,23 @@
         handEl.appendChild(d);
       });
 
-      (state.my_ready || []).forEach(c => {
-        const d = makeHeroCard(c, '');
-        if (!locked) {
-          d.onclick = () => {
-            myHand.push(c);
-            myReady = myReady.filter(x => x.id !== c.id);
-            state.my_hand = myHand;
-            state.my_ready = myReady;
-            renderMyArea(state);
-            validateReady();
-          };
-        }
-        readyEl.appendChild(d);
-      });
+      // 只有 selecting 阶段才显示备战区（revealing 阶段清空）
+      if (currentPhase === 'selecting') {
+        (state.my_ready || []).forEach(c => {
+          const d = makeHeroCard(c, '');
+          if (!locked) {
+            d.onclick = () => {
+              myHand.push(c);
+              myReady = myReady.filter(x => x.id !== c.id);
+              state.my_hand = myHand;
+              state.my_ready = myReady;
+              renderMyArea(state);
+              validateReady();
+            };
+          }
+          readyEl.appendChild(d);
+        });
+      }
 
       const playBtn = document.getElementById('playBtn');
       const hasReady = (state.my_ready || []).length > 0;
