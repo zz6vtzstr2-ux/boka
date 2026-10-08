@@ -2011,11 +2011,13 @@ with app.app_context():
 
     from sqlalchemy import text
    
-    migration_sql = [
+   migration_sql = [
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS collection_migrated BOOLEAN DEFAULT FALSE',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boss_fatigue_week INTEGER DEFAULT 0',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boka_room_id INTEGER',
-    ]
+        'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS revealed_at TIMESTAMP',
+        'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS round_winner_card_id INTEGER',
+   ] 
     
     try:
         with db.engine.begin() as conn:
