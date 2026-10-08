@@ -36,6 +36,9 @@ class User(UserMixin, db.Model):
     monthly_score = db.Column(db.Integer, default=0)
     boka_champion_months = db.Column(db.Text, default="[]")
 
+    # 搏卡当前所在房间（暂离/重连用）
+    boka_room_id = db.Column(db.Integer, nullable=True)
+    
     # 搏卡历史最高
     boka_best_score = db.Column(db.Integer, default=0)
     boka_best_time = db.Column(db.String(20), default="")
@@ -174,3 +177,27 @@ class BossBattle(db.Model):
     started_at = db.Column(db.DateTime, nullable=False)
     ends_at = db.Column(db.DateTime, nullable=False)
     finished = db.Column(db.Boolean, default=False)
+class BokaRoom(db.Model):
+    """搏卡房间"""
+    __tablename__ = "boka_room"
+
+    id = db.Column(db.Integer, primary_key=True)
+    room_code = db.Column(db.String(10), unique=True, nullable=False)
+    owner_username = db.Column(db.String(50), nullable=False)
+    status = db.Column(db.String(20), default="waiting")  # waiting / playing / finished
+    max_players = db.Column(db.Integer, default=14)
+    created_at = db.Column(db.DateTime, nullable=True)
+    started_at = db.Column(db.DateTime, nullable=True)
+
+class BokaPlayer(db.Model):
+    """搏卡房间成员"""
+    __tablename__ = "boka_player"
+
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.Integer, db.ForeignKey("boka_room.id"), nullable=False)
+    username = db.Column(db.String(50), nullable=False)
+    nickname = db.Column(db.String(50), default="")
+    ready = db.Column(db.Boolean, default=False)
+    seat = db.Column(db.Integer, default=0)  # 座位号（按加入顺序，用于布局）
+    is_temporary_away = db.Column(db.Boolean, default=False)  # 暂离标记
+    joined_at = db.Column(db.DateTime, nullable=True)
