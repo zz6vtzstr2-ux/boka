@@ -549,7 +549,8 @@
     let winnerHighlightTimer = null;
     let isMobileView = false;
     let lastWinnerUsername = null;
-
+    let comboValid = true;  // 备战区组合是否合法
+   
     function showToast(msg) {
       const t = document.getElementById('toast');
       t.textContent = msg;
@@ -765,12 +766,23 @@
       });
 
       const playBtn = document.getElementById('playBtn');
-      playBtn.disabled = locked || (state.my_ready || []).length === 0;
-      playBtn.textContent = locked ? '已锁定' : '出战';
-    }
+      const hasReady = (state.my_ready || []).length > 0;
+      playBtn.disabled = locked || !hasReady || !comboValid;
+      if (locked) {
+        playBtn.textContent = '已锁定';
+      } else if (!hasReady) {
+        playBtn.textContent = '出战';
+      } else if (!comboValid) {
+        playBtn.textContent = '组合不合法';
+      } else {
+        playBtn.textContent = '出战';
+      }
 
     async function validateReady() {
-      if (!myReady || myReady.length === 0) return;
+      if (!myReady || myReady.length === 0) {
+        comboValid = true;
+        return;
+      }
       try {
         const res = await fetch('/boka/room/' + roomCode + '/validate_combo', {
           method: 'POST',
@@ -778,17 +790,20 @@
           body: JSON.stringify({card_ids: myReady.map(c => c.id)})
         });
         const data = await res.json();
+        comboValid = !!data.valid;
         const playBtn = document.getElementById('playBtn');
-        if (!data.valid) {
+        if (!comboValid) {
           playBtn.disabled = true;
           playBtn.textContent = data.reason || '组合不合法';
         } else if (!lockedLocally) {
           playBtn.disabled = false;
           playBtn.textContent = '出战';
         }
-      } catch (e) {}
-    }
-
+      } catch (e) {
+        comboValid = true;
+      }
+      }
+    
     function renderRecord(history) {
       const el = document.getElementById('recordContent');
       if (!history || history.length === 0) { el.innerHTML = '暂无记录'; return; }
