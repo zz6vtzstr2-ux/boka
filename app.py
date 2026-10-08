@@ -5,7 +5,11 @@ import math
 from datetime import datetime, timedelta, date
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory, make_response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
-from models import db, User, ClassCollection, WorldBoss, BossDeck, BossDamage, BossBattle
+from models import (
+    db, User, ClassCollection,
+    WorldBoss, BossDeck, BossDamage, BossBattle,
+    BokaRoom, BokaPlayer,
+)
 from cards_data import CARDS, CARD_BY_NAME, CARD_BY_ID
 from combos_data import COMBOS, SPECIAL_CARDS
 from game_logic import (
@@ -649,76 +653,354 @@ def challenge_result():
     return jsonify({"success": False})
 
 # ========== 搏卡 ==========
+def gen_room_code():
+    """生成唯一 6 位房间码"""
+    chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    for _ in range(50):
+        code = ''.join(random.choices(chars, k=6))
+        if not BokaRoom.query.filter_by(room_code=code).first():
+            return code
+    return ''.join(random.choices(chars, k=6))
+
 @app.route('/boka')
 @login_required
 def boka():
+    # 计算我的排名（积分榜）
+    all_users = User.query.order_by(User.score.desc()).all()
+    my_rank = 0
+    for idx, u in enumerate(all_users, start=1):
+        if u.id == current_user.id:
+            my_rank = idx
+            break
+    # 我的场次：暂时用 0（后面战绩表可加）
     return render_template('boka.html',
-                           games=0, score=current_user.score, rank=0)
+                           games=0,
+                           score=current_user.score,
+                           rank=my_rank)
 
 @app.route('/boka/create', methods=['POST'])
 @login_required
 def boka_create():
-    room_id = ''.join(random.choices('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', k=6))
-    ROOMS[room_id] = {"owner": current_user.username, "players": [current_user.username]}
-    return jsonify({"room_id": room_id})
+    # 如果已在别的房间，先退出
+    leave_any_room(current_user)
+
+    code = gen_room_code()
+    room = BokaRoom(
+        room_code=code,
+        owner_username=current_user.username,
+        status="waiting",
+        max_players=14,
+        created_at=datetime.now(),
+    )
+    db.session.add(room)
+    db.session.flush()  # 拿到 room.id
+
+    p = BokaPlayer(
+        room_id=room.id,
+        username=current_user.username,
+        nickname=current_user.nickname or current_user.username,
+        ready=False,
+        seat=0,
+        joined_at=datetime.now(),
+    )
+    db.session.add(p)
+    current_user.boka_room_id = room.id
+    db.session.commit()
+    return jsonify({"room_id": code})
 
 @app.route('/boka/rooms')
 @login_required
 def boka_rooms():
-    rooms = []
-    for rid, r in ROOMS.items():
-        rooms.append({
-            "room_id": rid,
+    """列出所有 waiting 状态的房间"""
+    rooms = BokaRoom.query.filter_by(status="waiting").order_by(BokaRoom.created_at.desc()).all()
+    result = []
+    for r in rooms:
+        players = BokaPlayer.query.filter_by(room_id=r.id).all()
+        result.append({
+            "room_id": r.room_code,
             "status": "准备中",
-            "count": len(r["players"]),
-            "owner": r["owner"],
-            "players": [{"name": p, "avatar": f"/static/avatars/{p}.jpg", "is_owner": p == r["owner"]} for p in r["players"]],
-            "joined": current_user.username in r["players"]
+            "count": len(players),
+            "owner": r.owner_username,
+            "players": [
+                {"name": p.nickname or p.username,
+                 "username": p.username,
+                 "avatar": f"/static/avatars/{p.username}.jpg",
+                 "is_owner": p.username == r.owner_username}
+                for p in players
+            ],
+            "joined": any(p.username == current_user.username for p in players),
         })
-    return jsonify({"rooms": rooms})
+    return jsonify({"rooms": result})
 
-@app.route('/boka/room/<room_id>')
+def leave_any_room(user):
+    """把用户从任何房间移除（如果不是房主；若是房主则解散房间）"""
+    if not user.boka_room_id:
+        return
+    room = BokaRoom.query.get(user.boka_room_id)
+    if room:
+        if room.owner_username == user.username:
+            # 房主离开 = 解散
+            BokaPlayer.query.filter_by(room_id=room.id).delete()
+            db.session.delete(room)
+        else:
+            BokaPlayer.query.filter_by(room_id=room.id, username=user.username).delete()
+    user.boka_room_id = None
+
+@app.route('/boka/room/<room_code>')
 @login_required
-def boka_room(room_id):
+def boka_room(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return redirect(url_for('boka'))
+
+    # 如果我不在这个房间，加入
+    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
+    if not me:
+        # 先离开其他房间
+        if current_user.boka_room_id and current_user.boka_room_id != room.id:
+            leave_any_room(current_user)
+            db.session.commit()
+            room = BokaRoom.query.filter_by(room_code=room_code).first()
+            if not room:
+                return redirect(url_for('boka'))
+            me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
+
+        if not me:
+            player_count = BokaPlayer.query.filter_by(room_id=room.id).count()
+            if player_count >= room.max_players:
+                return "房间已满", 403
+            me = BokaPlayer(
+                room_id=room.id,
+                username=current_user.username,
+                nickname=current_user.nickname or current_user.username,
+                ready=False,
+                seat=player_count,
+                joined_at=datetime.now(),
+            )
+            db.session.add(me)
+            current_user.boka_room_id = room.id
+            db.session.commit()
+
+    if room.status == "playing":
+        return redirect(url_for('boka_battle', room_code=room_code))
+
+    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+    ready_count = sum(1 for p in players if p.ready)
+    is_owner = room.owner_username == current_user.username
+    is_ready = me.ready
+
+    # 如果已离开（暂离状态），进来就恢复
+    if me.is_temporary_away:
+        me.is_temporary_away = False
+        db.session.commit()
+
     return render_template('boka_room.html',
-                           room_id=room_id,
+                           room_code=room.room_code,
+                           room_id=room.id,
                            invite_url=request.url,
-                           ready_count=0,
-                           player_count=1,
-                           is_ready=False,
-                           is_owner=True,
-                           players=[{"username": current_user.username,
-                                     "nickname": current_user.nickname or current_user.username,
-                                     "is_owner": True, "ready": False}])
+                           ready_count=ready_count,
+                           player_count=len(players),
+                           is_ready=is_ready,
+                           is_owner=is_owner,
+                           players=[
+                               {"username": p.username,
+                                "nickname": p.nickname or p.username,
+                                "is_owner": p.username == room.owner_username,
+                                "ready": p.ready,
+                                "is_away": p.is_temporary_away}
+                               for p in players
+                           ])
 
-@app.route('/boka/room/<room_id>/ready', methods=['POST'])
+@app.route('/boka/room/<room_code>/state')
 @login_required
-def boka_ready(room_id):
+def boka_room_state(room_code):
+    """轮询用：返回房间状态"""
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+
+    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+    return jsonify({
+        "status": room.status,
+        "ready_count": sum(1 for p in players if p.ready),
+        "player_count": len(players),
+        "owner": room.owner_username,
+        "players": [
+            {"username": p.username,
+             "nickname": p.nickname or p.username,
+             "is_owner": p.username == room.owner_username,
+             "ready": p.ready,
+             "is_away": p.is_temporary_away}
+            for p in players
+        ],
+    })
+
+@app.route('/boka/room/<room_code>/ready', methods=['POST'])
+@login_required
+def boka_ready(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
+    if not me:
+        return jsonify({"error": "你不在房间"}), 400
+    me.ready = not me.ready
+    db.session.commit()
+    return jsonify({"success": True, "ready": me.ready})
+
+@app.route('/boka/room/<room_code>/start', methods=['POST'])
+@login_required
+def boka_start(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    if room.owner_username != current_user.username:
+        return jsonify({"error": "只有房主能开始"}), 403
+
+    players = BokaPlayer.query.filter_by(room_id=room.id).all()
+    if len(players) < 2:
+        return jsonify({"error": "至少需要 2 名玩家"}), 400
+    if not all(p.ready for p in players):
+        return jsonify({"error": "还有玩家未准备"}), 400
+
+    room.status = "playing"
+    room.started_at = datetime.now()
+    db.session.commit()
     return jsonify({"success": True})
 
-@app.route('/boka/room/<room_id>/start', methods=['POST'])
+@app.route('/boka/room/<room_code>/dissolve', methods=['POST'])
 @login_required
-def boka_start(room_id):
+def boka_dissolve(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    if room.owner_username != current_user.username:
+        return jsonify({"error": "只有房主能解散"}), 403
+
+    # 清掉所有成员的 boka_room_id
+    players = BokaPlayer.query.filter_by(room_id=room.id).all()
+    for p in players:
+        u = User.query.filter_by(username=p.username).first()
+        if u:
+            u.boka_room_id = None
+
+    BokaPlayer.query.filter_by(room_id=room.id).delete()
+    db.session.delete(room)
+    db.session.commit()
     return jsonify({"success": True})
 
-@app.route('/boka/room/<room_id>/dissolve', methods=['POST'])
+@app.route('/boka/room/<room_code>/leave', methods=['POST'])
 @login_required
-def boka_dissolve(room_id):
-    ROOMS.pop(room_id, None)
+def boka_leave(room_code):
+    """暂离房间：保留座位，标记 is_temporary_away"""
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
+    if not me:
+        return jsonify({"error": "你不在房间"}), 400
+    me.is_temporary_away = True
+    me.ready = False
+    db.session.commit()
     return jsonify({"success": True})
 
-@app.route('/boka/room/<room_id>/battle')
+@app.route('/boka/room/<room_code>/quit', methods=['POST'])
 @login_required
-def boka_battle(room_id):
+def boka_quit(room_code):
+    """彻底退出房间"""
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    if room.owner_username == current_user.username:
+        # 房主退出 = 解散
+        players = BokaPlayer.query.filter_by(room_id=room.id).all()
+        for p in players:
+            u = User.query.filter_by(username=p.username).first()
+            if u:
+                u.boka_room_id = None
+        BokaPlayer.query.filter_by(room_id=room.id).delete()
+        db.session.delete(room)
+    else:
+        BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).delete()
+        current_user.boka_room_id = None
+    db.session.commit()
+    return jsonify({"success": True})
+
+@app.route('/boka/room/<room_code>/battle')
+@login_required
+def boka_battle(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return redirect(url_for('boka'))
+
+    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+    # 站位计算
+    layout = calc_boka_layout(len(players), current_user.username, players)
+
     return render_template('boka_battle.html',
-                           room_id=room_id,
-                           players=[],
+                           room_code=room_code,
+                           room_id=room.id,
+                           players=[
+                               {"username": p.username,
+                                "nickname": p.nickname or p.username,
+                                "is_me": p.username == current_user.username,
+                                "seat": p.seat}
+                               for p in players
+                           ],
+                           layout=layout,
                            hand=[])
 
-@app.route('/boka/room/<room_id>/play', methods=['POST'])
+@app.route('/boka/room/<room_code>/play', methods=['POST'])
 @login_required
-def boka_play(room_id):
+def boka_play(room_code):
+    # 战斗逻辑下一步做
     return jsonify({"success": True})
+
+def calc_boka_layout(n, my_username, players):
+    """根据人数和我在房间里的位置，返回每个玩家的屏幕位置 (side, index)
+    side: top / left / right / bottom
+    """
+    # 找我在 players 里的索引
+    my_idx = next((i for i, p in enumerate(players) if p.username == my_username), 0)
+    # 我永远放底部，按顺时针旋转
+    # 生成一个顺序列表：从我开始，顺时针：bottom, left(从下往上), top(从左往右), right(从上往下)
+    ordered = []
+    # 从 我 开始往"左"方向逆时针旋转一圈
+    # 简化：我 = 底部；我后面（索引+1）的人按顺时针放到左侧最下面，依次往上，然后到顶部……
+    # 但为了简单，我们直接按"上/左/右/下"四个区域分布
+    #
+    # 计算各区域人数：
+    if n == 1:
+        areas = {"bottom": 1}
+    else:
+        rest = n - 1  # 除自己外
+        # 先上 1
+        top = 1
+        rest -= 1
+        # 若剩余奇数，上再 +1
+        if rest % 2 == 1:
+            top += 1
+            rest -= 1
+        # 剩余平分给左右
+        left = rest // 2
+        right = rest // 2
+        areas = {"top": top, "left": left, "right": right, "bottom": 1}
+
+    # 分配玩家：我在 bottom 中间
+    # 其他人按索引顺序（从我之后开始，环绕）填充 top/left/right
+    others = [p for p in players if p.username != my_username]
+    # 简化：不严格要求位置顺序，只保证数量
+    result = {}
+    result[my_username] = {"side": "bottom", "index": 0}
+    idx = 0
+    for side in ["top", "left", "right"]:
+        count = areas.get(side, 0)
+        for i in range(count):
+            if idx >= len(others):
+                break
+            result[others[idx].username] = {"side": side, "index": i}
+            idx += 1
+    return result
 
 # ========== 世界 Boss ==========
 @app.route('/world_boss')
@@ -1238,10 +1520,13 @@ with app.app_context():
     db.create_all()
 
     from sqlalchemy import text
+   
     migration_sql = [
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS collection_migrated BOOLEAN DEFAULT FALSE',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boss_fatigue_week INTEGER DEFAULT 0',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boka_room_id INTEGER',
     ]
+    
     try:
         with db.engine.begin() as conn:
             for sql in migration_sql:
