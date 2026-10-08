@@ -9,6 +9,7 @@ from models import (
     db, User, ClassCollection,
     WorldBoss, BossDeck, BossDamage, BossBattle,
     BokaRoom, BokaPlayer,
+    BokaGame, BokaGamePlayer, BokaGameRecord,
 )
 from cards_data import CARDS, CARD_BY_NAME, CARD_BY_ID
 from combos_data import COMBOS, SPECIAL_CARDS
@@ -857,14 +858,86 @@ def boka_start(room_code):
     if room.owner_username != current_user.username:
         return jsonify({"error": "只有房主能开始"}), 403
 
-    players = BokaPlayer.query.filter_by(room_id=room.id).all()
+    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
     if len(players) < 2:
         return jsonify({"error": "至少需要 2 名玩家"}), 400
     if not all(p.ready for p in players):
         return jsonify({"error": "还有玩家未准备"}), 400
 
+    # 检查班级收藏
+    class_records = ClassCollection.query.all()
+    if not class_records:
+        return jsonify({"error": "班级收藏册为空，无法开始"}), 400
+
+    class_card_ids = [r.card_id for r in class_records]
+
+    # 优先池：36 天罡 + 6 地煞 = 42 张
+    PRIORITY_EXTRA = ["扈三娘", "凌振", "陶宗旺", "樊瑞", "白胜", "孙二娘"]
+    priority_ids = []
+    for c in CARDS:
+        if c["id"] <= 36 or c["name"] in PRIORITY_EXTRA:
+            priority_ids.append(c["id"])
+
+    # 优先池 ∩ 班级收藏
+    available_priority = [cid for cid in priority_ids if cid in class_card_ids]
+    # 非优先池
+    available_rest = [cid for cid in class_card_ids if cid not in priority_ids]
+
+    # 卡池 = 优先池 42 张（若班级收藏里够）+ 其余随机补足至 42
+    random.shuffle(available_priority)
+    random.shuffle(available_rest)
+    pool = available_priority[:42]
+    if len(pool) < 42:
+        need = 42 - len(pool)
+        pool += available_rest[:need]
+
+    if len(pool) < len(players):
+        return jsonify({"error": "班级收藏卡不足"}), 400
+
+    # 创建对局
+    game = BokaGame(
+        room_id=room.id,
+        round_no=0,
+        phase="waiting",
+        card_pool=json_dumps_safe(pool),
+        history=json_dumps_safe([]),
+        created_at=datetime.now(),
+    )
+    db.session.add(game)
+    db.session.flush()
+
+    # 发牌：每人 min(6, len(pool) // n) 张
+    n = len(players)
+    cards_per_player = min(6, len(pool) // n)
+
+    # 洗牌
+    random.shuffle(pool)
+    for i, p in enumerate(players):
+        start = i * cards_per_player
+        end = start + cards_per_player
+        hand = pool[start:end]
+        gp = BokaGamePlayer(
+            game_id=game.id,
+            username=p.username,
+            nickname=p.nickname or p.username,
+            hand=json_dumps_safe(hand),
+            ready_card=json_dumps_safe([]),
+            locked=False,
+        )
+        db.session.add(gp)
+
+    # 剩下的牌留在卡袋（pool[cards_per_player * n:]）
+    remaining_pool = pool[cards_per_player * n:]
+    game.card_pool = json_dumps_safe(remaining_pool)
+
+    # 更新房间状态
     room.status = "playing"
     room.started_at = datetime.now()
+
+    # 初始化第 1 轮
+    game.round_no = 1
+    game.phase = "selecting"
+
     db.session.commit()
     return jsonify({"success": True})
 
@@ -933,28 +1006,471 @@ def boka_battle(room_code):
     if not room:
         return redirect(url_for('boka'))
 
-    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
-    # 站位计算
-    layout = calc_boka_layout(len(players), current_user.username, players)
+    # 拿到本局
+    game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
+    if not game:
+        return redirect(url_for('boka_room', room_code=room_code))
 
+    gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+    layout = calc_boka_layout(len(gps), current_user.username, gps)
+
+    me = next((g for g in gps if g.username == current_user.username), None)
+    my_hand_ids = json_loads_safe(me.hand) if me else []
+    my_hand = [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)]
+
+    players_view = []
+    for g in gps:
+        players_view.append({
+            "username": g.username,
+            "nickname": g.nickname,
+            "is_me": g.username == current_user.username,
+            "hand_count": len(json_loads_safe(g.hand)),
+            "locked": g.locked,
+        })
+
+    round_phase = "比攻" if game.round_no % 2 == 1 else "比防"
     return render_template('boka_battle.html',
                            room_code=room_code,
                            room_id=room.id,
-                           players=[
-                               {"username": p.username,
-                                "nickname": p.nickname or p.username,
-                                "is_me": p.username == current_user.username,
-                                "seat": p.seat}
-                               for p in players
-                           ],
+                           game_id=game.id,
+                           round_no=game.round_no,
+                           round_phase=round_phase,
+                           phase=game.phase,
+                           players=players_view,
                            layout=layout,
-                           hand=[])
+                           hand=my_hand,
+                           my_ready=json_loads_safe(me.ready_card) if me else [])
 
 @app.route('/boka/room/<room_code>/play', methods=['POST'])
 @login_required
 def boka_play(room_code):
-    # 战斗逻辑下一步做
+    """玩家点出战：把自己的备战区锁定"""
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
+    if not game or game.phase not in ("selecting",):
+        return jsonify({"error": "当前不可出牌"}), 400
+
+    me = BokaGamePlayer.query.filter_by(game_id=game.id, username=current_user.username).first()
+    if not me:
+        return jsonify({"error": "你不在本局"}), 403
+    if me.locked:
+        return jsonify({"error": "你已经锁定"}), 400
+
+    card_ids = request.json.get('card_ids', [])
+    if not isinstance(card_ids, list) or len(card_ids) < 1:
+        return jsonify({"error": "至少出 1 张"}), 400
+
+    # 校验卡在手牌
+    my_hand = json_loads_safe(me.hand)
+    for cid in card_ids:
+        if cid not in my_hand:
+            return jsonify({"error": f"卡 {cid} 不在手牌"}), 400
+
+    me.ready_card = json_dumps_safe(card_ids)
+    me.locked = True
+    db.session.commit()
+
+    # 检查是否所有人都锁定了
+    all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+    if all(p.locked for p in all_players):
+        # 全部锁定 → 结算本轮
+        resolve_boka_round(game)
+
     return jsonify({"success": True})
+
+
+@app.route('/boka/room/<room_code>/state')
+@login_required
+def boka_battle_state(room_code):
+    """轮询战斗状态"""
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
+    if not game:
+        return jsonify({"error": "无对局"}), 404
+
+    gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+    me = next((g for g in gps if g.username == current_user.username), None)
+
+    # 是否所有人都锁定了
+    all_locked = all(g.locked for g in gps)
+
+    players_view = []
+    for g in gps:
+        # 结算阶段，其他人可以看到彼此的备战卡
+        ready_cards = json_loads_safe(g.ready_card)
+        show_cards = (game.phase == "revealing") or (g.username == current_user.username)
+        players_view.append({
+            "username": g.username,
+            "nickname": g.nickname,
+            "is_me": g.username == current_user.username,
+            "hand_count": len(json_loads_safe(g.hand)),
+            "locked": g.locked,
+            "ready_cards": ready_cards if show_cards else [],
+            "rank": g.rank,
+            "finished_order": g.finished_order,
+            "surrendered": g.surrendered,
+        })
+
+    my_hand_ids = json_loads_safe(me.hand) if me else []
+    my_hand = [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)]
+    my_ready_ids = json_loads_safe(me.ready_card) if me else []
+    my_ready = [CARD_BY_ID.get(cid) for cid in my_ready_ids if CARD_BY_ID.get(cid)]
+
+    return jsonify({
+        "round_no": game.round_no,
+        "phase": game.phase,
+        "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
+        "all_locked": all_locked,
+        "my_hand": my_hand,
+        "my_ready": my_ready,
+        "players": players_view,
+        "winner_card_id": game.winner_card_id,
+        "winner_username": game.winner_username,
+        "history": json_loads_safe(game.history),
+        "finished": game.phase == "finished",
+    })
+
+
+def resolve_boka_round(game):
+    """
+    一轮的所有人都锁定后，结算本轮。
+    - 找最大卡（比攻/防）
+    - 最大卡进卡袋
+    - 其余卡进赢家手牌
+    - 更新 game.round_no, phase
+    """
+    gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+    is_atk_round = (game.round_no % 2 == 1)
+    dim = "atk" if is_atk_round else "def"
+    other_dim = "def" if is_atk_round else "atk"
+
+    # 收集本轮的卡
+    played = []  # [{"username": ..., "card_ids": [...], "value": number, "other": number, "is_combo": bool}]
+    for g in gps:
+        card_ids = json_loads_safe(g.ready_card)
+        if not card_ids:
+            continue
+        cards = [CARD_BY_ID.get(cid) for cid in card_ids if CARD_BY_ID.get(cid)]
+        if not cards:
+            continue
+        if len(cards) == 1:
+            value = cards[0][dim]
+            other = cards[0][other_dim]
+            is_combo = False
+        else:
+            # 组合技
+            atk, dfn, combo_name = calc_combo_stats(cards)
+            if atk is None:
+                # 不是有效组合，按单张最大处理（取攻或防最高的）
+                value = max(c[dim] for c in cards)
+                other = max(c[other_dim] for c in cards)
+                is_combo = False
+            else:
+                value = atk if is_atk_round else dfn
+                other = dfn if is_atk_round else atk
+                is_combo = True
+        played.append({
+            "username": g.username,
+            "card_ids": card_ids,
+            "value": value,
+            "other": other,
+            "is_combo": is_combo,
+        })
+
+    if not played:
+        return
+
+    # 检查是否有炸弹（白胜/孙二娘）— 本轮任何一张卡是炸弹
+    BOMB_NAMES = {"白胜", "孙二娘"}
+    has_bomb = False
+    for p in played:
+        for cid in p["card_ids"]:
+            card = CARD_BY_ID.get(cid)
+            if card and card["name"] in BOMB_NAMES:
+                has_bomb = True
+                break
+        if has_bomb:
+            break
+
+    # 免疫炸弹的组合（bomb_eater / bomb_eater_steal1）
+    immune = False
+    if has_bomb:
+        for p in played:
+            if p["is_combo"]:
+                cards = [CARD_BY_ID.get(cid) for cid in p["card_ids"]]
+                _, _, combo_name = calc_combo_stats(cards)
+                for combo in COMBOS:
+                    if combo["name"] == combo_name and combo.get("special") in ("bomb_eater", "bomb_eater_steal1"):
+                        immune = True
+                        break
+            if immune:
+                break
+
+    # 记录本轮
+    pool = json_loads_safe(game.card_pool)
+    round_record = {
+        "round": game.round_no,
+        "dim": dim,
+        "played": [],
+    }
+
+    if has_bomb and not immune:
+        # 炸弹生效：所有卡进卡袋
+        for p in played:
+            pool.extend(p["card_ids"])
+            # 从玩家手牌移除
+            g = next(x for x in gps if x.username == p["username"])
+            hand = json_loads_safe(g.hand)
+            hand = [cid for cid in hand if cid not in p["card_ids"]]
+            g.hand = json_dumps_safe(hand)
+            g.ready_card = json_dumps_safe([])
+            g.locked = False
+
+            cards = [CARD_BY_ID.get(cid) for cid in p["card_ids"]]
+            round_record["played"].append({
+                "username": p["username"],
+                "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in cards],
+                "value": p["value"],
+                "result": "bombed",
+            })
+        game.winner_card_id = None
+        game.winner_username = None
+    else:
+        # 正常比大小
+        # 排序：value 降序，value 相同比 other，都相同则并列（视为同一名次）
+        best = max(played, key=lambda x: (x["value"], x["other"]))
+        best_value = best["value"]
+        best_other = best["other"]
+        winners = [p for p in played if p["value"] == best_value and p["other"] == best_other]
+
+        # 取最大卡 id：用 winners 中的第一个（并列情况简单处理）
+        winner = winners[0]
+
+        # 其余所有卡给赢家
+        winner_g = next(x for x in gps if x.username == winner["username"])
+        winner_hand = json_loads_safe(winner_g.hand)
+
+        for p in played:
+            g = next(x for x in gps if x.username == p["username"])
+            hand = json_loads_safe(g.hand)
+            hand = [cid for cid in hand if cid not in p["card_ids"]]
+
+            if p["username"] == winner["username"]:
+                # 赢家：自己的最大卡进卡袋，其他所有卡（含自己的其他）进手牌
+                # 最大卡 ids：取 value/other == best 的第一张（简化）
+                # 为简单：赢家打出的卡里，选一张"最大卡"进卡袋，其他卡进手牌
+                max_card_id = max(p["card_ids"], key=lambda cid: (CARD_BY_ID.get(cid, {}).get(dim, 0), CARD_BY_ID.get(cid, {}).get(other_dim, 0)))
+                pool.append(max_card_id)
+                for cid in p["card_ids"]:
+                    if cid != max_card_id:
+                        hand.append(cid)
+            else:
+                # 输家：所有打出的卡给赢家
+                winner_hand.extend(p["card_ids"])
+
+            g.hand = json_dumps_safe(hand)
+            g.ready_card = json_dumps_safe([])
+            g.locked = False
+
+            cards = [CARD_BY_ID.get(cid) for cid in p["card_ids"]]
+            round_record["played"].append({
+                "username": p["username"],
+                "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in cards],
+                "value": p["value"],
+                "result": "win" if p["username"] == winner["username"] else "lose",
+            })
+
+        winner_g.hand = json_dumps_safe(winner_hand)
+        game.winner_card_id = max_card_id
+        game.winner_username = winner["username"]
+
+    # 检查出完手牌的人
+    for g in gps:
+        hand = json_loads_safe(g.hand)
+        if len(hand) == 0 and g.finished_order is None and not g.surrendered:
+            # 记录出完顺序
+            max_order = db.session.query(db.func.max(BokaGamePlayer.finished_order)).filter_by(game_id=game.id).scalar() or 0
+            g.finished_order = max_order + 1
+
+    # 判断游戏是否结束
+    alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
+    if len(alive) <= 1:
+        # 游戏结束
+        finish_boka_game(game, alive)
+    else:
+        game.round_no += 1
+        game.phase = "selecting"
+
+    game.card_pool = json_dumps_safe(pool)
+    history = json_loads_safe(game.history)
+    history.append(round_record)
+    game.history = json_dumps_safe(history)
+    db.session.commit()
+
+
+def finish_boka_game(game, alive):
+    """游戏结束，计算名次、积分"""
+    gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+
+    # 名次：
+    # 最后还有手牌的人（alive[0]） = 第 1 名
+    # 按 finished_order 倒序：finished_order 越大越晚出完（越晚出完名次越高）
+    # 实际：finished_order = 1 表示最先出完 = 倒数第一
+
+    # 处理：
+    # - 有 finished_order 的人：按 finished_order 降序排（大的在前面）
+    # - 无 finished_order 的人（投降或最后存活）：投降的按 surrendered_rank，存活的排第 1
+    survivors = [g for g in gps if g.username in [a.username for a in alive]]
+    finished = [g for g in gps if g.finished_order is not None]
+    surrendered = [g for g in gps if g.surrendered]
+
+    finished.sort(key=lambda g: g.finished_order, reverse=True)
+
+    rank_order = []
+    if survivors:
+        # 第 1 名（可能多个）
+        for s in survivors:
+            rank_order.append(s)
+    for f in finished:
+        rank_order.append(f)
+    for s in surrendered:
+        if s not in rank_order:
+            rank_order.append(s)
+
+    n = len(rank_order)
+    # 计算对手平均分
+    all_scores = [User.query.filter_by(username=g.username).first().score or 0 for g in rank_order]
+    avg_score = sum(all_scores) / n if n else 0
+
+    for idx, g in enumerate(rank_order, start=1):
+        g.rank = idx
+
+    # 结算积分（暂不做空气墙，只是基础分 + 系数）
+    for g in rank_order:
+        u = User.query.filter_by(username=g.username).first()
+        if not u:
+            continue
+        old_score = u.score or 0
+        change = calc_boka_score_change(old_score, g.rank, n, avg_score)
+        new_score = old_score + change
+        # 空气墙：每 1000 分一道
+        floor = (new_score // 1000) * 1000
+        if new_score < floor:
+            new_score = floor
+        g.score_change = new_score - old_score
+        u.score = new_score
+
+        # 记战绩
+        rec = BokaGameRecord(
+            username=g.username,
+            game_id=game.id,
+            room_code=None,
+            rank=g.rank,
+            player_count=n,
+            score_before=old_score,
+            score_change=g.score_change,
+            score_after=new_score,
+            played_at=datetime.now(),
+        )
+        db.session.add(rec)
+
+    game.phase = "finished"
+    game.finished_at = datetime.now()
+    db.session.commit()
+
+    # 房间回到 waiting
+    room = BokaRoom.query.get(game.room_id)
+    if room:
+        room.status = "waiting"
+        # 重置所有玩家准备
+        BokaPlayer.query.filter_by(room_id=room.id).update({"ready": False})
+        db.session.commit()
+
+
+def calc_boka_score_change(my_score, rank, total_players, avg_score):
+    """计算搏卡一局的积分变化"""
+    # 基础分表
+    base_table = {
+        2: [25],
+        3: [45, 15],
+        4: [60, 15, -15],
+        5: [75, 30, 0, -30],
+        6: [85, 40, 10, -10, -40],
+        7: [95, 50, 20, 0, -20, -50],
+        8: [100, 60, 30, 10, -10, -30, -60],
+        9: [105, 65, 35, 15, -5, -15, -35, -65],
+        10: [110, 70, 40, 20, 0, -20, -40, -70, -90],
+        11: [115, 75, 45, 25, 5, -5, -25, -45, -75, -95],
+        12: [120, 80, 50, 30, 10, 0, -10, -30, -50, -80, -100],
+        13: [125, 85, 55, 35, 15, 5, -5, -15, -35, -55, -85, -105],
+        14: [130, 90, 60, 40, 20, 10, 0, -10, -20, -40, -60, -90, -110],
+    }
+    if total_players < 2:
+        return 0
+    if total_players > 14:
+        total_players = 14
+    if total_players == 2:
+        base = base_table[2][0] if rank == 1 else -25
+    else:
+        # 补齐表长度
+        row = base_table[total_players]
+        if rank <= len(row):
+            base = row[rank - 1]
+        else:
+            base = -25
+        if rank == 1:
+            base = base_table[total_players][0]
+        elif rank == total_players:
+            base = -base_table[total_players][0]
+        elif rank > len(row) - 1:
+            # 中间的位置
+            pass
+
+    # 系数
+    coef = 1 + 0.5 * math.log((avg_score + 1000) / (my_score + 1000))
+    coef = max(0.5, min(3.0, coef))
+
+    if base >= 0:
+        return int(base * coef)
+    else:
+        return int(base / coef)
+
+
+@app.route('/boka/room/<room_code>/surrender', methods=['POST'])
+@login_required
+def boka_surrender(room_code):
+    """投降弃卡：清空手牌，按当前剩余人数定名次"""
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
+    if not game or game.phase != "selecting":
+        return jsonify({"error": "当前不可投降"}), 400
+
+    me = BokaGamePlayer.query.filter_by(game_id=game.id, username=current_user.username).first()
+    if not me or me.surrendered:
+        return jsonify({"error": "你无法投降"}), 400
+
+    # 计算当前存活人数
+    all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+    alive_count = sum(1 for g in all_players if not g.surrendered and len(json_loads_safe(g.hand)) > 0)
+    me.surrendered = True
+    me.surrendered_rank = alive_count  # 当前剩 N 人，投降就是第 N 名
+    me.hand = json_dumps_safe([])
+    me.ready_card = json_dumps_safe([])
+    me.locked = True
+    db.session.commit()
+
+    # 检查是否全部投降或游戏结束
+    alive = [g for g in all_players if not g.surrendered and len(json_loads_safe(g.hand)) > 0]
+    if len(alive) <= 1:
+        finish_boka_game(game, alive)
+
+    return jsonify({"success": True, "rank": me.surrendered_rank})
 
 def calc_boka_layout(n, my_username, players):
     """根据人数和我在房间里的位置，返回每个玩家的屏幕位置 (side, index)
