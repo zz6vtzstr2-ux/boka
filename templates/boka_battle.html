@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>搏卡战斗 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%;
+      min-height: 100vh;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: radial-gradient(ellipse at center, #f5edda 0%, #d8ccb0 100%) fixed;
+      color: #333;
+      position: relative;
+    }
+
+    .top-bar {
+      position: sticky;
+      top: 0;
+      left: 0; right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      padding: 6px;
+      background: rgba(245,237,218,0.92);
+      backdrop-filter: blur(6px);
+      z-index: 30;
+    }
+    .top-left { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+    .top-right { display: flex; gap: 5px; align-items: center; }
+    .top-btn, .top-info {
+      background: rgba(255,255,255,0.95);
+      border: 1px solid #d8d0bc;
+      border-radius: 10px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #4a4a4a;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      white-space: nowrap;
+    }
+    .top-info { color: #8a6d1f; cursor: default; }
+    .top-btn.danger { background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; }
+
+    /* 中央公告 */
+    .center-banner {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 22px;
+      font-weight: bold;
+      color: #fff;
+      letter-spacing: 6px;
+      text-indent: 6px;
+      padding: 12px 32px;
+      border-radius: 24px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+      z-index: 25;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      white-space: nowrap;
+    }
+    .center-banner.atk {
+      background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b);
+      border: 3px solid #8a4a1f;
+    }
+    .center-banner.def {
+      background: radial-gradient(circle at 30% 30%, #8bc0e8, #4a7db8);
+      border: 3px solid #2a4a7a;
+    }
+    .center-banner.hide { opacity: 0; }
+
+    .main-content {
+      padding: 8px 8px 380px 8px;
+    }
+
+    .desktop-arena { position: relative; min-height: 400px; }
+    .desktop-arena.hide { display: none; }
+
+    .area-top {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 4px;
+    }
+    .area-left-right {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 4px;
+    }
+    .area-left, .area-right {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .area-right { align-items: flex-end; }
+
+    .player-slot {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .area-top .player-slot { flex-direction: column; gap: 4px; }
+    .area-left .player-slot { flex-direction: row; align-items: flex-start; }
+    .area-right .player-slot { flex-direction: row-reverse; align-items: flex-start; }
+
+    .avatar {
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      border: 3px solid #f0e0a0;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .player-slot.locked .avatar { border-color: #5cb85c; }
+    .player-info { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+    .area-left .player-info, .area-right .player-info { align-items: flex-start; }
+    .pname {
+      font-size: 11px; font-weight: bold; color: #4a4a4a;
+      background: rgba(255,255,255,0.92);
+      padding: 1px 6px; border-radius: 6px;
+      white-space: nowrap; border: 1px solid #e0d8c0;
+      max-width: 76px; overflow: hidden; text-overflow: ellipsis;
+    }
+    .hand-count {
+      font-size: 10px; color: #666;
+      background: rgba(255,255,255,0.92);
+      padding: 1px 5px; border-radius: 6px; white-space: nowrap;
+    }
+    .player-slot.locked .hand-count::after {
+      content: " ✓"; color: #5cb85c; font-weight: bold;
+    }
+    .cards-row {
+      display: flex; flex-wrap: wrap; gap: 4px; max-width: 260px;
+    }
+
+    .mobile-arena { display: none; flex-direction: column; gap: 8px; }
+    .mobile-arena.show { display: flex; }
+    .mobile-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 6px; background: rgba(255,255,255,0.6);
+      border-radius: 10px; border: 1px solid #e0d8c0;
+    }
+    .mobile-row.locked { border-color: #5cb85c; }
+    .mobile-row .avatar { width: 44px; height: 44px; }
+    .mobile-row .row-info {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 2px; flex-shrink: 0; width: 56px;
+    }
+    .mobile-row .row-info .pname {
+      font-size: 11px; text-align: center; max-width: 56px;
+    }
+    .mobile-row .row-info .hand-count { font-size: 10px; }
+    .mobile-row .row-cards {
+      display: flex; flex-wrap: wrap; gap: 4px; flex: 1;
+    }
+
+    .hero-card {
+      position: relative;
+      width: 120px; height: 168px;
+      cursor: pointer;
+      transition: transform 0.15s;
+      flex-shrink: 0;
+    }
+    .hero-card .oval-wrap {
+      width: 100%; height: calc(100% - 22px);
+      border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+      overflow: hidden;
+      background: #fffdf5;
+      border: 4px solid #f0e0a0;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+      position: relative;
+      transition: box-shadow 0.3s, border-color 0.3s;
+    }
+    .hero-card .oval-wrap img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .hero-card .atk-orb,
+    .hero-card .def-orb {
+      position: absolute; bottom: 20px;
+      width: 30px; height: 30px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: bold; color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6); z-index: 2;
+    }
+    .hero-card .atk-orb {
+      left: -4px;
+      background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b);
+      border: 2px solid #8a4a1f;
+    }
+    .hero-card .def-orb {
+      right: -4px;
+      background: radial-gradient(circle at 30% 30%, #8bc0e8, #4a7db8);
+      border: 2px solid #2a4a7a;
+    }
+    .hero-card .card-name {
+      position: absolute; bottom: -2px; left: 0; right: 0;
+      text-align: center; font-size: 13px; font-weight: bold;
+      color: #4a4a4a; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+      background: rgba(255,255,255,0.9);
+      padding: 2px 6px; border-radius: 6px;
+    }
+
+    .hero-card.winner .oval-wrap {
+      border-color: #f5c542;
+      box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6);
+      animation: winnerBlink 1s ease-in-out 2;
+    }
+    @keyframes winnerBlink {
+      0%, 100% { box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6); }
+      50% { box-shadow: 0 0 24px #f5c542, 0 0 48px rgba(245,197,66,0.9); }
+    }
+
+    .bottom-area {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(255,255,255,0.94);
+      border-top: 1px solid #d8d0bc;
+      z-index: 20;
+      max-height: 370px;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .my-top-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 6px 8px 4px 8px;
+      border-bottom: 1px dashed #e0d8c0;
+      flex-shrink: 0;
+    }
+    .my-avatar-block {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 2px; flex-shrink: 0;
+    }
+    .my-avatar-block .avatar {
+      width: 48px; height: 48px;
+      border: 3px solid #5bb8e8;
+      box-shadow: 0 0 0 3px rgba(91,184,232,0.4);
+    }
+    .my-avatar-block .pname { font-size: 11px; max-width: 64px; }
+    .my-avatar-block .hand-count { font-size: 10px; }
+    .my-ready-area {
+      flex: 1;
+      display: flex; flex-wrap: wrap; gap: 6px;
+      align-content: flex-start;
+      height: 180px; overflow-y: auto; padding: 2px;
+    }
+    .my-ready-area:empty::before {
+      content: "备战区（未选卡）";
+      color: #bbb; font-size: 13px; padding: 20px 8px;
+    }
+    .my-hand-area {
+      flex: 1; min-height: 0; padding: 4px 8px;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    .hand-label {
+      font-size: 10px; color: #999;
+      margin-bottom: 2px; letter-spacing: 2px; flex-shrink: 0;
+    }
+    .hand-scroll {
+      flex: 1;
+      display: flex; flex-wrap: wrap; gap: 6px;
+      align-content: flex-start;
+      overflow-y: auto;
+      padding: 4px 0;
+      max-height: 180px;
+    }
+    .btn-row {
+      display: flex; gap: 8px; padding: 4px 8px 8px 8px; flex-shrink: 0;
+    }
+    .action-btn {
+      flex: 1; padding: 12px; border: none;
+      border-radius: 10px; font-size: 15px; font-weight: bold;
+      cursor: pointer; font-family: inherit; letter-spacing: 2px;
+    }
+    .action-btn:disabled {
+      background: #ccc !important; color: #fff !important;
+      cursor: not-allowed;
+    }
+    .action-blue { background: #5bb8e8; color: #fff; }
+
+    @media (max-width: 768px) {
+      .hero-card { width: 60px; height: 84px; }
+      .hero-card .oval-wrap { height: calc(100% - 14px); border-width: 2px; }
+      .hero-card .atk-orb, .hero-card .def-orb { bottom: 10px; width: 18px; height: 18px; font-size: 10px; }
+      .hero-card .card-name { font-size: 9px; padding: 1px 3px; }
+      .cards-row { max-width: 140px; }
+      .my-ready-area { height: 120px; }
+      .my-avatar-block .avatar { width: 40px; height: 40px; }
+      .my-hand-area { max-height: 200px; }
+      .hand-scroll { max-height: 150px; }
+    }
+
+    .record-modal, .result-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 200;
+      justify-content: center; align-items: center;
+      padding: 16px;
+    }
+    .record-modal.active, .result-modal.active { display: flex; }
+    .record-inner, .result-inner {
+      background: #fffdf5; border-radius: 16px;
+      padding: 18px; max-width: 500px; width: 100%;
+      max-height: 80vh; overflow-y: auto;
+      border: 4px double #f0e0a0;
+    }
+    .record-inner h3 { margin: 0 0 12px 0; color: #8a6d1f; }
+    .record-round { margin-bottom: 14px; padding: 10px; background: #f9f5e8; border-radius: 10px; font-size: 13px; }
+    .record-round .r-title { font-weight: bold; color: #b85a6a; margin-bottom: 6px; }
+    .record-round .r-line { font-size: 12px; color: #555; margin: 2px 0; }
+    .record-close, .result-ok {
+      width: 100%; padding: 12px; border: none; border-radius: 10px;
+      background: #5bb8e8; color: #fff; font-size: 15px; font-weight: bold;
+      cursor: pointer; font-family: inherit; margin-top: 14px;
+    }
+    .result-inner h2 { margin: 0 0 16px 0; color: #8a6d1f; text-align: center; }
+    .result-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    .result-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #f9f5e8; border-radius: 10px; }
+    .result-row img { width: 36px; height: 36px; border-radius: 10px; }
+    .result-row .r-name { flex: 1; font-weight: bold; font-size: 14px; }
+    .result-row .r-rank { font-size: 13px; color: #b85a6a; font-weight: bold; }
+    .result-row .r-change { font-size: 15px; font-weight: bold; min-width: 50px; text-align: right; }
+    .result-row .r-change.plus { color: #5cb85c; }
+    .result-row .r-change.minus { color: #d9534f; }
+
+    .toast {
+      position: fixed; top: 85%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: rgba(44,110,90,0.95); color: #fff;
+      padding: 14px 24px; border-radius: 14px; font-size: 15px;
+      font-weight: bold; opacity: 0; transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none; z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <div class="top-left">
+      <div class="top-info" id="roundInfo">第 1 轮</div>
+      <div class="top-info" id="poolInfo">卡袋 0</div>
+      <button class="top-btn" onclick="showRecord()">记录</button>
+      <button class="top-btn" onclick="temporaryLeave()">暂离房间</button>
+    </div>
+    <div class="top-right">
+      <button class="top-btn danger" onclick="surrender()">弃卡</button>
+    </div>
+  </div>
+
+  <div class="center-banner atk" id="centerBanner">本轮比攻</div>
+
+  <div class="main-content">
+    <div class="desktop-arena" id="desktopArena">
+      <div class="area-top" id="areaTop"></div>
+      <div class="area-left-right">
+        <div class="area-left" id="areaLeft"></div>
+        <div class="area-right" id="areaRight"></div>
+      </div>
+    </div>
+    <div class="mobile-arena" id="mobileArena"></div>
+  </div>
+
+  <div class="bottom-area">
+    <div class="my-top-row">
+      <div class="my-avatar-block">
+        <img class="avatar" src="/static/avatars/{{ current_user.username }}.jpg" alt="">
+        <div class="pname">{{ current_user.nickname or current_user.username }}</div>
+        <div class="hand-count" id="myHandCount">手牌 0</div>
+      </div>
+      <div class="my-ready-area" id="myReadyArea"></div>
+    </div>
+    <div class="my-hand-area">
+      <div class="hand-label">手牌</div>
+      <div class="hand-scroll" id="myHandArea"></div>
+    </div>
+    <div class="btn-row">
+      <button class="action-btn action-blue" id="playBtn" onclick="submitPlay()" disabled>出战</button>
+    </div>
+  </div>
+
+  <div class="record-modal" id="recordModal" onclick="if(event.target===this)closeRecord()">
+    <div class="record-inner">
+      <h3>对局记录</h3>
+      <div id="recordContent">暂无记录</div>
+      <button class="record-close" onclick="closeRecord()">关闭</button>
+    </div>
+  </div>
+
+  <div class="result-modal" id="resultModal">
+    <div class="result-inner">
+      <h2>本局结算</h2>
+      <div class="result-list" id="resultList"></div>
+      <button class="result-ok" onclick="confirmResult()">确认返回房间</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const roomCode = "{{ room_code }}";
+    const myUsername = "{{ current_user.username }}";
+    const layout = {{ layout | tojson }};
+    let myHand = [];
+    let myReady = [];
+    let currentPhase = "{{ phase }}";
+    let currentRound = {{ round_no }};
+    let resultShown = false;
+    let allCardsMap = {};
+    let lockedLocally = false;
+    let lastWinnerCardId = null;
+    let winnerHighlightActive = false;
+    let winnerHighlightTimer = null;
+    let isMobileView = false;
+    let comboValid = true;
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1600);
+    }
+
+    function makeHeroCard(c, extraCls) {
+      const div = document.createElement('div');
+      div.className = 'hero-card ' + (extraCls || '');
+      div.innerHTML = `
+        <div class="oval-wrap">
+          <img src="/static/cards/${c.name}.PNG" alt="${c.name}">
+        </div>
+        <div class="atk-orb">${Math.floor(c.atk)}</div>
+        <div class="def-orb">${Math.floor(c.def)}</div>
+        <div class="card-name">${c.name}</div>
+      `;
+      return div;
+    }
+
+    function checkViewMode(playerCount) {
+      const w = window.innerWidth;
+      const mobile = w <= 768 && playerCount >= 3;
+      isMobileView = mobile;
+      const desktop = document.getElementById('desktopArena');
+      const mobileEl = document.getElementById('mobileArena');
+      if (mobile) {
+        desktop.classList.add('hide');
+        mobileEl.classList.add('show');
+      } else {
+        desktop.classList.remove('hide');
+        mobileEl.classList.remove('show');
+      }
+    }
+
+    function renderAll(state) {
+      (state.my_hand || []).forEach(c => allCardsMap[c.id] = c);
+      (state.my_ready || []).forEach(c => allCardsMap[c.id] = c);
+      (state.players || []).forEach(p => (p.ready_cards || []).forEach(c => allCardsMap[c.id] = c));
+
+      const players = state.players || [];
+      checkViewMode(players.length);
+
+      const winnerUsername = state.winner_username;
+      const canShowCards = (state.phase === 'revealing' || state.phase === 'finished');
+
+      if (isMobileView) {
+        renderMobileList(players, winnerUsername, canShowCards);
+      } else {
+        renderDesktopArena(players, winnerUsername, canShowCards);
+      }
+
+      const banner = document.getElementById('centerBanner');
+      if (state.phase === 'revealing' || state.phase === 'finished') {
+        banner.classList.add('hide');
+      } else {
+        banner.classList.remove('hide');
+        banner.textContent = '本轮' + state.round_phase;
+        if (state.round_phase === '比攻') {
+          banner.classList.remove('def');
+          banner.classList.add('atk');
+        } else {
+          banner.classList.remove('atk');
+          banner.classList.add('def');
+        }
+      }
+
+      document.getElementById('roundInfo').textContent = '第 ' + state.round_no + ' 轮';
+      document.getElementById('poolInfo').textContent = '卡袋 ' + (state.pool_count || 0);
+
+      renderMyArea(state);
+      renderRecord(state.history);
+
+      if (state.finished && !resultShown) {
+        resultShown = true;
+        showResult(state.players);
+      }
+    }
+
+    function renderMobileList(players, winnerUsername, canShowCards) {
+      const el = document.getElementById('mobileArena');
+      el.innerHTML = '';
+      players.forEach(p => {
+        if (p.username === myUsername) return;
+        const row = document.createElement('div');
+        row.className = 'mobile-row' + (p.locked ? ' locked' : '');
+
+        const avatar = document.createElement('img');
+        avatar.className = 'avatar';
+        avatar.src = `/static/avatars/${p.username}.jpg`;
+
+        const info = document.createElement('div');
+        info.className = 'row-info';
+        info.innerHTML = `
+          <div class="pname">${p.nickname}</div>
+          <div class="hand-count">手牌 ${p.hand_count}</div>
+        `;
+
+        const cards = document.createElement('div');
+        cards.className = 'row-cards';
+        if (canShowCards) {
+          (p.ready_cards || []).forEach(c => {
+            const isWinner = winnerHighlightActive && p.username === winnerUsername;
+            cards.appendChild(makeHeroCard(c, isWinner ? 'winner' : ''));
+          });
+        }
+
+        row.appendChild(avatar);
+        row.appendChild(info);
+        row.appendChild(cards);
+        el.appendChild(row);
+      });
+    }
+
+    function renderDesktopArena(players, winnerUsername, canShowCards) {
+      const top = document.getElementById('areaTop');
+      const left = document.getElementById('areaLeft');
+      const right = document.getElementById('areaRight');
+      top.innerHTML = ''; left.innerHTML = ''; right.innerHTML = '';
+
+      players.forEach(p => {
+        if (p.username === myUsername) return;
+        const pos = layout[p.username] || { side: 'top', index: 0 };
+
+        const div = document.createElement('div');
+        div.className = 'player-slot' + (p.locked ? ' locked' : '');
+
+        const avatar = document.createElement('img');
+        avatar.className = 'avatar';
+        avatar.src = `/static/avatars/${p.username}.jpg`;
+
+        const info = document.createElement('div');
+        info.className = 'player-info';
+        info.innerHTML = `
+          <div class="pname">${p.nickname}</div>
+          <div class="hand-count">手牌 ${p.hand_count}</div>
+        `;
+
+        const cards = document.createElement('div');
+        cards.className = 'cards-row';
+        if (canShowCards) {
+          (p.ready_cards || []).forEach(c => {
+            const isWinner = winnerHighlightActive && p.username === winnerUsername;
+            cards.appendChild(makeHeroCard(c, isWinner ? 'winner' : ''));
+          });
+        }
+
+        if (pos.side === 'top') {
+          div.appendChild(avatar);
+          div.appendChild(info);
+          if (cards.children.length > 0) div.appendChild(cards);
+          top.appendChild(div);
+        } else if (pos.side === 'left') {
+          div.appendChild(avatar);
+          const col = document.createElement('div');
+          col.style.display = 'flex';
+          col.style.flexDirection = 'column';
+          col.appendChild(info);
+          if (cards.children.length > 0) col.appendChild(cards);
+          div.appendChild(col);
+          left.appendChild(div);
+        } else if (pos.side === 'right') {
+          div.appendChild(avatar);
+          const col = document.createElement('div');
+          col.style.display = 'flex';
+          col.style.flexDirection = 'column';
+          col.style.alignItems = 'flex-end';
+          col.appendChild(info);
+          if (cards.children.length > 0) col.appendChild(cards);
+          div.appendChild(col);
+          right.appendChild(div);
+        }
+      });
+    }
+
+    function renderMyArea(state) {
+      const handEl = document.getElementById('myHandArea');
+      const readyEl = document.getElementById('myReadyArea');
+      handEl.innerHTML = '';
+      readyEl.innerHTML = '';
+
+      const me = state.players.find(p => p.username === myUsername);
+      const locked = me && me.locked;
+      lockedLocally = locked;
+
+      const readyIds = new Set((state.my_ready || []).map(c => c.id));
+      const handFiltered = (state.my_hand || []).filter(c => !readyIds.has(c.id));
+
+      document.getElementById('myHandCount').textContent = '手牌 ' + handFiltered.length;
+
+      handFiltered.forEach(c => {
+        const d = makeHeroCard(c, '');
+        if (!locked) {
+          d.onclick = () => {
+            myReady.push(c);
+            myHand = myHand.filter(x => x.id !== c.id);
+            state.my_hand = myHand;
+            state.my_ready = myReady;
+            renderMyArea(state);
+            validateReady();
+          };
+        }
+        handEl.appendChild(d);
+      });
+
+      if (currentPhase === 'selecting') {
+        (state.my_ready || []).forEach(c => {
+          const d = makeHeroCard(c, '');
+          if (!locked) {
+            d.onclick = () => {
+              myHand.push(c);
+              myReady = myReady.filter(x => x.id !== c.id);
+              state.my_hand = myHand;
+              state.my_ready = myReady;
+              renderMyArea(state);
+              validateReady();
+            };
+          }
+          readyEl.appendChild(d);
+        });
+      }
+
+      const playBtn = document.getElementById('playBtn');
+      const hasReady = (state.my_ready || []).length > 0;
+      playBtn.disabled = locked || !hasReady || !comboValid;
+      if (locked) {
+        playBtn.textContent = '已锁定';
+      } else if (!hasReady) {
+        playBtn.textContent = '出战';
+      } else if (!comboValid) {
+        playBtn.textContent = '组合不合法';
+      } else {
+        playBtn.textContent = '出战';
+      }
+    }
+
+    async function validateReady() {
+      if (!myReady || myReady.length === 0) {
+        comboValid = true;
+        return;
+      }
+      try {
+        const res = await fetch('/boka/room/' + roomCode + '/validate_combo', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({card_ids: myReady.map(c => c.id)})
+        });
+        const data = await res.json();
+        comboValid = !!data.valid;
+        const playBtn = document.getElementById('playBtn');
+        if (!comboValid) {
+          playBtn.disabled = true;
+          playBtn.textContent = data.reason || '组合不合法';
+        } else if (!lockedLocally) {
+          playBtn.disabled = false;
+          playBtn.textContent = '出战';
+        }
+      } catch (e) {
+        comboValid = true;
+      }
+    }
+
+    function renderRecord(history) {
+      const el = document.getElementById('recordContent');
+      if (!history || history.length === 0) { el.innerHTML = '暂无记录'; return; }
+      let html = '';
+      history.forEach(r => {
+        html += `<div class="record-round">`;
+        html += `<div class="r-title">第 ${r.round} 轮（${r.dim === 'atk' ? '比攻' : '比防'}）</div>`;
+        (r.played || []).forEach(p => {
+          const cardNames = p.cards.map(c => c.name).join('+');
+          let result = '';
+          if (p.result === 'win') result = ' 🏆 获胜';
+          else if (p.result === 'lose') result = ' ❌';
+          else if (p.result === 'bombed') result = ' 💣 被炸';
+          html += `<div class="r-line">${p.username}：${cardNames}（${p.value}）${result}</div>`;
+        });
+        html += `</div>`;
+      });
+      el.innerHTML = html;
+    }
+
+    async function pollState() {
+      try {
+        const res = await fetch('/boka/room/' + roomCode + '/battle_state');
+        const data = await res.json();
+        if (data.error) return;
+
+        const me = data.players.find(p => p.username === myUsername);
+        if (me && !me.locked) {
+          if (myHand.length === 0 && myReady.length === 0) {
+            myHand = data.my_hand || [];
+            myReady = data.my_ready || [];
+          }
+          data.my_hand = myHand;
+          data.my_ready = myReady;
+        } else {
+          myHand = data.my_hand || [];
+          myReady = data.my_ready || [];
+        }
+
+        if (data.round_no !== currentRound) {
+          currentRound = data.round_no;
+          myReady = [];
+          lockedLocally = false;
+          comboValid = true;
+        }
+
+        currentPhase = data.phase;
+
+        if (data.phase === 'revealing' && data.winner_card_id) {
+          if (lastWinnerCardId !== data.winner_card_id) {
+            lastWinnerCardId = data.winner_card_id;
+            winnerHighlightActive = true;
+            if (winnerHighlightTimer) clearTimeout(winnerHighlightTimer);
+            winnerHighlightTimer = setTimeout(() => {
+              winnerHighlightActive = false;
+            }, 2000);
+          }
+        } else if (data.phase === 'selecting') {
+          winnerHighlightActive = false;
+          lastWinnerCardId = null;
+        }
+
+        renderAll(data);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function submitPlay() {
+      if (!myReady || myReady.length === 0) { showToast('请选择卡牌'); return; }
+      if (!comboValid) { showToast('组合不合法'); return; }
+      const res = await fetch('/boka/room/' + roomCode + '/play', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({card_ids: myReady.map(c => c.id)})
+      });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      lockedLocally = true;
+      showToast('已出战');
+    }
+
+    async function surrender() {
+      if (!confirm('确定弃卡投降？将清空你的手牌，并按照当前剩余人数排定名次')) return;
+      const res = await fetch('/boka/room/' + roomCode + '/surrender', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      showToast('已弃卡，名次第 ' + data.rank);
+      if (data.finished) {
+        setTimeout(() => pollState(), 500);
+      }
+    }
+
+    function temporaryLeave() {
+      fetch('/boka/room/' + roomCode + '/leave', { method: 'POST' }).then(() => {
+        window.location.href = '/boka';
+      });
+    }
+
+    function showRecord() { document.getElementById('recordModal').classList.add('active'); }
+    function closeRecord() { document.getElementById('recordModal').classList.remove('active'); }
+
+    function showResult(players) {
+      const list = document.getElementById('resultList');
+      const sorted = [...players].sort((a, b) => (a.rank || 99) - (b.rank || 99));
+      list.innerHTML = sorted.map(p => {
+        const me = p.username === myUsername ? '（我）' : '';
+        const chg = p.score_change || 0;
+        const cls = chg >= 0 ? 'plus' : 'minus';
+        const sign = chg >= 0 ? '+' : '';
+        return `
+          <div class="result-row">
+            <img src="/static/avatars/${p.username}.jpg">
+            <span class="r-name">${p.nickname}${me}</span>
+            <span class="r-rank">#${p.rank || '?'}</span>
+            <span class="r-change ${cls}">${sign}${chg}</span>
+          </div>
+        `;
+      }).join('');
+      document.getElementById('resultModal').classList.add('active');
+    }
+
+    function confirmResult() {
+      window.location.href = '/boka/room/' + roomCode;
+    }
+
+    window.addEventListener('resize', () => { pollState(); });
+
+    (async () => {
+      const res = await fetch('/boka/room/' + roomCode + '/battle_state');
+      const data = await res.json();
+      if (!data.error) {
+        myHand = data.my_hand || [];
+        myReady = data.my_ready || [];
+        renderAll(data);
+      }
+      setInterval(pollState, 1500);
+    })();
+  </script>
+</body>
+</html>
