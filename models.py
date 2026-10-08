@@ -33,6 +33,7 @@ class User(UserMixin, db.Model):
 
     # 搏卡
     score = db.Column(db.Integer, default=0)
+    max_score = db.Column(db.Integer, default=0)  # 历史最高分（空气墙用）
     monthly_score = db.Column(db.Integer, default=0)
     boka_champion_months = db.Column(db.Text, default="[]")
 
