@@ -201,22 +201,23 @@ class BokaPlayer(db.Model):
     seat = db.Column(db.Integer, default=0)  # 座位号（按加入顺序，用于布局）
     is_temporary_away = db.Column(db.Boolean, default=False)  # 暂离标记
     joined_at = db.Column(db.DateTime, nullable=True)
-class BokaGame(db.Model):
-    """一局搏卡游戏"""
-    __tablename__ = "boka_game"
 
+class BokaGame(db.Model):
+    __tablename__ = "boka_game"
     id = db.Column(db.Integer, primary_key=True)
     room_id = db.Column(db.Integer, db.ForeignKey("boka_room.id"), nullable=False)
-    round_no = db.Column(db.Integer, default=0)  # 当前轮次（0=未开始）
-    phase = db.Column(db.String(20), default="waiting")  # waiting / selecting / revealing / finished
-    card_pool = db.Column(db.Text, default="[]")  # 卡袋（剩的牌），JSON 数组 of card_id
-    winner_card_id = db.Column(db.Integer, nullable=True)  # 本轮最大卡 id（用于公告）
+    round_no = db.Column(db.Integer, default=0)
+    phase = db.Column(db.String(20), default="waiting")
+    card_pool = db.Column(db.Text, default="[]")
+    winner_card_id = db.Column(db.Integer, nullable=True)
     winner_username = db.Column(db.String(50), nullable=True)
     created_at = db.Column(db.DateTime, nullable=True)
     finished_at = db.Column(db.DateTime, nullable=True)
-    # 每轮的记录（用于"记录"弹窗），JSON 数组
     history = db.Column(db.Text, default="[]")
-
+    # 新增 ↓
+    revealed_at = db.Column(db.DateTime, nullable=True)  # 进入 revealing 的时间
+    round_winner_card_id = db.Column(db.Integer, nullable=True)  # 本轮获胜卡（用于公告）
+    
 class BokaGamePlayer(db.Model):
     """搏卡一局中的玩家状态"""
     __tablename__ = "boka_game_player"
