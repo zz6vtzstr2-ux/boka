@@ -1081,7 +1081,7 @@ def boka_play(room_code):
     return jsonify({"success": True})
 
 
-@app.route('/boka/room/<room_code>/state')
+@app.route('/boka/room/<room_code>/battle_state')
 @login_required
 def boka_battle_state(room_code):
     """轮询战斗状态"""
