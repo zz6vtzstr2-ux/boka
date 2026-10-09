@@ -2517,6 +2517,7 @@ with app.app_context():
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS round_winner_card_id INTEGER',
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS beauty_left INTEGER DEFAULT 3',
     ]
+    try:
         with db.engine.begin() as conn:
             for sql in migration_sql:
                 conn.execute(text(sql))
@@ -2537,6 +2538,7 @@ with app.app_context():
             print(f"🧹 清理了 {removed} 个空卡组")
     except Exception as e:
         print("⚠️ 清理空卡组出错:", e)
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
