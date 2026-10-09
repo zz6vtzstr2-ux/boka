@@ -2489,10 +2489,31 @@ with app.app_context():
     db.create_all()
     from sqlalchemy import text
     migration_sql = [
+        # 收藏
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS collection_migrated BOOLEAN DEFAULT FALSE',
+        # 世界 Boss
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boss_fatigue TEXT DEFAULT \'{}\'',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boss_fatigue_reset DATE',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boss_fatigue_week INTEGER DEFAULT 0',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boss_week INTEGER DEFAULT 1',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boss_hp_current INTEGER DEFAULT 300000',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boss_best_damage INTEGER DEFAULT 0',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boss_best_time VARCHAR(20) DEFAULT \'\'',
+        # 搏卡
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boka_room_id INTEGER',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS max_score INTEGER DEFAULT 0',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS monthly_score INTEGER DEFAULT 0',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boka_champion_months TEXT DEFAULT \'[]\'',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boka_best_score INTEGER DEFAULT 0',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boka_best_time VARCHAR(20) DEFAULT \'\'',
+        # 挑战
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS challenge_deck TEXT DEFAULT \'[]\'',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS challenge_wins_total INTEGER DEFAULT 0',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS challenge_losses_total INTEGER DEFAULT 0',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS challenge_today_wins INTEGER DEFAULT 0',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS challenge_today_reset DATE',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS challenge_active_game TEXT DEFAULT \'\'',
+        # 搏卡对局
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS revealed_at TIMESTAMP',
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS round_winner_card_id INTEGER',
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS beauty_left INTEGER DEFAULT 3',
