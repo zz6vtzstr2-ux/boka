@@ -797,8 +797,8 @@ def challenge_start():
 
     # 卡组必须 6 张
     deck_ids = json_loads_safe(current_user.challenge_deck)
-    if len(deck_ids) != 6:
-        return jsonify({"error": "请先编辑卡组（需 6 张）"}), 400
+    if len(deck_ids) < 1 or len(deck_ids) > 6:
+        return jsonify({"error": "请先编辑卡组（1~6 张）"}), 400
 
     coll = ensure_collection_migrated(current_user)
     my_deck = []
@@ -842,6 +842,7 @@ def challenge_start():
         "finished": False,
         "won": False,
         "materials": 0,
+        "card_pool": [],
     }
     current_user.challenge_active_game = json_dumps_safe(game)
     db.session.commit()
@@ -1028,21 +1029,25 @@ def _resolve_challenge_round(game):
     my_other = my_view[other_dim]
     ai_other = ai_view[other_dim]
 
+    pool = game.get("card_pool", [])
+
     if my_value > ai_value or (my_value == ai_value and my_other >= ai_other):
-        # 玩家赢
-        game["my_hand"].extend(ai_ready)   # 赢家收走 AI 的卡
+        # 玩家赢：玩家打出的卡 → 进卡袋；AI 打出的卡 → 进玩家手牌
+        pool.extend(my_ready)
+        game["my_hand"].extend(ai_ready)
         game["ai_hand"] = [c for c in game["ai_hand"] if c not in ai_ready]
-        # 玩家自己的卡进卡袋（从手牌里已经移除）
-        game["winner_card_id"] = my_cid
+        game["winner_card_id"] = my_views[0]["id"]
         game["winner_side"] = "me"
     else:
-        # AI 赢
+        # AI 赢：AI 打出的卡 → 进卡袋；玩家打出的卡 → 进 AI 手牌
+        pool.extend(ai_ready)
         game["ai_hand"].extend(my_ready)
-        game["winner_card_id"] = ai_cid
+        game["winner_card_id"] = ai_views[0]["id"]
         game["winner_side"] = "ai"
 
-    game["my_played"] = [my_view]
-    game["ai_played"] = [ai_view]
+    game["card_pool"] = pool
+    game["my_played"] = my_views
+    game["ai_played"] = ai_views
 
     game["my_ready"] = []
     game["ai_ready"] = []
