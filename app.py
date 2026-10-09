@@ -20,7 +20,7 @@ from game_logic import (
     fatigue_coef, real_attr, boss_card_damage,
     boss_deck_damage, boss_deck_damage_with_bond,
     calc_bond_bonus_for_deck,
-    card_with_level,
+    card_with_level,star_bonus,
 )
 
 app = Flask(__name__)
@@ -648,55 +648,489 @@ def challenge_test_ai_deck():
             lines.append(f"  {c['name']} Lv{c['level']} atk={c['atk']} def={c['def']} role={c['role']}")
     return "<pre>" + "\n".join(lines) + "</pre>"
 
-# ========== 挑战（占位，下一步做） ==========
+# ========== 挑战 ==========
+CHALLENGE_MAX_LEVEL = 800
+AI_EXCLUDE_NAMES = {"白胜", "孙二娘", "扈三娘", "宋江"}
+
+def level_to_ai_power_range(level):
+    """第 N 关 AI 目标战斗力范围"""
+    level = max(1, min(CHALLENGE_MAX_LEVEL, level))
+    return (184 + level, 233 + level)
+
+
+def gen_ai_deck(target_min, target_max, max_tries=2000):
+    """生成 AI 卡组（6 张不同的卡，含随机星级），使 (atk+def) 之和落在目标区间"""
+    pool = [c for c in CARDS if c["name"] not in AI_EXCLUDE_NAMES]
+    best = None
+    best_diff = None
+
+    for _ in range(max_tries):
+        picked = random.sample(pool, 6)
+        cards = []
+        for c in picked:
+            lv = random.randint(1, 25)
+            bonus = lv - 1
+            a = c["atk"] + bonus
+            d = c["def"] + bonus
+            cards.append({
+                "id": c["id"], "name": c["name"], "nick": c.get("nick", ""),
+                "level": lv, "atk": a, "def": d,
+                "base_atk": c["atk"], "base_def": c["def"],
+            })
+        total = sum(c["atk"] + c["def"] for c in cards)
+        if target_min <= total <= target_max:
+            # 按 atk 降序前 3 张 = 攻卡，其余 = 防卡
+            cards.sort(key=lambda x: x["atk"], reverse=True)
+            for c in cards[:3]:
+                c["role"] = "atk"
+            for c in cards[3:]:
+                c["role"] = "def"
+            return cards
+        # 记录最接近的
+        diff = (target_min - total) if total < target_min else (total - target_max)
+        if best_diff is None or diff < best_diff:
+            best_diff = diff
+            best = cards
+
+    if best:
+        best.sort(key=lambda x: x["atk"], reverse=True)
+        for c in best[:3]:
+            c["role"] = "atk"
+        for c in best[3:]:
+            c["role"] = "def"
+    return best
+
+
+def ensure_challenge_today_reset(user):
+    """每天 6 点重置今日胜场"""
+    now = datetime.now()
+    today_6 = now.replace(hour=6, minute=0, second=0, microsecond=0)
+    if now < today_6:
+        today_6 = today_6 - timedelta(days=1)
+    today_date = today_6.date()
+    if user.challenge_today_reset != today_date:
+        user.challenge_today_wins = 0
+        user.challenge_today_reset = today_date
+        db.session.commit()
+
+
 @app.route('/challenge')
 @login_required
 def challenge():
-    level = request.args.get('level', current_user.challenge_level)
-    coll = current_user.get_collection()
-    owned = [c for c in CARDS if str(c["id"]) in coll]
-    return render_template('challenge.html', level=int(level), cards=owned, deck=[])
+    ensure_challenge_today_reset(current_user)
+
+    level = int(request.args.get('level', current_user.challenge_level))
+    level = max(1, min(CHALLENGE_MAX_LEVEL, level))
+
+    # 玩家卡组
+    deck_ids = json_loads_safe(current_user.challenge_deck)
+    coll = ensure_collection_migrated(current_user)
+    deck = []
+    for cid in deck_ids:
+        entry = coll.get(str(cid))
+        if entry and entry.get("count", 0) > 0:
+            card = CARD_BY_ID.get(cid)
+            if card:
+                c2 = dict(card)
+                c2["level"] = entry.get("level", 1)
+                deck.append(c2)
+
+    # 拥有的卡（供选卡用）
+    owned_ids = set(int(cid) for cid, e in coll.items() if e.get("count", 0) > 0)
+    owned = []
+    for c in CARDS:
+        if c["id"] in owned_ids:
+            c2 = dict(c)
+            c2["level"] = coll[str(c["id"])].get("level", 1)
+            owned.append(c2)
+
+    return render_template('challenge.html',
+                           level=level,
+                           deck=deck,
+                           cards=owned,
+                           wins=current_user.challenge_wins_total or 0,
+                           losses=current_user.challenge_losses_total or 0,
+                           today_wins=current_user.challenge_today_wins or 0,
+                           max_level=current_user.challenge_level)
+
+
+@app.route('/challenge/picker')
+@login_required
+def challenge_picker():
+    level = int(request.args.get('level', current_user.challenge_level))
+    coll = ensure_collection_migrated(current_user)
+    owned_ids = set(int(cid) for cid, e in coll.items() if e.get("count", 0) > 0)
+    owned = []
+    for c in CARDS:
+        if c["id"] in owned_ids:
+            c2 = dict(c)
+            c2["level"] = coll[str(c["id"])].get("level", 1)
+            owned.append(c2)
+    selected_ids = json_loads_safe(current_user.challenge_deck)
+    return render_template('challenge_picker.html',
+                           level=level,
+                           cards=owned,
+                           selected_ids=selected_ids)
+
 
 @app.route('/challenge/deck/save', methods=['POST'])
 @login_required
 def challenge_deck_save():
+    card_ids = request.json.get('card_ids', [])
+    if not isinstance(card_ids, list) or len(card_ids) != 6:
+        return jsonify({"error": "卡组必须为 6 张"}), 400
+    coll = ensure_collection_migrated(current_user)
+    for cid in card_ids:
+        entry = coll.get(str(cid))
+        if not entry or entry.get("count", 0) <= 0:
+            return jsonify({"error": f"你未拥有卡 {cid}"}), 400
+    current_user.challenge_deck = json_dumps_safe(card_ids)
+    db.session.commit()
     return jsonify({"success": True})
+
 
 @app.route('/challenge/start', methods=['POST'])
 @login_required
 def challenge_start():
-    level = request.json.get('level', current_user.challenge_level)
-    ai_cards = random.sample(CARDS, 6)
-    return jsonify({"ai_cards": ai_cards, "level": level})
+    level = int(request.json.get('level', current_user.challenge_level))
+    level = max(1, min(CHALLENGE_MAX_LEVEL, level))
+
+    # 卡组必须 6 张
+    deck_ids = json_loads_safe(current_user.challenge_deck)
+    if len(deck_ids) != 6:
+        return jsonify({"error": "请先编辑卡组（需 6 张）"}), 400
+
+    coll = ensure_collection_migrated(current_user)
+    my_deck = []
+    for cid in deck_ids:
+        entry = coll.get(str(cid))
+        if not entry or entry.get("count", 0) <= 0:
+            return jsonify({"error": "卡组里有你未拥有的卡"}), 400
+        card = CARD_BY_ID.get(cid)
+        if not card:
+            return jsonify({"error": "卡不存在"}), 400
+        c2 = dict(card)
+        c2["level"] = entry.get("level", 1)
+        bonus = c2["level"] - 1
+        c2["atk"] = card["atk"] + bonus
+        c2["def"] = card["def"] + bonus
+        my_deck.append(c2)
+
+    # 生成 AI 卡组
+    mn, mx = level_to_ai_power_range(level)
+    ai_deck = gen_ai_deck(mn, mx)
+    if not ai_deck:
+        return jsonify({"error": "AI 卡组生成失败，请重试"}), 500
+
+    # 存档进行中的对局
+    game = {
+        "level": level,
+        "phase": "selecting",       # selecting / revealing / finished
+        "round_no": 1,
+        "my_hand": [c["id"] for c in my_deck],
+        "ai_hand": [c["id"] for c in ai_deck],
+        "my_ready": [],
+        "ai_ready": [],
+        "my_level_map": {str(c["id"]): c["level"] for c in my_deck},
+        "ai_level_map": {str(c["id"]): c["level"] for c in ai_deck},
+        "my_played": [],
+        "ai_played": [],
+        "winner_card_id": None,
+        "winner_side": None,        # "me" / "ai" / "bomb" / None
+        "revealed_at": None,
+        "history": [],
+        "finished": False,
+        "won": False,
+        "materials": 0,
+    }
+    current_user.challenge_active_game = json_dumps_safe(game)
+    db.session.commit()
+
+    return jsonify({"success": True})
+
 
 @app.route('/challenge/battle')
 @login_required
 def challenge_battle():
+    level = int(request.args.get('level', current_user.challenge_level))
+    game = json_loads_safe(current_user.challenge_active_game) if current_user.challenge_active_game else None
+    if not isinstance(game, dict) or not game:
+        return redirect(url_for('challenge', level=level))
+
+    my_hand = []
+    for cid in game.get("my_hand", []):
+        base = CARD_BY_ID.get(cid)
+        if not base:
+            continue
+        c2 = dict(base)
+        lv = int(game.get("my_level_map", {}).get(str(cid), 1))
+        c2["level"] = lv
+        bonus = lv - 1
+        c2["atk"] = base["atk"] + bonus
+        c2["def"] = base["def"] + bonus
+        my_hand.append(c2)
+
     return render_template('challenge_battle.html',
                            username=current_user.username,
                            nickname=current_user.nickname or current_user.username,
-                           my_hand_count=6, ai_hand_count=6, hand=[])
+                           level=level,
+                           my_hand=my_hand)
+
 
 @app.route('/challenge/play', methods=['POST'])
 @login_required
 def challenge_play():
+    level = int(request.json.get('level', current_user.challenge_level))
+    card_ids = request.json.get('card_ids', [])
+
+    if not current_user.challenge_active_game:
+        return jsonify({"error": "没有进行中的对局"}), 400
+    game = json_loads_safe(current_user.challenge_active_game)
+    if not isinstance(game, dict):
+        return jsonify({"error": "对局数据异常"}), 500
+    if game.get("phase") != "selecting":
+        return jsonify({"error": "当前不可出牌"}), 400
+
+    my_hand = game.get("my_hand", [])
+    for cid in card_ids:
+        if cid not in my_hand:
+            return jsonify({"error": f"卡 {cid} 不在手牌"}), 400
+
+    game["my_ready"] = list(card_ids)
+    game["my_hand"] = [c for c in my_hand if c not in card_ids]
+
+    # AI 自动出牌
+    ai_choice = _ai_pick_card(game)
+    game["ai_ready"] = ai_choice
+    if ai_choice:
+        game["ai_hand"] = [c for c in game.get("ai_hand", []) if c not in ai_choice]
+
+    # 立即结算（单人 PVE 无需等待）
+    _resolve_challenge_round(game)
+
+    current_user.challenge_active_game = json_dumps_safe(game)
+    db.session.commit()
     return jsonify({"success": True})
+
+
+@app.route('/challenge/state')
+@login_required
+def challenge_state():
+    level = int(request.args.get('level', current_user.challenge_level))
+    if not current_user.challenge_active_game:
+        return jsonify({"error": "无对局"}), 404
+    game = json_loads_safe(current_user.challenge_active_game)
+    if not isinstance(game, dict):
+        return jsonify({"error": "数据异常"}), 500
+
+    # 3 秒后切下一轮 / 结束
+    if game.get("phase") == "revealing":
+        revealed_at = game.get("revealed_at")
+        if revealed_at:
+            try:
+                t = datetime.fromisoformat(revealed_at)
+            except Exception:
+                t = datetime.now()
+            if (datetime.now() - t).total_seconds() >= 3.0:
+                # 检查是否结束
+                if len(game.get("my_hand", [])) == 0 or len(game.get("ai_hand", [])) == 0:
+                    _finish_challenge(game, current_user, level)
+                else:
+                    game["round_no"] = game.get("round_no", 1) + 1
+                    game["phase"] = "selecting"
+                    game["revealed_at"] = None
+                    game["my_played"] = []
+                    game["ai_played"] = []
+                    game["winner_card_id"] = None
+                    game["winner_side"] = None
+                    current_user.challenge_active_game = json_dumps_safe(game)
+                    db.session.commit()
+
+    round_phase = "比攻" if game.get("round_no", 1) % 2 == 1 else "比防"
+
+    return jsonify({
+        "round_no": game.get("round_no", 1),
+        "phase": game.get("phase", "selecting"),
+        "round_phase": round_phase,
+        "my_played": game.get("my_played", []),
+        "ai_played": game.get("ai_played", []),
+        "winner_card_id": game.get("winner_card_id"),
+        "my_hand": [CARD_BY_ID.get(c) for c in game.get("my_hand", []) if CARD_BY_ID.get(c)],
+        "ai_hand_count": len(game.get("ai_hand", [])),
+        "my_hand_count": len(game.get("my_hand", [])),
+        "finished": game.get("finished", False),
+        "won": game.get("won", False),
+        "level": game.get("level", level),
+        "materials": game.get("materials", 0),
+    })
+
+
+def _ai_pick_card(game):
+    """AI 从手牌里挑一张：奇数轮选 atk 高的，偶数轮选 def 高的"""
+    ai_hand = game.get("ai_hand", [])
+    if not ai_hand:
+        return []
+    is_atk_round = (game.get("round_no", 1) % 2 == 1)
+    ai_lv = game.get("ai_level_map", {})
+    cards = []
+    for cid in ai_hand:
+        base = CARD_BY_ID.get(cid)
+        if not base:
+            continue
+        lv = int(ai_lv.get(str(cid), 1))
+        bonus = lv - 1
+        cards.append({"id": cid, "atk": base["atk"] + bonus, "def": base["def"] + bonus})
+    if not cards:
+        return []
+    cards.sort(key=lambda x: (x["atk"] if is_atk_round else x["def"]), reverse=True)
+    return [cards[0]["id"]]
+
+
+def _resolve_challenge_round(game):
+    """单人 PVE 的一轮结算"""
+    is_atk_round = (game.get("round_no", 1) % 2 == 1)
+    dim = "atk" if is_atk_round else "def"
+    other_dim = "def" if is_atk_round else "atk"
+
+    my_ready = game.get("my_ready", [])
+    ai_ready = game.get("ai_ready", [])
+    if not my_ready or not ai_ready:
+        return
+
+    my_lv = game.get("my_level_map", {})
+    ai_lv = game.get("ai_level_map", {})
+
+    def make_view(cid, lv_map):
+        base = CARD_BY_ID.get(cid)
+        if not base:
+            return None
+        lv = int(lv_map.get(str(cid), 1))
+        bonus = lv - 1
+        return {
+            "id": cid,
+            "name": base["name"],
+            "nick": base.get("nick", ""),
+            "level": lv,
+            "atk": base["atk"] + bonus,
+            "def": base["def"] + bonus,
+        }
+
+    # 玩家出牌：只出 1 张（挑战是单卡比）
+    my_cid = my_ready[0]
+    ai_cid = ai_ready[0]
+
+    my_view = make_view(my_cid, my_lv)
+    ai_view = make_view(ai_cid, ai_lv)
+
+    my_value = my_view[dim]
+    ai_value = ai_view[dim]
+    my_other = my_view[other_dim]
+    ai_other = ai_view[other_dim]
+
+    if my_value > ai_value or (my_value == ai_value and my_other >= ai_other):
+        # 玩家赢
+        game["my_hand"].extend(ai_ready)   # 赢家收走 AI 的卡
+        game["ai_hand"] = [c for c in game["ai_hand"] if c not in ai_ready]
+        # 玩家自己的卡进卡袋（从手牌里已经移除）
+        game["winner_card_id"] = my_cid
+        game["winner_side"] = "me"
+    else:
+        # AI 赢
+        game["ai_hand"].extend(my_ready)
+        game["winner_card_id"] = ai_cid
+        game["winner_side"] = "ai"
+
+    game["my_played"] = [my_view]
+    game["ai_played"] = [ai_view]
+
+    game["my_ready"] = []
+    game["ai_ready"] = []
+    game["phase"] = "revealing"
+    game["revealed_at"] = datetime.now().isoformat()
+
+    # 记录
+    hist = game.get("history", [])
+    hist.append({
+        "round": game.get("round_no", 1),
+        "dim": dim,
+        "my_card": my_view,
+        "ai_card": ai_view,
+        "winner": game["winner_side"],
+    })
+    game["history"] = hist
+
+
+def _finish_challenge(game, user, level):
+    """结束挑战，结算胜负、建材"""
+    won = False
+    if len(game.get("my_hand", [])) > 0 and len(game.get("ai_hand", [])) == 0:
+        won = True
+    elif len(game.get("my_hand", [])) == 0 and len(game.get("ai_hand", [])) > 0:
+        won = False
+    else:
+        # 双方还有牌（一般不会），按谁手里的卡多判
+        won = len(game.get("my_hand", [])) > len(game.get("ai_hand", []))
+
+    game["finished"] = True
+    game["won"] = won
+    game["phase"] = "finished"
+
+    materials = 0
+    if won:
+        # 只对"当前关"发建材；回头打已通关的也发
+        win_index = user.challenge_today_wins or 0
+        materials = challenge_materials(level, win_index)
+        user.materials = (user.materials or 0) + materials
+        user.challenge_today_wins = win_index + 1
+        user.challenge_wins_total = (user.challenge_wins_total or 0) + 1
+        # 若通过的是当前关，解锁下一关
+        if level >= (user.challenge_level or 1):
+            user.challenge_level = min(CHALLENGE_MAX_LEVEL, level + 1)
+    else:
+        user.challenge_losses_total = (user.challenge_losses_total or 0) + 1
+
+    game["materials"] = materials
+    db.session.commit()
+
 
 @app.route('/challenge/result', methods=['POST'])
 @login_required
 def challenge_result():
-    win = request.json.get('win', False)
-    level = request.json.get('level', current_user.challenge_level)
-    if win:
-        if level >= current_user.challenge_level:
-            current_user.challenge_level = level + 1
-        win_index = current_user.daily_challenge_wins
-        materials = challenge_materials(level, win_index)
-        current_user.materials += materials
-        current_user.daily_challenge_wins += 1
-        db.session.commit()
-        return jsonify({"success": True, "materials": materials, "new_level": current_user.challenge_level})
-    return jsonify({"success": False})
+    # 兼容旧接口（前端已经不用了）
+    return jsonify({"success": True})
+
+
+@app.route('/challenge/quit', methods=['POST'])
+@login_required
+def challenge_quit():
+    """中途退出 = 判负"""
+    user = current_user
+    game_raw = user.challenge_active_game
+    if game_raw:
+        game = json_loads_safe(game_raw)
+        if isinstance(game, dict) and not game.get("finished"):
+            level = int(game.get("level", user.challenge_level))
+            _finish_challenge(game, user, level)
+    user.challenge_active_game = ""
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@app.route('/challenge/test_ai_deck')
+@login_required
+def challenge_test_ai_deck():
+    lines = []
+    for lvl in [1, 2, 10, 100, 400, 800]:
+        mn, mx = level_to_ai_power_range(lvl)
+        deck = gen_ai_deck(mn, mx)
+        if not deck:
+            lines.append(f"第 {lvl} 关：生成失败")
+            continue
+        total = sum(c["atk"] + c["def"] for c in deck)
+        lines.append(f"=== 第 {lvl} 关（目标 {mn}~{mx}，实际 {total}）===")
+        for c in deck:
+            lines.append(f"  {c['name']} Lv{c['level']} atk={c['atk']} def={c['def']} role={c['role']}")
+    return "<pre>" + "\n".join(lines) + "</pre>"
 
 # ========== 搏卡 ==========
 def gen_room_code():
