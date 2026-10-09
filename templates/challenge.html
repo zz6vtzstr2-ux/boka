@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>个人挑战 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background-color: #e8e0cc;
+      color: #333;
+      margin: 0;
+      padding: 16px 16px 90px 16px;
+      min-height: 100vh;
+    }
+    .container { max-width: 868px; margin: 0 auto; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .title-block .page-name {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 4px;
+      text-indent: 4px;
+    }
+    .title-block .en {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .back-btn {
+      background: #fce8ec;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid #e8c8d0;
+      font-size: 15px;
+      color: #b85a6a;
+      text-decoration: none;
+    }
+    .back-btn:hover { background: #f8d8de; }
+
+    .panel {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .panel-title {
+      display: inline-block;
+      background: #fdf6d8;
+      color: #8a6d1f;
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: 1px solid #f0e0a0;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-indent: 3px;
+      margin-bottom: 16px;
+    }
+
+    /* 玩家信息 */
+    .user-block {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid #e8e0cc;
+    }
+    .user-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+      padding: 6px 10px;
+      border-radius: 12px;
+    }
+    .user-link:hover { background: #f9f5e8; }
+    .user-link img {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      border: 2px solid #d8d0bc;
+      background: #fff;
+    }
+    .user-link .nickname {
+      font-size: 20px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 1px;
+    }
+
+    /* 关卡 */
+    .level-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #f9f5e8;
+      border: 1px solid #e0d8c0;
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-bottom: 12px;
+    }
+    .level-row .label {
+      font-size: 15px;
+      color: #888;
+      letter-spacing: 2px;
+    }
+    .level-row .num {
+      font-size: 28px;
+      font-weight: bold;
+      color: #b85a6a;
+      cursor: pointer;
+      padding: 2px 12px;
+      border-radius: 8px;
+      letter-spacing: 2px;
+    }
+    .level-row .num:hover { background: #fce8ec; }
+
+    .stats-row {
+      display: flex;
+      gap: 12px;
+    }
+    .stat-box {
+      flex: 1;
+      background: #f9f5e8;
+      border: 1px solid #e0d8c0;
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-box .lbl {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 4px;
+      letter-spacing: 2px;
+    }
+    .stat-box .val {
+      font-size: 22px;
+      font-weight: bold;
+      color: #b85a6a;
+    }
+
+    /* 卡组 */
+    .deck-area {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+      min-height: 130px;
+    }
+    .deck-area:empty::before {
+      content: "（卡组为空，点下方按钮编辑）";
+      color: #bbb;
+      font-size: 14px;
+      padding: 40px 8px;
+      display: block;
+    }
+
+    .hero-card {
+      position: relative;
+      width: 100px;
+      height: 140px;
+      flex-shrink: 0;
+    }
+    .hero-card .oval-wrap {
+      width: 100%;
+      height: calc(100% - 22px);
+      border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+      overflow: hidden;
+      background: #fffdf5;
+      border: 4px solid #f0e0a0;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+      position: relative;
+    }
+    .hero-card .oval-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .hero-card .atk-orb,
+    .hero-card .def-orb {
+      position: absolute;
+      bottom: 20px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+      z-index: 2;
+    }
+    .hero-card .atk-orb {
+      left: -4px;
+      background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b);
+      border: 2px solid #8a4a1f;
+    }
+    .hero-card .def-orb {
+      right: -4px;
+      background: radial-gradient(circle at 30% 30%, #8bc0e8, #4a7db8);
+      border: 2px solid #2a4a7a;
+    }
+    .hero-card .card-name {
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 12px;
+      font-weight: bold;
+      color: #4a4a4a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      background: rgba(255,255,255,0.9);
+      padding: 1px 4px;
+      border-radius: 6px;
+    }
+    .hero-card .stars {
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      font-weight: bold;
+      color: #d4a017;
+      white-space: nowrap;
+      background: rgba(255,255,255,0.9);
+      padding: 1px 8px;
+      border-radius: 8px;
+      z-index: 3;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn-main {
+      flex: 1;
+      min-width: 140px;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-indent: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: transform 0.15s;
+    }
+    .btn-main:disabled {
+      background: #ccc !important;
+      color: #fff !important;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-blue { background: #5bb8e8; color: #fff; box-shadow: 0 2px 6px rgba(91,184,232,0.3); }
+    .btn-blue:hover:not(:disabled) { transform: translateY(-2px); background: #4aa8d8; }
+    .btn-green { background: #5cb85c; color: #fff; box-shadow: 0 2px 6px rgba(92,184,92,0.3); }
+    .btn-green:hover:not(:disabled) { transform: translateY(-2px); background: #4ea84e; }
+
+    /* 关卡选择弹窗 */
+    .lvl-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+    .lvl-modal.active { display: flex; }
+    .lvl-inner {
+      background: #fffdf5;
+      border-radius: 16px;
+      padding: 18px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      border: 4px double #f0e0a0;
+    }
+    .lvl-inner h3 { margin: 0 0 12px 0; color: #8a6d1f; }
+    .lvl-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+      gap: 8px;
+    }
+    .lvl-btn {
+      padding: 10px;
+      border: 1px solid #e0d8c0;
+      background: #f9f5e8;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #4a4a4a;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: center;
+    }
+    .lvl-btn:hover { background: #fdf6d8; }
+    .lvl-btn.current { background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; }
+    .lvl-close {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      margin-top: 14px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 100px;
+      background: rgba(44,110,90,0.95);
+      color: #fff;
+      padding: 12px 22px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: bold;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title-block">
+        <div class="page-name">个人挑战</div>
+        <div class="en">Challenge</div>
+      </div>
+      <a href="/" class="back-btn">返回主页</a>
+    </div>
+
+    <div class="panel">
+      <div class="user-block">
+        <a href="/profile" class="user-link">
+          <img src="/static/avatars/{{ current_user.username }}.jpg" alt="">
+          <span class="nickname">{{ current_user.nickname or current_user.username }}</span>
+        </a>
+      </div>
+
+      <div class="level-row">
+        <span class="label">当前关卡</span>
+        <span class="num" onclick="openLevelPicker()">第 {{ level }} 关</span>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="lbl">胜利</div>
+          <div class="val">{{ wins }}</div>
+        </div>
+        <div class="stat-box">
+          <div class="lbl">失败</div>
+          <div class="val">{{ losses }}</div>
+        </div>
+        <div class="stat-box">
+          <div class="lbl">今日胜场</div>
+          <div class="val">{{ today_wins }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">我的卡组</div>
+      <div class="deck-area" id="deckArea"></div>
+      <div class="btn-row">
+        <button class="btn-main btn-blue" onclick="editDeck()">编辑卡组</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="btn-row">
+        <button class="btn-main btn-green" id="startBtn" onclick="startChallenge()" disabled>开始挑战</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 关卡选择 -->
+  <div class="lvl-modal" id="lvlModal" onclick="if(event.target===this)closeLevelPicker()">
+    <div class="lvl-inner">
+      <h3>选择关卡（可回头打已通关的关）</h3>
+      <div class="lvl-grid" id="lvlGrid"></div>
+      <button class="lvl-close" onclick="closeLevelPicker()">关闭</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const currentLevel = {{ level }};
+    const currentDeck = {{ deck | tojson }};
+    const ownedCards = {{ cards | tojson }};
+    const maxLevel = {{ max_level }};
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1600);
+    }
+
+    function levelToQuality(level) {
+      if (level <= 5) return "#d0d0d0";
+      if (level <= 10) return "#5cb85c";
+      if (level <= 15) return "#4a90d9";
+      if (level <= 20) return "#a06cd5";
+      return "#f5a623";
+    }
+    function levelToStars(level) {
+      return ((level - 1) % 5) + 1;
+    }
+
+    function makeHeroCard(c) {
+      const level = c.level || 1;
+      const stars = levelToStars(level);
+      const borderColor = levelToQuality(level);
+      const bonus = level - 1;
+      const atk = c.atk + bonus;
+      const def = c.def + bonus;
+      const div = document.createElement('div');
+      div.className = 'hero-card';
+      div.innerHTML = `
+        <div class="stars">${'★'.repeat(stars)}</div>
+        <div class="oval-wrap" style="border-color:${borderColor};">
+          <img src="/static/cards/${c.name}.PNG" alt="${c.name}">
+        </div>
+        <div class="atk-orb">${atk}</div>
+        <div class="def-orb">${def}</div>
+        <div class="card-name">${c.name}</div>
+      `;
+      return div;
+    }
+
+    function renderDeck() {
+      const el = document.getElementById('deckArea');
+      el.innerHTML = '';
+      currentDeck.forEach(c => {
+        el.appendChild(makeHeroCard(c));
+      });
+      document.getElementById('startBtn').disabled = currentDeck.length !== 6;
+    }
+
+    function openLevelPicker() {
+      const modal = document.getElementById('lvlModal');
+      const grid = document.getElementById('lvlGrid');
+      grid.innerHTML = '';
+      for (let i = 1; i <= maxLevel; i++) {
+        const btn = document.createElement('div');
+        btn.className = 'lvl-btn' + (i === currentLevel ? ' current' : '');
+        btn.textContent = '第 ' + i + ' 关';
+        btn.onclick = () => {
+          window.location.href = '/challenge?level=' + i;
+        };
+        grid.appendChild(btn);
+      }
+      modal.classList.add('active');
+    }
+    function closeLevelPicker() {
+      document.getElementById('lvlModal').classList.remove('active');
+    }
+
+    function editDeck() {
+      window.location.href = '/challenge/picker?level=' + currentLevel;
+    }
+
+    async function startChallenge() {
+      if (currentDeck.length !== 6) {
+        showToast('请先编辑卡组（需 6 张）');
+        return;
+      }
+      const res = await fetch('/challenge/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({level: currentLevel})
+      });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      window.location.href = '/challenge/battle?level=' + currentLevel;
+    }
+
+    renderDeck();
+  </script>
+</body>
+</html>
