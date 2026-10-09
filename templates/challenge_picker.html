@@ -325,7 +325,7 @@
 
     function updateCount() {
       document.getElementById('selCount').textContent = selectedCards.length;
-      document.getElementById('confirmBtn').disabled = selectedCards.length !== 6;
+      document.getElementById('confirmBtn').disabled = selectedCards.length < 1 || selectedCards.length > 6;
     }
 
     function sortBy(key, btn) {
@@ -420,7 +420,7 @@
     }
 
     async function confirmPick() {
-      if (selectedCards.length !== 6) { showToast('需要选择 6 张卡'); return; }
+      if (selectedCards.length < 1 || selectedCards.length > 6) { showToast('请选择 1~6 张卡'); return; }
       const res = await fetch('/challenge/deck/save', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
