@@ -2516,6 +2516,7 @@ with app.app_context():
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS revealed_at TIMESTAMP',
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS round_winner_card_id INTEGER',
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS beauty_left INTEGER DEFAULT 3',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS building_last_collect TEXT DEFAULT \'{}\'',
     ]
     try:
         with db.engine.begin() as conn:
