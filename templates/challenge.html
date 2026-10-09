@@ -476,7 +476,7 @@
       currentDeck.forEach(c => {
         el.appendChild(makeHeroCard(c));
       });
-      document.getElementById('startBtn').disabled = currentDeck.length !== 6;
+      document.getElementById('startBtn').disabled = currentDeck.length < 1 || currentDeck.length > 6;
     }
 
     function openLevelPicker() {
@@ -503,8 +503,8 @@
     }
 
     async function startChallenge() {
-      if (currentDeck.length !== 6) {
-        showToast('请先编辑卡组（需 6 张）');
+      if (currentDeck.length < 1 || currentDeck.length > 6) {
+        showToast('请先编辑卡组（1~6 张）');
         return;
       }
       const res = await fetch('/challenge/start', {
