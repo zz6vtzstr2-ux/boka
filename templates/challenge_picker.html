@@ -17,16 +17,21 @@
     }
     .container { max-width: 868px; margin: 0 auto; }
 
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .panel-combined {
       background: rgba(255,255,255,0.92);
       border: 1px solid #d8d0bc;
       border-radius: 16px;
       padding: 16px 20px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.08);
       margin-bottom: 16px;
+    }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #e8e0cc;
     }
     .title-block .page-name {
       font-size: 28px;
@@ -57,12 +62,6 @@
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-      margin-bottom: 16px;
-      background: rgba(255,255,255,0.92);
-      border: 1px solid #d8d0bc;
-      border-radius: 16px;
-      padding: 14px 16px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
     }
     .sort-bar button {
       padding: 10px 18px;
@@ -262,21 +261,22 @@
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <div class="title-block">
-        <div class="page-name">选择出战卡组</div>
-        <div class="en">Select Deck</div>
+    <div class="panel-combined">
+      <div class="header-row">
+        <div class="title-block">
+          <div class="page-name">选择出战卡组</div>
+          <div class="en">Select Deck</div>
+        </div>
+        <a href="/challenge?level={{ level }}" class="cancel-top-btn">返回</a>
       </div>
-      <a href="/challenge?level={{ level }}" class="cancel-top-btn">返回</a>
-    </div>
-
-    <div class="sort-bar" id="sortBar">
-      <button class="sort-rank active" onclick="sortBy('rank', this)">座次</button>
-      <button class="sort-lead" onclick="sortBy('lead', this)">统率</button>
-      <button class="sort-might" onclick="sortBy('might', this)">武力</button>
-      <button class="sort-intel" onclick="sortBy('intel', this)">智力</button>
-      <button class="sort-politics" onclick="sortBy('politics', this)">政治</button>
-      <button class="sort-charm" onclick="sortBy('charm', this)">魅力</button>
+      <div class="sort-bar" id="sortBar">
+        <button class="sort-rank active" onclick="sortBy('rank', this)">座次</button>
+        <button class="sort-lead" onclick="sortBy('lead', this)">统率</button>
+        <button class="sort-might" onclick="sortBy('might', this)">武力</button>
+        <button class="sort-intel" onclick="sortBy('intel', this)">智力</button>
+        <button class="sort-politics" onclick="sortBy('politics', this)">政治</button>
+        <button class="sort-charm" onclick="sortBy('charm', this)">魅力</button>
+      </div>
     </div>
 
     <div class="card-grid" id="cardGrid"></div>
