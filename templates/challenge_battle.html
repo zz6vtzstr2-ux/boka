@@ -389,6 +389,7 @@
       <button class="top-btn danger" onclick="quitGame()">退出</button>
       <div class="top-info" id="levelInfo">第 {{ level }} 关</div>
       <div class="top-info" id="roundInfo">第 1 轮</div>
+      <div class="top-info" id="poolInfo">卡袋 0</div>
     </div>
     <div class="top-right">
       <div class="top-info" id="rewardInfo">胜利 +0 建材</div>
@@ -584,6 +585,7 @@
         roundNo = data.round_no;
         currentPhase = data.phase;
         document.getElementById('roundInfo').textContent = '第 ' + roundNo + ' 轮';
+        document.getElementById('poolInfo').textContent = '卡袋 ' + (data.card_pool_count || 0);
         document.getElementById('centerBanner').textContent = '本轮' + data.round_phase;
         const banner = document.getElementById('centerBanner');
         banner.classList.remove('atk', 'def');
