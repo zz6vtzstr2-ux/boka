@@ -777,8 +777,8 @@ def challenge_picker():
 @login_required
 def challenge_deck_save():
     card_ids = request.json.get('card_ids', [])
-    if not isinstance(card_ids, list) or len(card_ids) != 6:
-        return jsonify({"error": "卡组必须为 6 张"}), 400
+    if not isinstance(card_ids, list) or len(card_ids) < 1 or len(card_ids) > 6:
+        return jsonify({"error": "卡组必须为 1~6 张"}), 400
     coll = ensure_collection_migrated(current_user)
     for cid in card_ids:
         entry = coll.get(str(cid))
@@ -962,6 +962,7 @@ def challenge_state():
         "won": game.get("won", False),
         "level": game.get("level", level),
         "materials": game.get("materials", 0),
+        "card_pool_count": len(game.get("card_pool", [])),
     })
 
 
