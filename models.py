@@ -209,7 +209,7 @@ class BokaPlayer(db.Model):
     is_temporary_away = db.Column(db.Boolean, default=False)  # 暂离标记
     joined_at = db.Column(db.DateTime, nullable=True)
 
- class BokaGame(db.Model):
+class BokaGame(db.Model):
     __tablename__ = "boka_game"
     id = db.Column(db.Integer, primary_key=True)
     room_id = db.Column(db.Integer, db.ForeignKey("boka_room.id"), nullable=False)
