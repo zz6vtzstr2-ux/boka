@@ -30,6 +30,12 @@ class User(UserMixin, db.Model):
     # 挑战
     challenge_level = db.Column(db.Integer, default=1)
     daily_challenge_wins = db.Column(db.Integer, default=0)
+    challenge_deck = db.Column(db.Text, default="[]")          # 玩家卡组（卡 id 数组）
+    challenge_wins_total = db.Column(db.Integer, default=0)    # 总胜场
+    challenge_losses_total = db.Column(db.Integer, default=0)  # 总败场
+    challenge_today_wins = db.Column(db.Integer, default=0)    # 今日胜场
+    challenge_today_reset = db.Column(db.Date, nullable=True)  # 今日重置日期
+    challenge_active_game = db.Column(db.Text, default="")     # 进行中的对局 JSON
 
     # 搏卡
     score = db.Column(db.Integer, default=0)
