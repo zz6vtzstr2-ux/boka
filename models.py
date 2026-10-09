@@ -203,7 +203,7 @@ class BokaPlayer(db.Model):
     is_temporary_away = db.Column(db.Boolean, default=False)  # 暂离标记
     joined_at = db.Column(db.DateTime, nullable=True)
 
-class BokaGame(db.Model):
+ class BokaGame(db.Model):
     __tablename__ = "boka_game"
     id = db.Column(db.Integer, primary_key=True)
     room_id = db.Column(db.Integer, db.ForeignKey("boka_room.id"), nullable=False)
@@ -215,10 +215,11 @@ class BokaGame(db.Model):
     created_at = db.Column(db.DateTime, nullable=True)
     finished_at = db.Column(db.DateTime, nullable=True)
     history = db.Column(db.Text, default="[]")
+    revealed_at = db.Column(db.DateTime, nullable=True)
+    round_winner_card_id = db.Column(db.Integer, nullable=True)
     # 新增 ↓
-    revealed_at = db.Column(db.DateTime, nullable=True)  # 进入 revealing 的时间
-    round_winner_card_id = db.Column(db.Integer, nullable=True)  # 本轮获胜卡（用于公告）
-    
+    beauty_left = db.Column(db.Integer, default=3)  # 本局美女剩余次数   
+
 class BokaGamePlayer(db.Model):
     """搏卡一局中的玩家状态"""
     __tablename__ = "boka_game_player"
