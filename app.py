@@ -629,25 +629,6 @@ def gen_ai_deck(target_min, target_max, max_tries=2000):
             c["role"] = "def"
     return best
 
-
-@app.route('/challenge/test_ai_deck')
-@login_required
-def challenge_test_ai_deck():
-    """临时测试：生成第 1 关和第 800 关的 AI 卡组"""
-    lines = []
-    for lvl in [1, 2, 10, 100, 400, 800]:
-        mn = 184 + lvl
-        mx = 233 + lvl
-        deck = gen_ai_deck(mn, mx)
-        if not deck:
-            lines.append(f"第 {lvl} 关：生成失败")
-            continue
-        total = sum(c["atk"] + c["def"] for c in deck)
-        lines.append(f"=== 第 {lvl} 关（目标 {mn}~{mx}，实际 {total}）===")
-        for c in deck:
-            lines.append(f"  {c['name']} Lv{c['level']} atk={c['atk']} def={c['def']} role={c['role']}")
-    return "<pre>" + "\n".join(lines) + "</pre>"
-
 # ========== 挑战 ==========
 CHALLENGE_MAX_LEVEL = 800
 AI_EXCLUDE_NAMES = {"白胜", "孙二娘", "扈三娘", "宋江"}
