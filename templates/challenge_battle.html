@@ -447,13 +447,18 @@
   </div>
 
   <div class="bottom-area">
-    <div class="my-ready-area" id="myReadyArea"></div>
+    <div class="ready-row">
+      <div class="my-avatar-block">
+        <img src="/static/avatars/{{ username }}.jpg" alt="">
+        <div class="pname">{{ nickname }}</div>
+        <div class="hand-count">手牌 <span id="myHandCount">6</span></div>
+      </div>
+      <div class="my-ready-area" id="myReadyArea"></div>
+      <button class="play-square-btn" id="playBtn" onclick="submitPlay()" disabled>出战</button>
+    </div>
     <div class="my-hand-area">
       <div class="hand-label">手牌</div>
       <div class="hand-scroll" id="myHandArea"></div>
-    </div>
-    <div class="btn-row">
-      <button class="action-btn action-blue" id="playBtn" onclick="submitPlay()" disabled>出战</button>
     </div>
   </div>
 
