@@ -18,12 +18,16 @@
     .container { max-width: 868px; margin: 0 auto; }
 
     .panel-combined {
-      background: rgba(255,255,255,0.92);
+      position: sticky;
+      top: 8px;
+      z-index: 50;
+      background: rgba(255,255,255,0.96);
       border: 1px solid #d8d0bc;
       border-radius: 16px;
       padding: 16px 20px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.08);
       margin-bottom: 16px;
+      backdrop-filter: blur(8px);
     }
     .panel-cards {
       background: rgba(255,255,255,0.92);
