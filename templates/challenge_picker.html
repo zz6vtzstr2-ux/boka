@@ -76,7 +76,44 @@
       text-decoration: none;
     }
     .cancel-top-btn:hover { background: #f8d8de; }
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .confirm-top-btn {
+      background: #5bb8e8;
+      color: #fff;
+      padding: 10px 24px;
+      border-radius: 8px;
+      border: 1px solid #4aa8d8;
+      font-size: 15px;
+      font-weight: bold;
+      font-family: inherit;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    .confirm-top-btn:hover:not(:disabled) { transform: translateY(-2px); background: #4aa8d8; }
+    .confirm-top-btn:disabled { background: #cccccc; border-color: #b0b0b0; cursor: not-allowed; }
 
+    .sort-bar-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .selected-count-top {
+      font-size: 14px;
+      color: #666;
+      white-space: nowrap;
+      padding: 0 4px;
+    }
+    .selected-count-top b {
+      color: #b85a6a;
+      font-size: 16px;
+    }
     .sort-bar {
       display: flex;
       gap: 8px;
@@ -177,52 +214,6 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
 
-    .bottom-bar {
-      position: fixed;
-      bottom: 0;
-      left: 0; right: 0;
-      background: rgba(255,255,255,0.96);
-      border-top: 1px solid #d8d0bc;
-      box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
-      padding: 14px 16px;
-      z-index: 50;
-    }
-    .bottom-inner {
-      max-width: 868px;
-      margin: 0 auto;
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-    .selected-count {
-      font-size: 14px;
-      color: #666;
-      white-space: nowrap;
-      padding: 0 8px;
-    }
-    .selected-count b { color: #b85a6a; font-size: 16px; }
-    .btn {
-      flex: 1;
-      padding: 14px;
-      border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: bold;
-      letter-spacing: 4px;
-      text-indent: 4px;
-      cursor: pointer;
-      font-family: inherit;
-      transition: transform 0.15s;
-    }
-    .btn-confirm { background: #5bb8e8; color: #fff; box-shadow: 0 2px 6px rgba(91,184,232,0.3); }
-    .btn-confirm:hover:not(:disabled) { transform: translateY(-2px); background: #4aa8d8; }
-    .btn-confirm:disabled { background: #cccccc; cursor: not-allowed; box-shadow: none; }
-    .btn-cancel {
-      background: #fce8ec; color: #b85a6a; border: 1px solid #e8c8d0;
-      flex: 0 0 auto; padding: 14px 24px;
-    }
-    .btn-cancel:hover { background: #f8d8de; }
-
     .toast {
       position: fixed; top: 88%; left: 50%;
       transform: translate(-50%, -50%) scale(0.9);
@@ -242,25 +233,23 @@
           <div class="page-name">编辑卡组</div>
           <div class="en">Edit Deck</div>
         </div>
-        <a href="/challenge?level={{ level }}" class="cancel-top-btn">返回</a>
+        <div class="header-actions">
+          <button class="confirm-top-btn" id="confirmBtn" onclick="confirmPick()" disabled>确定</button>
+          <a href="/challenge?level={{ level }}" class="cancel-top-btn">返回</a>
+        </div>
       </div>
-      <div class="sort-bar" id="sortBar">
-        <button class="sort-rank active" onclick="sortBy('rank', this)">座次</button>
-        <button class="sort-atk" onclick="sortBy('atk', this)">攻击</button>
-        <button class="sort-def" onclick="sortBy('def', this)">防御</button>
+      <div class="sort-bar-row">
+        <div class="sort-bar" id="sortBar">
+          <button class="sort-rank active" onclick="sortBy('rank', this)">座次</button>
+          <button class="sort-atk" onclick="sortBy('atk', this)">攻击</button>
+          <button class="sort-def" onclick="sortBy('def', this)">防御</button>
+        </div>
+        <span class="selected-count-top">已选 <b id="selCountTop">0</b>/6</span>
       </div>
     </div>
 
     <div class="panel-cards">
       <div class="card-grid" id="cardGrid"></div>
-    </div>
-  </div>
-
-  <div class="bottom-bar">
-    <div class="bottom-inner">
-      <button class="btn btn-cancel" onclick="cancelPick()">取消</button>
-      <span class="selected-count">已选 <b id="selCount">0</b>/6</span>
-      <button class="btn btn-confirm" id="confirmBtn" onclick="confirmPick()" disabled>确定</button>
     </div>
   </div>
 
@@ -297,7 +286,7 @@
     }
 
     function updateCount() {
-      document.getElementById('selCount').textContent = selectedCards.length;
+      document.getElementById('selCountTop').textContent = selectedCards.length;
       document.getElementById('confirmBtn').disabled = selectedCards.length < 1 || selectedCards.length > 6;
     }
 
@@ -401,10 +390,6 @@
       });
       const data = await res.json();
       if (data.error) { showToast(data.error); return; }
-      window.location.href = '/challenge?level=' + level;
-    }
-
-    function cancelPick() {
       window.location.href = '/challenge?level=' + level;
     }
 
