@@ -232,19 +232,20 @@
       flex-direction: column;
     }
     .my-ready-area {
+      flex: 1;
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      align-content: flex-start;
+      align-content: center;
       justify-content: center;
-      padding: 10px 16px 8px 16px;
-      border-bottom: 1px dashed #e0d8c0;
+      padding: 4px;
+      min-width: 0;
     }
     .my-ready-area:empty::before {
       content: "备战区（未选卡）";
       color: #bbb;
       font-size: 13px;
-      padding: 20px 8px;
+      padding: 8px;
       display: block;
     }
     .my-hand-area {
