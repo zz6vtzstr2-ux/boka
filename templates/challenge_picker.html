@@ -182,10 +182,11 @@
     .card-row-info {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: stretch;
       width: 100%;
       margin-top: 6px;
-      gap: 4px;
+      gap: 6px;
+      min-height: 26px;
     }
     .info-pill {
       font-size: 13px;
@@ -194,6 +195,9 @@
       border-radius: 8px;
       line-height: 1.4;
       white-space: nowrap;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
     }
     .atk-pill {
       background: #d89050;
@@ -205,22 +209,31 @@
       color: #fff;
       box-shadow: 0 1px 3px rgba(42,74,122,0.4);
     }
-    .stars-pill {
-      background: transparent;
-      padding: 2px 0;
-      font-size: 13px;
-      text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+    .center-col {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+      padding: 1px 0;
     }
-    .card-row-name {
-      font-size: 13px;
+    .stars-pill {
+      font-size: 12px;
       font-weight: bold;
-      text-align: center;
-      margin-top: 4px;
+      line-height: 1;
+      text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+      white-space: nowrap;
+    }
+    .card-name-text {
+      font-size: 12px;
+      font-weight: bold;
       color: #4a4a4a;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 100%;
+      line-height: 1;
     }
 
     .order-mark {
@@ -355,10 +368,12 @@
           </div>
           <div class="card-row-info">
             <span class="info-pill atk-pill">${atk}</span>
-            <span class="info-pill stars-pill" style="color:${borderColor};">${'★'.repeat(stars)}</span>
+            <div class="center-col">
+              <span class="stars-pill" style="color:${borderColor};">${'★'.repeat(stars)}</span>
+              <span class="card-name-text">${c.name}</span>
+            </div>
             <span class="info-pill def-pill">${def}</span>
           </div>
-          <div class="card-row-name">${c.name}</div>
         `;
         div.onclick = () => {
           const idx = selectedCards.findIndex(x => x.id === c.id);
