@@ -78,11 +78,8 @@
     }
     .sort-bar button.active { box-shadow: inset 0 0 0 3px #5bb8e8; }
     .sort-rank { background: #e8e8e8; }
-    .sort-lead { background: #c8e0c8; }
-    .sort-might { background: #e8c8b8; }
-    .sort-intel { background: #d8c8e8; }
-    .sort-politics { background: #f0dcb0; }
-    .sort-charm { background: #e8b8c8; }
+    .sort-atk { background: #f5d5b0; color: #7a4a1a; }
+    .sort-def { background: #c8dff0; color: #1a4a7a; }
 
     .card-grid {
       display: grid;
@@ -271,13 +268,9 @@
       </div>
       <div class="sort-bar" id="sortBar">
         <button class="sort-rank active" onclick="sortBy('rank', this)">座次</button>
-        <button class="sort-lead" onclick="sortBy('lead', this)">统率</button>
-        <button class="sort-might" onclick="sortBy('might', this)">武力</button>
-        <button class="sort-intel" onclick="sortBy('intel', this)">智力</button>
-        <button class="sort-politics" onclick="sortBy('politics', this)">政治</button>
-        <button class="sort-charm" onclick="sortBy('charm', this)">魅力</button>
+        <button class="sort-atk" onclick="sortBy('atk', this)">攻击</button>
+        <button class="sort-def" onclick="sortBy('def', this)">防御</button>
       </div>
-    </div>
 
     <div class="card-grid" id="cardGrid"></div>
   </div>
@@ -339,7 +332,9 @@
       const grid = document.getElementById('cardGrid');
       const sorted = [...ownedCards].sort((a, b) => {
         if (sortKey === 'rank') return a.id - b.id;
-        return (b[sortKey] || 0) - (a[sortKey] || 0);
+        const aVal = sortKey === 'atk' ? (a.atk + (a.level - 1)) : (a.def + (a.level - 1));
+        const bVal = sortKey === 'atk' ? (b.atk + (b.level - 1)) : (b.def + (b.level - 1));
+        return bVal - aVal;
       });
       grid.innerHTML = '';
       sorted.forEach(c => {
