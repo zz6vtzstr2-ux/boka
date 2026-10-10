@@ -338,6 +338,9 @@
         const lv = c.level || 1;
         const stars = levelToStars(lv);
         const borderColor = levelToQuality(lv);
+        const bonus = lv - 1;
+        const atk = c.atk + bonus;
+        const def = c.def + bonus;
 
         const wrapper = document.createElement('div');
         wrapper.className = 'card-wrap';
