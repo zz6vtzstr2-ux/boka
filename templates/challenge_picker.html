@@ -179,22 +179,48 @@
       object-fit: cover;
       display: block;
     }
-    .card-item .name {
+    .card-row-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      margin-top: 6px;
+      gap: 4px;
+    }
+    .info-pill {
+      font-size: 13px;
+      font-weight: bold;
+      padding: 2px 8px;
+      border-radius: 8px;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+    .atk-pill {
+      background: #d89050;
+      color: #fff;
+      box-shadow: 0 1px 3px rgba(138,74,31,0.4);
+    }
+    .def-pill {
+      background: #6ba0d0;
+      color: #fff;
+      box-shadow: 0 1px 3px rgba(42,74,122,0.4);
+    }
+    .stars-pill {
+      background: transparent;
+      padding: 2px 0;
+      font-size: 13px;
+      text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+    }
+    .card-row-name {
       font-size: 13px;
       font-weight: bold;
       text-align: center;
-      margin-top: 6px;
+      margin-top: 4px;
       color: #4a4a4a;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 100%;
-    }
-    .card-item .stars {
-      text-align: center;
-      font-size: 12px;
-      font-weight: bold;
-      margin-top: 4px;
     }
 
     .order-mark {
@@ -324,8 +350,12 @@
           <div class="card-img-wrap">
             <img loading="lazy" src="/static/cards/${c.name}.PNG" alt="${c.name}">
           </div>
-          <div class="name">${c.nick}·${c.name}</div>
-          <div class="stars" style="color:${borderColor};">${'★'.repeat(stars)} Lv${lv}</div>
+          <div class="card-row-info">
+            <span class="info-pill atk-pill">${atk}</span>
+            <span class="info-pill stars-pill" style="color:${borderColor};">${'★'.repeat(stars)}</span>
+            <span class="info-pill def-pill">${def}</span>
+          </div>
+          <div class="card-row-name">${c.name}</div>
         `;
         div.onclick = () => {
           const idx = selectedCards.findIndex(x => x.id === c.id);
