@@ -91,10 +91,16 @@
 
     .card-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 16px;
     }
-    .card-wrap { position: relative; padding-top: 14px; }
+    .card-wrap {
+      position: relative;
+      padding-top: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
     .card-item {
       cursor: pointer;
       border-radius: 14px;
@@ -103,90 +109,43 @@
       padding: 8px;
       border: 4px double #f0e0a0;
       transition: box-shadow 0.15s;
-    }
-    .card-item.selected { box-shadow: inset 0 0 0 4px #5bb8e8; }
-
-    .card-pair { display: flex; gap: 6px; }
-    .card-pair .face {
-      flex: 1;
-      border-radius: 8px;
-      overflow: hidden;
-      background: #fff;
-      display: flex;
-      flex-direction: column;
-    }
-    .card-pair .face img { width: 100%; display: block; }
-    .card-pair .back-content {
-      padding: 8px;
-      font-size: 11px;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-    }
-    .back-title {
-      display: inline-block;
-      background: #fdf6d8;
-      color: #8a6d1f;
-      padding: 2px 8px;
-      border-radius: 8px;
-      border: 1px solid #f0e0a0;
-      font-size: 10px;
-      font-weight: bold;
-      margin-bottom: 6px;
-      align-self: flex-start;
-    }
-    .back-bio {
-      font-size: 10px;
-      color: #777;
-      line-height: 1.4;
-      margin-bottom: 6px;
-      max-height: 60px;
-      overflow: hidden;
-    }
-    .attr-bars {
-      display: flex;
-      justify-content: space-around;
-      align-items: flex-start;
-      flex: 1;
-    }
-    .attr-bar {
+      width: 100%;
+      max-width: 180px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      height: 100%;
-      width: 20%;
     }
-    .attr-bar .label { font-size: 9px; color: #888; margin-bottom: 2px; }
-    .attr-bar .bar-wrap {
-      flex: 1;
-      width: 10px;
-      background: #f5f0e0;
-      border-radius: 3px;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
+    .card-item.selected {
+      box-shadow: inset 0 0 0 4px #5bb8e8;
+    }
+    .card-img-wrap {
+      width: 100%;
+      aspect-ratio: 300 / 480;
       overflow: hidden;
+      border-radius: 8px;
+      background: #fff;
     }
-    .attr-bar .bar { width: 100%; border-radius: 3px; }
-    .attr-bar .value { font-size: 9px; font-weight: bold; color: #555; margin-top: 2px; }
-    .b-lead { background: #c8e0c8; }
-    .b-might { background: #e8c8b8; }
-    .b-intel { background: #d8c8e8; }
-    .b-politics { background: #f0dcb0; }
-    .b-charm { background: #e8b8c8; }
-
+    .card-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
     .card-item .name {
       font-size: 13px;
       font-weight: bold;
       text-align: center;
       margin-top: 6px;
       color: #4a4a4a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
     }
     .card-item .stars {
       text-align: center;
       font-size: 12px;
       font-weight: bold;
-      color: #d4a017;
       margin-top: 4px;
     }
 
@@ -363,41 +322,8 @@
         div.className = 'card-item' + (isSelected ? ' selected' : '');
         div.style.borderColor = borderColor;
         div.innerHTML = `
-          <div class="card-pair">
-            <div class="face">
-              <img loading="lazy" src="/static/cards/${c.name}.PNG" alt="${c.name}">
-            </div>
-            <div class="face back-content">
-              <div class="back-title">人物简介</div>
-              <div class="back-bio">${c.info || ''}</div>
-              <div class="attr-bars">
-                <div class="attr-bar">
-                  <div class="label">统率</div>
-                  <div class="bar-wrap"><div class="bar b-lead" style="height:${c.lead}%"></div></div>
-                  <div class="value">${c.lead}</div>
-                </div>
-                <div class="attr-bar">
-                  <div class="label">武力</div>
-                  <div class="bar-wrap"><div class="bar b-might" style="height:${c.might}%"></div></div>
-                  <div class="value">${c.might}</div>
-                </div>
-                <div class="attr-bar">
-                  <div class="label">智力</div>
-                  <div class="bar-wrap"><div class="bar b-intel" style="height:${c.intel}%"></div></div>
-                  <div class="value">${c.intel}</div>
-                </div>
-                <div class="attr-bar">
-                  <div class="label">政治</div>
-                  <div class="bar-wrap"><div class="bar b-politics" style="height:${c.politics}%"></div></div>
-                  <div class="value">${c.politics}</div>
-                </div>
-                <div class="attr-bar">
-                  <div class="label">魅力</div>
-                  <div class="bar-wrap"><div class="bar b-charm" style="height:${c.charm}%"></div></div>
-                  <div class="value">${c.charm}</div>
-                </div>
-              </div>
-            </div>
+          <div class="card-img-wrap">
+            <img loading="lazy" src="/static/cards/${c.name}.PNG" alt="${c.name}">
           </div>
           <div class="name">${c.nick}·${c.name}</div>
           <div class="stars" style="color:${borderColor};">${'★'.repeat(stars)} Lv${lv}</div>
