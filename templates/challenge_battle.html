@@ -504,7 +504,7 @@
       const div = document.createElement('div');
       div.className = 'hero-card ' + (extraCls || '');
       div.innerHTML = `
-        <div class="stars">${'★'.repeat(stars)}</div>
+        <div class="stars" style="color:${borderColor};">${'★'.repeat(stars)}</div>
         <div class="oval-wrap" style="border-color:${borderColor};">
           <img src="/static/cards/${c.name}.PNG" alt="${c.name}">
         </div>
