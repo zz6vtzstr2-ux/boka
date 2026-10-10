@@ -342,7 +342,7 @@
         if (isSelected) {
           const mark = document.createElement('div');
           mark.className = 'order-mark';
-          mark.textContent = `已选 · 第${order + 1}位`;
+          mark.textContent = '已选';
           wrapper.appendChild(mark);
         }
         grid.appendChild(wrapper);
@@ -365,11 +365,11 @@
         const oldMark = wrapper.querySelector('.order-mark');
         if (isSelected) {
           if (oldMark) {
-            oldMark.textContent = `已选 · 第${order + 1}位`;
+            oldMark.textContent = '已选';
           } else {
             const mark = document.createElement('div');
             mark.className = 'order-mark';
-            mark.textContent = `已选 · 第${order + 1}位`;
+            mark.textContent = '已选';
             wrapper.appendChild(mark);
           }
         } else {
