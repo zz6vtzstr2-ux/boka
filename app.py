@@ -991,7 +991,7 @@ def _ai_pick_card(game):
 
 
 def _resolve_challenge_round(game):
-    """单人 PVE 的一轮结算（单卡版）"""
+    """单人 PVE 的一轮结算：先去向，再总结赢家"""
     is_atk_round = (game.get("round_no", 1) % 2 == 1)
     dim = "atk" if is_atk_round else "def"
     other_dim = "def" if is_atk_round else "atk"
@@ -1021,10 +1021,8 @@ def _resolve_challenge_round(game):
 
     my_cid = my_ready[0]
     ai_cid = ai_ready[0]
-
     my_view = make_view(my_cid, my_lv)
     ai_view = make_view(ai_cid, ai_lv)
-
     if my_view is None or ai_view is None:
         return
 
@@ -1033,36 +1031,71 @@ def _resolve_challenge_round(game):
     my_other = my_view[other_dim]
     ai_other = ai_view[other_dim]
 
-    pool = game.get("card_pool", [])
+    # ===== 阶段 1：计算每张卡的去向 =====
+    # {"card_id": cid, "from": "me"/"ai", "to": "pool"/"me"/"ai"}
+    card_movements = []
 
-    if my_value > ai_value or (my_value == ai_value and my_other >= ai_other):
-        pool.extend(my_ready)
-        game["my_hand"].extend(ai_ready)
-        game["ai_hand"] = [c for c in game["ai_hand"] if c not in ai_ready]
-        # 把 AI 卡的 level 搬到 my_level_map
-        ai_lv_map = game.get("ai_level_map", {})
-        my_lv_map = game.get("my_level_map", {})
-        for cid in ai_ready:
-            my_lv_map[str(cid)] = ai_lv_map.get(str(cid), 1)
-        game["my_level_map"] = my_lv_map
-        game["winner_card_id"] = my_view["id"]
-        game["winner_side"] = "me"
+    if my_value > ai_value or (my_value == ai_value and my_other > ai_other):
+        # 我赢：我的卡进卡袋，AI 的卡进我手牌
+        card_movements.append({"card_id": my_cid, "from": "me", "to": "pool"})
+        card_movements.append({"card_id": ai_cid, "from": "ai", "to": "me"})
+    elif my_value < ai_value or (my_value == ai_value and my_other < ai_other):
+        # AI 赢：AI 的卡进卡袋，我的卡进 AI 手牌
+        card_movements.append({"card_id": ai_cid, "from": "ai", "to": "pool"})
+        card_movements.append({"card_id": my_cid, "from": "me", "to": "ai"})
     else:
-        pool.extend(ai_ready)
-        game["ai_hand"].extend(my_ready)
-        # 把玩家卡的 level 搬到 ai_level_map
-        my_lv_map = game.get("my_level_map", {})
-        ai_lv_map = game.get("ai_level_map", {})
-        for cid in my_ready:
-            ai_lv_map[str(cid)] = my_lv_map.get(str(cid), 1)
-        game["ai_level_map"] = ai_lv_map
-        game["winner_card_id"] = ai_view["id"]
-        game["winner_side"] = "ai"
+        # 平局：双方卡都进卡袋
+        card_movements.append({"card_id": my_cid, "from": "me", "to": "pool"})
+        card_movements.append({"card_id": ai_cid, "from": "ai", "to": "pool"})
 
+    # ===== 阶段 2：执行卡去向 =====
+    pool = game.get("card_pool", [])
+    for m in card_movements:
+        cid = m["card_id"]
+        frm = m["from"]
+        to = m["to"]
+        if frm == "me":
+            game["my_hand"] = [c for c in game.get("my_hand", []) if c != cid]
+        elif frm == "ai":
+            game["ai_hand"] = [c for c in game.get("ai_hand", []) if c != cid]
+        if to == "pool":
+            pool.append(cid)
+        elif to == "me":
+            game["my_hand"].append(cid)
+            if frm == "ai":
+                ai_lv_map = game.get("ai_level_map", {})
+                my_lv_map = game.get("my_level_map", {})
+                my_lv_map[str(cid)] = ai_lv_map.get(str(cid), 1)
+                game["my_level_map"] = my_lv_map
+        elif to == "ai":
+            game["ai_hand"].append(cid)
+            if frm == "me":
+                my_lv_map = game.get("my_level_map", {})
+                ai_lv_map = game.get("ai_level_map", {})
+                ai_lv_map[str(cid)] = my_lv_map.get(str(cid), 1)
+                game["ai_level_map"] = ai_lv_map
     game["card_pool"] = pool
+
+    # ===== 阶段 3：从去向总结"赢家" =====
+    winners = []
+    for m in card_movements:
+        if m["from"] != m["to"] and m["to"] in ("me", "ai"):
+            if m["to"] not in winners:
+                winners.append(m["to"])
+
+    # ===== 阶段 4：记录本轮 =====
+    game["winners"] = winners
+    # 高亮：赢家"打出"的卡
+    winner_card_ids = []
+    for m in card_movements:
+        if m["from"] in winners:
+            winner_card_ids.append(m["card_id"])
+    game["winner_card_ids"] = winner_card_ids
+    # 兼容旧字段
+    game["winner_side"] = winners[0] if len(winners) == 1 else None
+
     game["my_played"] = [my_view]
     game["ai_played"] = [ai_view]
-
     game["my_ready"] = []
     game["ai_ready"] = []
     game["phase"] = "revealing"
@@ -1074,7 +1107,7 @@ def _resolve_challenge_round(game):
         "dim": dim,
         "my_card": my_view,
         "ai_card": ai_view,
-        "winner": game["winner_side"],
+        "winners": winners,
     })
     game["history"] = hist
 
