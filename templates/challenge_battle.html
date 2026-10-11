@@ -669,8 +669,8 @@
           } else {
             step = "result";
           }
-          const winnerId = (step === "result") ? data.winner_card_id : null;
-          renderPlayed(data.my_played || [], data.ai_played || [], step, winnerId);
+          const winnerIds = (step === "result") ? (data.winner_card_ids || []) : [];
+          renderPlayed(data.my_played || [], data.ai_played || [], step, winnerIds);
 
           // 6s 后：刷新手牌、手牌数
           if (step === "result") {
