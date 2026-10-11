@@ -889,7 +889,6 @@ def challenge_play():
     db.session.commit()
     return jsonify({"success": True})
 
-
 @app.route('/challenge/state')
 @login_required
 def challenge_state():
@@ -900,30 +899,37 @@ def challenge_state():
     if not isinstance(game, dict):
         return jsonify({"error": "数据异常"}), 500
 
-    if game.get("phase") == "revealing":
-        revealed_at = game.get("revealed_at")
-        if revealed_at:
-            try:
-                t = datetime.fromisoformat(revealed_at)
-            except Exception:
-                t = datetime.now()
-            elapsed = (datetime.now() - t).total_seconds()
+    elapsed_since_reveal = None
+
+    if game.get("phase") == "revealing" and game.get("revealed_at"):
+        try:
+            t = datetime.fromisoformat(game["revealed_at"])
+            elapsed_since_reveal = (datetime.now() - t).total_seconds()
+        except Exception:
+            elapsed_since_reveal = 0
+
+        # T0+3s：结算数据（只算不改 phase）
+        if elapsed_since_reveal >= 3.0 and not game.get("_resolved"):
+            _resolve_challenge_round(game)
+            game["_resolved"] = True
+            current_user.challenge_active_game = json_dumps_safe(game)
+            db.session.commit()
+
+        # T0+8s：切下一轮 or 结束
+        if elapsed_since_reveal >= 8.0:
             if len(game.get("my_hand", [])) == 0 or len(game.get("ai_hand", [])) == 0:
-                # 最后一轮：等 6 秒才结算，让前端先展示输赢
-                if elapsed >= 6.0:
-                    _finish_challenge(game, current_user, level)
+                _finish_challenge(game, current_user, level)
             else:
-                # 普通轮：3 秒后进入下一轮
-                if elapsed >= 3.0:
-                    game["round_no"] = game.get("round_no", 1) + 1
-                    game["phase"] = "selecting"
-                    game["revealed_at"] = None
-                    game["my_played"] = []
-                    game["ai_played"] = []
-                    game["winner_card_id"] = None
-                    game["winner_side"] = None
-                    current_user.challenge_active_game = json_dumps_safe(game)
-                    db.session.commit()
+                game["round_no"] = game.get("round_no", 1) + 1
+                game["phase"] = "selecting"
+                game["revealed_at"] = None
+                game["my_played"] = []
+                game["ai_played"] = []
+                game["winner_card_id"] = None
+                game["winner_side"] = None
+                game["_resolved"] = False
+                current_user.challenge_active_game = json_dumps_safe(game)
+                db.session.commit()
 
     round_phase = "比攻" if game.get("round_no", 1) % 2 == 1 else "比防"
     my_lv_map = game.get("my_level_map", {})
@@ -950,6 +956,7 @@ def challenge_state():
         "my_played": game.get("my_played", []),
         "ai_played": game.get("ai_played", []),
         "winner_card_id": game.get("winner_card_id"),
+        "winner_side": game.get("winner_side"),
         "my_hand": my_hand_cards,
         "ai_hand_count": len(game.get("ai_hand", [])),
         "my_hand_count": len(game.get("my_hand", [])),
@@ -958,6 +965,7 @@ def challenge_state():
         "level": game.get("level", level),
         "materials": game.get("materials", 0),
         "card_pool_count": len(game.get("card_pool", [])),
+        "elapsed_since_reveal": elapsed_since_reveal if elapsed_since_reveal is not None else -1,
     })
 
 
