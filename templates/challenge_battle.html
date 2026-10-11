@@ -657,20 +657,40 @@
     }
 
     async function submitPlay() {
-      alert('A. submitPlay 开始，myReady.length = ' + myReady.length);
       if (myReady.length === 0) { showToast('请选择卡牌'); return; }
-      alert('B. 即将 fetch');
+      // 立即锁定，防止重复点击
+      locked = true;
+      updatePlayBtn();
+
+      // 立即显示：我的战斗区 → 问号
+      displayState.my = "qmark";
+      renderPlayed();
+
       const res = await fetch('/challenge/play', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({level: level, card_ids: myReady.map(c => c.id)})
       });
-      alert('C. fetch 完成，status = ' + res.status);
       const data = await res.json();
-      alert('D. JSON = ' + JSON.stringify(data));
-      if (data.error) { showToast(data.error); return; }
-      locked = true;
-      updatePlayBtn();
+      if (data.error) {
+        showToast(data.error);
+        locked = false;
+        updatePlayBtn();
+        return;
+      }
+
+      // 拉一次最新状态，拿到 AI 出的牌
+      await pollStateOnce();
+
+      // 播放展示动画
+      if (displayState._pendingMyCards && displayState._pendingAiCards) {
+        playRoundAnimation(
+          displayState._pendingMyCards,
+          displayState._pendingAiCards,
+          displayState._pendingWinnerId
+        );
+      }
+
       startPolling();
     }
 
