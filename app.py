@@ -916,7 +916,7 @@ def challenge_state():
             db.session.commit()
 
         # T0+8s：切下一轮 or 结束
-        if elapsed_since_reveal >= 8.0:
+        if elapsed_since_reveal >= 8.0 and not game.get("finished"):
             if len(game.get("my_hand", [])) == 0 or len(game.get("ai_hand", [])) == 0:
                 _finish_challenge(game, current_user, level)
             else:
@@ -1117,6 +1117,8 @@ def _resolve_challenge_round(game):
 
 def _finish_challenge(game, user, level):
     """结束挑战，结算胜负、建材"""
+    if game.get("finished"):
+        return
     won = False
     if len(game.get("my_hand", [])) > 0 and len(game.get("ai_hand", [])) == 0:
         won = True
@@ -1145,6 +1147,7 @@ def _finish_challenge(game, user, level):
         user.challenge_losses_total = (user.challenge_losses_total or 0) + 1
 
     game["materials"] = materials
+    current_user.challenge_active_game = json_dumps_safe(game)
     db.session.commit()
 
 
