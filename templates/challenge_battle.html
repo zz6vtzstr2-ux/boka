@@ -483,7 +483,8 @@
     let lastWinnerCardId = null;
     let shownStep = "idle";  // "idle" / "qmark" / "face" / "result"
     let shownRound = 0;
-
+    let displayedPoolCount = 0;
+    
     function showToast(msg) {
       const t = document.getElementById('toast');
       t.textContent = msg;
@@ -638,9 +639,16 @@
         const data = await res.json();
         if (data.error) return;
 
-        roundNo = data.round_no;
+         roundNo = data.round_no;
         document.getElementById('roundInfo').textContent = '第 ' + roundNo + ' 轮';
-        document.getElementById('poolInfo').textContent = '卡袋 ' + (data.card_pool_count || 0);
+
+        const elapsedForPool = data.elapsed_since_reveal || 0;
+        if (data.phase === 'revealing' && elapsedForPool < 6.0) {
+          // 展示结算前旧值
+        } else {
+          displayedPoolCount = data.card_pool_count || 0;
+        }
+        document.getElementById('poolInfo').textContent = '卡袋 ' + displayedPoolCount;
         const banner = document.getElementById('centerBanner');
         banner.textContent = '本轮' + data.round_phase;
         banner.classList.remove('atk', 'def');
