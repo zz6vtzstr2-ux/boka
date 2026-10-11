@@ -967,6 +967,7 @@ def challenge_state():
         "level": game.get("level", level),
         "materials": game.get("materials", 0),
         "card_pool_count": len(game.get("card_pool", [])),
+        "history": game.get("history", []),
         "elapsed_since_reveal": elapsed_since_reveal if elapsed_since_reveal is not None else -1,
     })
 
