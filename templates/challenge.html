@@ -472,9 +472,8 @@
       const level = c.level || 1;
       const stars = levelToStars(level);
       const borderColor = levelToQuality(level);
-      const bonus = level - 1;
-      const atk = c.atk + bonus;
-      const def = c.def + bonus;
+      const atk = c.atk;
+      const def = c.def;
       const div = document.createElement('div');
       div.className = 'hero-card';
       div.innerHTML = `
