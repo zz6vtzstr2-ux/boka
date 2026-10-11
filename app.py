@@ -903,7 +903,6 @@ def challenge_state():
     if not isinstance(game, dict):
         return jsonify({"error": "数据异常"}), 500
 
-    # 3 秒后切下一轮 / 结束
     if game.get("phase") == "revealing":
         revealed_at = game.get("revealed_at")
         if revealed_at:
@@ -912,7 +911,6 @@ def challenge_state():
             except Exception:
                 t = datetime.now()
             if (datetime.now() - t).total_seconds() >= 3.0:
-                # 检查是否结束
                 if len(game.get("my_hand", [])) == 0 or len(game.get("ai_hand", [])) == 0:
                     _finish_challenge(game, current_user, level)
                 else:
@@ -927,6 +925,16 @@ def challenge_state():
                     db.session.commit()
 
     round_phase = "比攻" if game.get("round_no", 1) % 2 == 1 else "比防"
+    my_lv_map = game.get("my_level_map", {})
+
+    def _to_card(cid):
+        base = CARD_BY_ID.get(cid)
+        if not base:
+            return None
+        lv = int(my_lv_map.get(str(cid), 1))
+        return {**base, "level": lv}
+
+    my_hand_cards = [c for c in (_to_card(cid) for cid in game.get("my_hand", [])) if c]
 
     return jsonify({
         "round_no": game.get("round_no", 1),
@@ -935,7 +943,7 @@ def challenge_state():
         "my_played": game.get("my_played", []),
         "ai_played": game.get("ai_played", []),
         "winner_card_id": game.get("winner_card_id"),
-        "my_hand": [CARD_BY_ID.get(c) for c in game.get("my_hand", []) if CARD_BY_ID.get(c)],
+        "my_hand": my_hand_cards,
         "ai_hand_count": len(game.get("ai_hand", [])),
         "my_hand_count": len(game.get("my_hand", [])),
         "finished": game.get("finished", False),
