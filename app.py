@@ -929,7 +929,13 @@ def challenge_state():
         if not base:
             return None
         lv = int(my_lv_map.get(str(cid), 1))
-        return {**base, "level": lv}
+        bonus = lv - 1
+        return {
+            **base,
+            "level": lv,
+            "atk": base["atk"] + bonus,
+            "def": base["def"] + bonus,
+        }
 
     my_hand_cards = [c for c in (_to_card(cid) for cid in game.get("my_hand", [])) if c]
 
