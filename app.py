@@ -907,10 +907,14 @@ def challenge_state():
                 t = datetime.fromisoformat(revealed_at)
             except Exception:
                 t = datetime.now()
-            if (datetime.now() - t).total_seconds() >= 3.0:
-                if len(game.get("my_hand", [])) == 0 or len(game.get("ai_hand", [])) == 0:
+            elapsed = (datetime.now() - t).total_seconds()
+            if len(game.get("my_hand", [])) == 0 or len(game.get("ai_hand", [])) == 0:
+                # 最后一轮：等 6 秒才结算，让前端先展示输赢
+                if elapsed >= 6.0:
                     _finish_challenge(game, current_user, level)
-                else:
+            else:
+                # 普通轮：3 秒后进入下一轮
+                if elapsed >= 3.0:
                     game["round_no"] = game.get("round_no", 1) + 1
                     game["phase"] = "selecting"
                     game["revealed_at"] = None
