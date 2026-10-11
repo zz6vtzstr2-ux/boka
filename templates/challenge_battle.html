@@ -620,7 +620,7 @@
     function updatePlayBtn() {
       const btn = document.getElementById('playBtn');
       btn.disabled = locked || myReady.length === 0;
-      btn.textContent = locked ? '已锁定' : '出战';
+      btn.textContent = locked ? '锁定' : '出战';
     }
 
     function renderPlayed(myCards, aiCards, step, winnerIds) {
