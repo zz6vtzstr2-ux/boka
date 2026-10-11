@@ -724,7 +724,10 @@
 
         if (data.finished) {
           if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-          showResult(data);
+          // 等 1 秒，确保"高亮赢家/输家"已经展示完
+          setTimeout(() => {
+            showResult(data);
+          }, 1000);
         }
         return data;
       } catch (e) {
