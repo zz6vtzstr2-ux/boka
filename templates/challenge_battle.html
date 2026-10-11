@@ -546,17 +546,20 @@
     }
 
     async function submitPlay() {
+      alert('A. submitPlay 开始，myReady.length = ' + myReady.length);
       if (myReady.length === 0) { showToast('请选择卡牌'); return; }
+      alert('B. 即将 fetch');
       const res = await fetch('/challenge/play', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({level: level, card_ids: myReady.map(c => c.id)})
       });
+      alert('C. fetch 完成，status = ' + res.status);
       const data = await res.json();
+      alert('D. JSON = ' + JSON.stringify(data));
       if (data.error) { showToast(data.error); return; }
       locked = true;
       updatePlayBtn();
-      // 不清空 myReady / myHand，让玩家看到自己出了什么
       startPolling();
     }
 
