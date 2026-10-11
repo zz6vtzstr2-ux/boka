@@ -970,7 +970,7 @@ def _ai_pick_card(game):
 
 
 def _resolve_challenge_round(game):
-    """单人 PVE 的一轮结算"""
+    """单人 PVE 的一轮结算（单卡版）"""
     is_atk_round = (game.get("round_no", 1) % 2 == 1)
     dim = "atk" if is_atk_round else "def"
     other_dim = "def" if is_atk_round else "atk"
@@ -998,12 +998,14 @@ def _resolve_challenge_round(game):
             "def": base["def"] + bonus,
         }
 
-    # 玩家出牌：只出 1 张（挑战是单卡比）
     my_cid = my_ready[0]
     ai_cid = ai_ready[0]
 
     my_view = make_view(my_cid, my_lv)
     ai_view = make_view(ai_cid, ai_lv)
+
+    if my_view is None or ai_view is None:
+        return
 
     my_value = my_view[dim]
     ai_value = ai_view[dim]
@@ -1013,29 +1015,26 @@ def _resolve_challenge_round(game):
     pool = game.get("card_pool", [])
 
     if my_value > ai_value or (my_value == ai_value and my_other >= ai_other):
-        # 玩家赢：玩家打出的卡 → 进卡袋；AI 打出的卡 → 进玩家手牌
         pool.extend(my_ready)
         game["my_hand"].extend(ai_ready)
         game["ai_hand"] = [c for c in game["ai_hand"] if c not in ai_ready]
-        game["winner_card_id"] = my_views[0]["id"]
+        game["winner_card_id"] = my_view["id"]
         game["winner_side"] = "me"
     else:
-        # AI 赢：AI 打出的卡 → 进卡袋；玩家打出的卡 → 进 AI 手牌
         pool.extend(ai_ready)
         game["ai_hand"].extend(my_ready)
-        game["winner_card_id"] = ai_views[0]["id"]
+        game["winner_card_id"] = ai_view["id"]
         game["winner_side"] = "ai"
 
     game["card_pool"] = pool
-    game["my_played"] = my_views
-    game["ai_played"] = ai_views
+    game["my_played"] = [my_view]
+    game["ai_played"] = [ai_view]
 
     game["my_ready"] = []
     game["ai_ready"] = []
     game["phase"] = "revealing"
     game["revealed_at"] = datetime.now().isoformat()
 
-    # 记录
     hist = game.get("history", [])
     hist.append({
         "round": game.get("round_no", 1),
