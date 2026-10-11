@@ -507,9 +507,8 @@
 
     function makeHeroCard(c, extraCls) {
       const lv = c.level || 1;
-      const bonus = lv - 1;
-      const atk = c.atk + bonus;
-      const def = c.def + bonus;
+      const atk = c.atk;
+      const def = c.def;
       const borderColor = levelToQuality(lv);
       const stars = levelToStars(lv);
       const div = document.createElement('div');
