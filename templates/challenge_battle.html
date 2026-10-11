@@ -699,11 +699,11 @@
       pollTimer = setInterval(pollState, 800);
     }
 
-    async function pollState() {
+    async function pollStateOnce() {
       try {
         const res = await fetch('/challenge/state?level=' + level);
         const data = await res.json();
-        if (data.error) return;
+        if (data.error) return null;
 
         roundNo = data.round_no;
         currentPhase = data.phase;
@@ -714,24 +714,59 @@
         banner.classList.remove('atk', 'def');
         banner.classList.add(data.round_phase === '比攻' ? 'atk' : 'def');
 
+        // 记录本轮双方出的卡（供动画使用）
+        displayState._pendingMyCards = data.my_played || [];
+        displayState._pendingAiCards = data.ai_played || [];
+        displayState._pendingWinnerId = data.winner_card_id;
+
+        // 手牌数同步
+        document.getElementById('aiHandCount').textContent = data.ai_hand_count || 0;
+        document.getElementById('myHandCount').textContent = data.my_hand_count || 0;
+
+        if (data.finished) {
+          if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+          showResult(data);
+        }
+        return data;
+      } catch (e) {
+        console.error(e);
+        return null;
+      }
+    }
+
+    async function pollState() {
+      try {
+        const res = await fetch('/challenge/state?level=' + level);
+        const data = await res.json();
+        if (data.error) return;
+
+        // 轮次变化 → 进入新的 selecting 阶段
         if (data.phase === 'selecting' && data.round_no !== (window._lastRound || 0)) {
           window._lastRound = data.round_no;
           myHand = data.my_hand || [];
           myReady = [];
           locked = false;
-          lastWinnerCardId = null;
+          // 清空胜负高亮（保留卡面）
+          displayState.my = "face";
+          displayState.ai = "face";
+          displayState.myWinnerId = null;
+          displayState.aiWinnerId = null;
           renderHand();
           updatePlayBtn();
+          renderPlayed();
         }
 
-        renderPlayed(data.my_played || [], data.ai_played || []);
-
-        if (data.winner_card_id) {
-          if (lastWinnerCardId !== data.winner_card_id) {
-            lastWinnerCardId = data.winner_card_id;
-            renderPlayed(data.my_played || [], data.ai_played || []);
-          }
-        }
+        // 更新手牌数、卡袋数、轮次
+        roundNo = data.round_no;
+        currentPhase = data.phase;
+        document.getElementById('roundInfo').textContent = '第 ' + roundNo + ' 轮';
+        document.getElementById('poolInfo').textContent = '卡袋 ' + (data.card_pool_count || 0);
+        document.getElementById('aiHandCount').textContent = data.ai_hand_count || 0;
+        document.getElementById('myHandCount').textContent = data.my_hand_count || 0;
+        const banner = document.getElementById('centerBanner');
+        banner.textContent = '本轮' + data.round_phase;
+        banner.classList.remove('atk', 'def');
+        banner.classList.add(data.round_phase === '比攻' ? 'atk' : 'def');
 
         if (data.finished) {
           if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
