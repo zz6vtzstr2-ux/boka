@@ -790,9 +790,6 @@ def challenge_start():
             return jsonify({"error": "卡不存在"}), 400
         c2 = dict(card)
         c2["level"] = entry.get("level", 1)
-        bonus = c2["level"] - 1
-        c2["atk"] = card["atk"] + bonus
-        c2["def"] = card["def"] + bonus
         my_deck.append(c2)
 
     # 生成 AI 卡组
