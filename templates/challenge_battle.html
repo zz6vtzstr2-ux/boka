@@ -559,7 +559,7 @@
       btn.textContent = locked ? '已锁定' : '出战';
     }
 
-    function renderPlayed(myCards, aiCards, step, winnerId) {
+    function renderPlayed(myCards, aiCards, step, winnerIds) {
       const myEl = document.getElementById('myPlayed');
       const aiEl = document.getElementById('aiPlayed');
       myEl.innerHTML = '';
@@ -584,19 +584,20 @@
         return;
       }
       if (step === "face" || step === "result") {
+        const winSet = new Set(winnerIds || []);
         myEl.classList.toggle('empty', myCards.length === 0);
         aiEl.classList.toggle('empty', aiCards.length === 0);
         myCards.forEach(c => {
           let cls = '';
-          if (step === "result" && winnerId) {
-            cls = (c.id === winnerId) ? 'winner' : 'loser';
+          if (step === "result" && winSet.size > 0) {
+            cls = winSet.has(c.id) ? 'winner' : 'loser';
           }
           myEl.appendChild(makeHeroCard(c, cls));
         });
         aiCards.forEach(c => {
           let cls = '';
-          if (step === "result" && winnerId) {
-            cls = (c.id === winnerId) ? 'winner' : 'loser';
+          if (step === "result" && winSet.size > 0) {
+            cls = winSet.has(c.id) ? 'winner' : 'loser';
           }
           aiEl.appendChild(makeHeroCard(c, cls));
         });
