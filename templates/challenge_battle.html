@@ -555,21 +555,105 @@
       btn.textContent = locked ? '已锁定' : '出战';
     }
 
-    function renderPlayed(myCards, aiCards) {
+    // ===== 战斗区展示状态 =====
+    let displayState = {
+      my: null,   // null / "qmark" / "face" / "result"
+      ai: null,
+      myCards: [],   // 上一轮我的卡
+      aiCards: [],   // 上一轮 AI 的卡
+      myWinnerId: null,
+      aiWinnerId: null,
+    };
+
+    function renderOneCard(c, state, winnerId) {
+      if (state === "qmark") {
+        const div = document.createElement('div');
+        div.className = 'qmark-card';
+        div.innerHTML = `<div class="qmark-wrap"></div>`;
+        return div;
+      }
+      if (state === "face" || state === "result") {
+        let cls = '';
+        if (state === "result" && winnerId) {
+          cls = (c.id === winnerId) ? 'winner' : 'loser';
+        }
+        return makeHeroCard(c, cls);
+      }
+      return null;
+    }
+
+    function renderPlayed() {
       const myEl = document.getElementById('myPlayed');
       const aiEl = document.getElementById('aiPlayed');
       myEl.innerHTML = '';
       aiEl.innerHTML = '';
-      myEl.classList.toggle('empty', myCards.length === 0);
-      aiEl.classList.toggle('empty', aiCards.length === 0);
-      myCards.forEach(c => {
-        const cls = (lastWinnerCardId === c.id) ? 'winner' : ((lastWinnerCardId && lastWinnerCardId !== c.id) ? 'loser' : '');
-        myEl.appendChild(makeHeroCard(c, cls));
-      });
-      aiCards.forEach(c => {
-        const cls = (lastWinnerCardId === c.id) ? 'winner' : ((lastWinnerCardId && lastWinnerCardId !== c.id) ? 'loser' : '');
-        aiEl.appendChild(makeHeroCard(c, cls));
-      });
+
+      // 我的战斗区
+      if (displayState.my === "qmark") {
+        myEl.appendChild(renderOneCard(null, "qmark"));
+        myEl.classList.remove('empty');
+      } else if (displayState.my === "face" || displayState.my === "result") {
+        displayState.myCards.forEach(c => {
+          const card = renderOneCard(c, displayState.my, displayState.myWinnerId);
+          if (card) myEl.appendChild(card);
+        });
+        myEl.classList.toggle('empty', displayState.myCards.length === 0);
+      } else {
+        myEl.classList.add('empty');
+      }
+
+      // AI 战斗区
+      if (displayState.ai === "qmark") {
+        aiEl.appendChild(renderOneCard(null, "qmark"));
+        aiEl.classList.remove('empty');
+      } else if (displayState.ai === "face" || displayState.ai === "result") {
+        displayState.aiCards.forEach(c => {
+          const card = renderOneCard(c, displayState.ai, displayState.aiWinnerId);
+          if (card) aiEl.appendChild(card);
+        });
+        aiEl.classList.toggle('empty', displayState.aiCards.length === 0);
+      } else {
+        aiEl.classList.add('empty');
+      }
+    }
+
+    // 播放一整轮展示动画
+    function playRoundAnimation(myCards, aiCards, winnerCardId) {
+      // T0：我的战斗区 → 问号；AI 保持上一轮
+      displayState.my = "qmark";
+      // AI 保持（第一轮为空）
+      if (displayState.ai === null) {
+        displayState.ai = null;
+      }
+      renderPlayed();
+
+      // T0+1s：AI 战斗区 → 问号
+      setTimeout(() => {
+        displayState.ai = "qmark";
+        renderPlayed();
+      }, 1000);
+
+      // T0+3s：双方亮卡（无胜负）
+      setTimeout(() => {
+        displayState.my = "face";
+        displayState.ai = "face";
+        displayState.myCards = myCards;
+        displayState.aiCards = aiCards;
+        renderPlayed();
+      }, 3000);
+
+      // T0+6s：出胜负
+      setTimeout(() => {
+        displayState.my = "result";
+        displayState.ai = "result";
+        displayState.myWinnerId = winnerCardId;
+        displayState.aiWinnerId = winnerCardId;
+        renderPlayed();
+        // 清空选中的手牌
+        myReady = [];
+        renderHand();
+        updatePlayBtn();
+      }, 6000);
     }
 
     async function submitPlay() {
