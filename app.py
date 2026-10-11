@@ -650,13 +650,11 @@ def gen_ai_deck(target_min, target_max, max_tries=2000):
         cards = []
         for c in picked:
             lv = random.randint(1, 25)
-            bonus = lv - 1
-            a = c["atk"] + bonus
-            d = c["def"] + bonus
             cards.append({
                 "id": c["id"], "name": c["name"], "nick": c.get("nick", ""),
-                "level": lv, "atk": a, "def": d,
-                "base_atk": c["atk"], "base_def": c["def"],
+                "level": lv,
+                "atk": c["atk"],
+                "def": c["def"],
             })
         total = sum(c["atk"] + c["def"] for c in cards)
         if target_min <= total <= target_max:
