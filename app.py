@@ -1027,6 +1027,12 @@ def _resolve_challenge_round(game):
     else:
         pool.extend(ai_ready)
         game["ai_hand"].extend(my_ready)
+        # 把玩家卡的 level 搬到 ai_level_map
+        my_lv_map = game.get("my_level_map", {})
+        ai_lv_map = game.get("ai_level_map", {})
+        for cid in my_ready:
+            ai_lv_map[str(cid)] = my_lv_map.get(str(cid), 1)
+        game["ai_level_map"] = ai_lv_map
         game["winner_card_id"] = ai_view["id"]
         game["winner_side"] = "ai"
 
