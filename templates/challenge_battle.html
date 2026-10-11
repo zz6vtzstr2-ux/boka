@@ -418,13 +418,12 @@
 <body>
   <div class="top-bar">
     <div class="top-left">
-      <button class="top-btn danger" onclick="quitGame()">退出</button>
-      <div class="top-info" id="levelInfo">第 {{ level }} 关</div>
       <div class="top-info" id="roundInfo">第 1 轮</div>
       <div class="top-info" id="poolInfo">卡袋 0</div>
+      <button class="top-btn" onclick="showRecord()">记录</button>
     </div>
     <div class="top-right">
-      <div class="top-info" id="rewardInfo">胜利 +0 建材</div>
+      <button class="top-btn danger" onclick="quitGame()">退出</button>
     </div>
   </div>
 
