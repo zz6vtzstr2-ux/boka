@@ -678,7 +678,7 @@
 
     function updatePlayBtn() {
       const btn = document.getElementById('playBtn');
-      btn.disabled = locked || myReady.length === 0;
+      btn.disabled = locked || myReady.length === 0 || !lastComboValid;
       btn.textContent = locked ? '锁定' : '出战';
     }
 
@@ -773,6 +773,7 @@
     
     async function submitPlay() {
       if (myReady.length === 0) { showToast('请选择卡牌'); return; }
+      if (!lastComboValid) { showToast('组合无效'); return; }
       locked = true;
       updatePlayBtn();
 
@@ -901,7 +902,12 @@
         const dimKey = h.dim === 'atk' ? 'atk' : 'def';
         const myCard = h.my_card || {};
         const aiCard = h.ai_card || {};
-        const myText = `lv${myCard.level || 1}${myCard.name || '?'} ${myCard[dimKey] || '-'}`;
+        let myText;
+        if (myCard.is_combo) {
+          myText = `${myCard.name} ${myCard.atk}/${myCard.def}`;
+        } else {
+          myText = `lv${myCard.level || 1}${myCard.name || '?'} ${myCard[dimKey] || '-'}`;
+        }
         const aiText = `lv${aiCard.level || 1}${aiCard.name || '?'} ${aiCard[dimKey] || '-'}`;
 
         const winners = h.winners || [];
