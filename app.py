@@ -1320,35 +1320,27 @@ def _resolve_challenge_round(game):
             movements.append({"card_id": beauty_card["id"], "from": beauty_side, "to": "pool"})
         else:
             # 3 或 2 次：找出"攻/防最高的帅哥"或"攻/防最高的卡"
-            candidates = [c for side, c in all_cards if c["id"] != beauty_card["id"]]
-            handsome_in_play = [c for c in candidates if c["name"] in HANDSOME_NAMES]
+            # "攻/防最高"评选：包括美女自己
+            all_cards_with_beauty = [("me", c) for c in my_play["cards"]] + [("ai", c) for c in ai_play["cards"]]
+            # 先看帅哥（美女不在帅哥之列）
+            handsome_in_play = [(side, c) for side, c in all_cards_with_beauty if c["name"] in HANDSOME_NAMES]
             if handsome_in_play:
-                target = max(handsome_in_play, key=lambda c: (c[dim], c[other_dim]))
-                # 找出 target 属于哪一方
-                target_side = None
-                for side, c in all_cards:
-                    if c["id"] == target["id"]:
-                        target_side = side
-                        break
-                if target_side:
+                target_side, target = max(handsome_in_play, key=lambda sc: (sc[1][dim], sc[1][other_dim]))
+                movements.append({"card_id": beauty_card["id"], "from": beauty_side, "to": target_side})
+                if target_side not in winners:
+                    winners.append(target_side)
+            else:
+                # 无帅哥 → 攻/防最高（包括美女）
+                target_side, target = max(all_cards_with_beauty, key=lambda sc: (sc[1][dim], sc[1][other_dim]))
+                if target["id"] == beauty_card["id"]:
+                    # 美女自己最高 → 回出美女者手牌
+                    movements.append({"card_id": beauty_card["id"], "from": beauty_side, "to": beauty_side})
+                    if beauty_side not in winners:
+                        winners.append(beauty_side)
+                else:
                     movements.append({"card_id": beauty_card["id"], "from": beauty_side, "to": target_side})
                     if target_side not in winners:
                         winners.append(target_side)
-            else:
-                # 无帅哥 → 攻/防最高的卡（除美女）
-                if candidates:
-                    target = max(candidates, key=lambda c: (c[dim], c[other_dim]))
-                    target_side = None
-                    for side, c in all_cards:
-                        if c["id"] == target["id"]:
-                            target_side = side
-                            break
-                    if target_side:
-                        movements.append({"card_id": beauty_card["id"], "from": beauty_side, "to": target_side})
-                        if target_side not in winners:
-                            winners.append(target_side)
-                else:
-                    movements.append({"card_id": beauty_card["id"], "from": beauty_side, "to": "pool"})
 
         # 美女次数 -1
         if beauty_left > 1:
