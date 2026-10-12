@@ -838,6 +838,7 @@ def challenge_start():
         "won": False,
         "materials": 0,
         "card_pool": [],
+        "beauty_left": 3,
     }
     current_user.challenge_active_game = json_dumps_safe(game)
     db.session.commit()
@@ -1065,6 +1066,7 @@ def challenge_state():
         "card_pool_count": len(game.get("card_pool", [])),
         "history": game.get("history", []),
         "elapsed_since_reveal": elapsed_since_reveal if elapsed_since_reveal is not None else -1,
+        "beauty_left": game.get("beauty_left", 3),
     })
 
 
@@ -1155,8 +1157,42 @@ def _ai_pick_card(game):
     hand.sort(key=lambda x: (x["atk"] if is_atk_round else x["def"]), reverse=True)
     return [hand[0]["id"]]
 
+def _classify_play(cards):
+    """判断一组出牌的类型（cards 含 name）"""
+    names = [c["name"] for c in cards]
+    if not names:
+        return {"kind": "empty"}
+
+    # 五虎将 / 八虎骑
+    if len(cards) >= 2:
+        _, _, combo_name = calc_combo_stats(cards)
+        if combo_name in ("五虎将", "八虎骑"):
+            return {"kind": "top_combo", "combo_name": combo_name, "cards": cards}
+        if combo_name == "双炸":
+            return {"kind": "double_bomb", "cards": cards}
+        if combo_name in ("风流威猛", "水军三兄弟"):
+            return {"kind": "eat_combo", "combo_name": combo_name, "cards": cards}
+
+    # 单炸
+    if any(n in ("白胜", "孙二娘") for n in names):
+        return {"kind": "single_bomb", "cards": cards}
+
+    # 美女
+    if "扈三娘" in names:
+        return {"kind": "beauty", "cards": cards}
+
+    # 其他组合
+    if len(cards) >= 2:
+        _, _, combo_name = calc_combo_stats(cards)
+        if combo_name:
+            return {"kind": "combo", "combo_name": combo_name, "cards": cards}
+
+    # 单卡
+    return {"kind": "single", "cards": cards}
+
+
 def _resolve_challenge_round(game):
-    """单人 PVE 的一轮结算：先去向，再总结赢家（支持组合）"""
+    """单人 PVE 的一轮结算：优先级链 + 卡去向 + 赢家（支持美女/炸弹/帅哥/组合）"""
     is_atk_round = (game.get("round_no", 1) % 2 == 1)
     dim = "atk" if is_atk_round else "def"
     other_dim = "def" if is_atk_round else "atk"
@@ -1169,7 +1205,7 @@ def _resolve_challenge_round(game):
     my_lv = game.get("my_level_map", {})
     ai_lv = game.get("ai_level_map", {})
 
-    def make_view(cid, lv_map):
+    def make_card(cid, lv_map):
         base = CARD_BY_ID.get(cid)
         if not base:
             return None
@@ -1184,57 +1220,208 @@ def _resolve_challenge_round(game):
             "def": base["def"] + bonus,
         }
 
-    my_views = [v for v in (make_view(cid, my_lv) for cid in my_ready) if v]
-    ai_views = [v for v in (make_view(cid, ai_lv) for cid in ai_ready) if v]
-    if not my_views or not ai_views:
+    my_cards = [c for c in (make_card(cid, my_lv) for cid in my_ready) if c]
+    ai_cards = [c for c in (make_card(cid, ai_lv) for cid in ai_ready) if c]
+    if not my_cards or not ai_cards:
         return
 
-    my_combo_name = None
-    if len(my_views) == 1:
-        my_eff_atk = my_views[0]["atk"]
-        my_eff_def = my_views[0]["def"]
+    # ===== 分类 =====
+    my_play = _classify_play(my_cards)
+    ai_play = _classify_play(ai_cards)
+
+    # ===== 计算"有效攻防"（组合用组合值；单卡用原值） =====
+    def eff_atk_def(play):
+        cards = play["cards"]
+        if play["kind"] in ("top_combo", "eat_combo"):
+            atk, dfn, _ = calc_combo_stats(cards)
+            return atk, dfn
+        if play["kind"] == "combo":
+            atk, dfn, _ = calc_combo_stats(cards)
+            return atk, dfn
+        if play["kind"] == "double_bomb":
+            return None, None
+        if play["kind"] in ("single_bomb", "beauty"):
+            return None, None
+        # single
+        c = cards[0]
+        return c["atk"], c["def"]
+
+    my_eff_atk, my_eff_def = eff_atk_def(my_play)
+    ai_eff_atk, ai_eff_def = eff_atk_def(ai_play)
+
+    # 卡去向
+    movements = []
+    winners = []
+
+    def move(cards, frm, to):
+        for c in cards:
+            movements.append({"card_id": c["id"], "from": frm, "to": to})
+
+    def give_combo_win(winner_side, winner_play, loser_play):
+        """组合直接赢（五虎将/八虎骑/风流威猛/三兄弟）：赢家卡进卡袋，其余卡进赢家手牌 + 抽卡"""
+        other_side = "ai" if winner_side == "me" else "me"
+        other_play = loser_play
+        # 赢家自己卡进卡袋
+        move(winner_play["cards"], winner_side, "pool")
+        # 其余所有卡进赢家手牌
+        move(other_play["cards"], other_side, winner_side)
+        # 抽卡（五虎将/八虎骑）：从输家手牌抽 1 张
+        if winner_play.get("combo_name") in ("五虎将", "八虎骑"):
+            other_gp = "ai" if winner_side == "me" else "me"
+            if other_gp == "ai":
+                pool_hand = game.get("ai_hand", [])
+                if pool_hand:
+                    stolen = random.choice(pool_hand)
+                    game["ai_hand"] = [c for c in pool_hand if c != stolen]
+                    game["my_hand"].append(stolen)
+                    # level 同步
+                    ai_lv_map = game.get("ai_level_map", {})
+                    my_lv_map = game.get("my_level_map", {})
+                    my_lv_map[str(stolen)] = ai_lv_map.get(str(stolen), 1)
+                    game["my_level_map"] = my_lv_map
+            else:
+                pool_hand = game.get("my_hand", [])
+                if pool_hand:
+                    stolen = random.choice(pool_hand)
+                    game["my_hand"] = [c for c in pool_hand if c != stolen]
+                    game["ai_hand"].append(stolen)
+                    my_lv_map = game.get("my_level_map", {})
+                    ai_lv_map = game.get("ai_level_map", {})
+                    ai_lv_map[str(stolen)] = my_lv_map.get(str(stolen), 1)
+                    game["ai_level_map"] = ai_lv_map
+        winners.append(winner_side)
+
+    def give_all_to_pool():
+        """双炸 / 单炸：场上所有卡进卡袋"""
+        move(my_play["cards"], "me", "pool")
+        move(ai_play["cards"], "ai", "pool")
+
+    def give_beauty(beauty_side, beauty_play, other_play):
+        """美女处理"""
+        # 场上所有帅哥 → 进卡袋
+        HANDSOME_NAMES = {"林冲", "柴进", "燕青", "花荣", "徐宁"}
+        all_cards = [("me", c) for c in my_play["cards"]] + [("ai", c) for c in ai_play["cards"]]
+        handsome_cards = [(side, c) for side, c in all_cards if c["name"] in HANDSOME_NAMES]
+        for side, c in handsome_cards:
+            movements.append({"card_id": c["id"], "from": side, "to": "pool"})
+
+        # 场上所有"非帅哥、非美女"的卡 → 进美女出者手牌
+        non_handsome_cards = [(side, c) for side, c in all_cards
+                              if c["name"] not in HANDSOME_NAMES and c["name"] != "扈三娘"]
+        for side, c in non_handsome_cards:
+            movements.append({"card_id": c["id"], "from": side, "to": beauty_side})
+
+        # 美女本身：根据次数处理
+        beauty_left = game.get("beauty_left", 3)
+        beauty_card = next(c for c in beauty_play["cards"] if c["name"] == "扈三娘")
+
+        if beauty_left <= 1:
+            # 最后一次：美女进卡袋
+            movements.append({"card_id": beauty_card["id"], "from": beauty_side, "to": "pool"})
+        else:
+            # 3 或 2 次：找出"攻/防最高的帅哥"或"攻/防最高的卡"
+            candidates = [c for side, c in all_cards if c["id"] != beauty_card["id"]]
+            handsome_in_play = [c for c in candidates if c["name"] in HANDSOME_NAMES]
+            if handsome_in_play:
+                target = max(handsome_in_play, key=lambda c: (c[dim], c[other_dim]))
+                # 找出 target 属于哪一方
+                target_side = None
+                for side, c in all_cards:
+                    if c["id"] == target["id"]:
+                        target_side = side
+                        break
+                if target_side:
+                    movements.append({"card_id": beauty_card["id"], "from": beauty_side, "to": target_side})
+                    if target_side not in winners:
+                        winners.append(target_side)
+            else:
+                # 无帅哥 → 攻/防最高的卡（除美女）
+                if candidates:
+                    target = max(candidates, key=lambda c: (c[dim], c[other_dim]))
+                    target_side = None
+                    for side, c in all_cards:
+                        if c["id"] == target["id"]:
+                            target_side = side
+                            break
+                    if target_side:
+                        movements.append({"card_id": beauty_card["id"], "from": beauty_side, "to": target_side})
+                        if target_side not in winners:
+                            winners.append(target_side)
+                else:
+                    movements.append({"card_id": beauty_card["id"], "from": beauty_side, "to": "pool"})
+
+        # 美女次数 -1
+        if beauty_left > 1:
+            game["beauty_left"] = beauty_left - 1
+
+        # 出美女者也算赢（拿到非帅哥卡）
+        if non_handsome_cards:
+            if beauty_side not in winners:
+                winners.append(beauty_side)
+
+    # ===== 优先级链 =====
+    my_kind = my_play["kind"]
+    ai_kind = ai_play["kind"]
+
+    # 1. 五虎将 / 八虎骑
+    if my_kind == "top_combo" and ai_kind != "top_combo":
+        give_combo_win("me", my_play, ai_play)
+    elif ai_kind == "top_combo" and my_kind != "top_combo":
+        give_combo_win("ai", ai_play, my_play)
+    elif my_kind == "top_combo" and ai_kind == "top_combo":
+        # 都是：按攻防比（都是 999，随机）
+        w = random.choice(["me", "ai"])
+        give_combo_win(w, my_play if w == "me" else ai_play, ai_play if w == "me" else my_play)
+    # 2. 双炸
+    elif my_kind == "double_bomb" or ai_kind == "double_bomb":
+        give_all_to_pool()
+    # 3. 风流威猛
+    elif my_kind == "eat_combo" and my_play.get("combo_name") == "风流威猛":
+        give_combo_win("me", my_play, ai_play)
+    elif ai_kind == "eat_combo" and ai_play.get("combo_name") == "风流威猛":
+        give_combo_win("ai", ai_play, my_play)
+    # 4. 水军三兄弟
+    elif my_kind == "eat_combo" and my_play.get("combo_name") == "水军三兄弟":
+        give_combo_win("me", my_play, ai_play)
+    elif ai_kind == "eat_combo" and ai_play.get("combo_name") == "水军三兄弟":
+        give_combo_win("ai", ai_play, my_play)
+    # 5. 单炸
+    elif my_kind == "single_bomb" or ai_kind == "single_bomb":
+        give_all_to_pool()
+    # 6. 美女
+    elif my_kind == "beauty" and ai_kind == "beauty":
+        # 双方都出美女（罕见）：都不处理美女归属，全进卡袋
+        give_all_to_pool()
+    elif my_kind == "beauty":
+        give_beauty("me", my_play, ai_play)
+    elif ai_kind == "beauty":
+        give_beauty("ai", ai_play, my_play)
+    # 7. 普通比大小
     else:
-        temp_cards = []
-        for v in my_views:
-            base = CARD_BY_ID.get(v["id"])
-            if base:
-                c2 = dict(base)
-                c2["level"] = v["level"]
-                temp_cards.append(c2)
-        atk, dfn, combo_name = calc_combo_stats(temp_cards)
-        if atk is None:
-            return
-        my_eff_atk = atk
-        my_eff_def = dfn
-        my_combo_name = combo_name
+        if my_eff_atk is None or ai_eff_atk is None:
+            # 意外：走"全进卡袋"
+            give_all_to_pool()
+        else:
+            my_value = my_eff_atk if dim == "atk" else my_eff_def
+            ai_value = ai_eff_atk if dim == "atk" else ai_eff_def
+            my_other = my_eff_def if dim == "atk" else my_eff_atk
+            ai_other = ai_eff_def if dim == "atk" else ai_eff_atk
 
-    ai_eff_atk = ai_views[0]["atk"]
-    ai_eff_def = ai_views[0]["def"]
+            if my_value > ai_value or (my_value == ai_value and my_other > ai_other):
+                move(my_play["cards"], "me", "pool")
+                move(ai_play["cards"], "ai", "me")
+                winners.append("me")
+            elif my_value < ai_value or (my_value == ai_value and my_other < ai_other):
+                move(ai_play["cards"], "ai", "pool")
+                move(my_play["cards"], "me", "ai")
+                winners.append("ai")
+            else:
+                move(my_play["cards"], "me", "pool")
+                move(ai_play["cards"], "ai", "pool")
 
-    my_value = my_eff_atk if dim == "atk" else my_eff_def
-    ai_value = ai_eff_atk if dim == "atk" else ai_eff_def
-    my_other = my_eff_def if dim == "atk" else my_eff_atk
-    ai_other = ai_eff_def if dim == "atk" else ai_eff_atk
-
-    card_movements = []
-    if my_value > ai_value or (my_value == ai_value and my_other > ai_other):
-        for cid in my_ready:
-            card_movements.append({"card_id": cid, "from": "me", "to": "pool"})
-        for cid in ai_ready:
-            card_movements.append({"card_id": cid, "from": "ai", "to": "me"})
-    elif my_value < ai_value or (my_value == ai_value and my_other < ai_other):
-        for cid in ai_ready:
-            card_movements.append({"card_id": cid, "from": "ai", "to": "pool"})
-        for cid in my_ready:
-            card_movements.append({"card_id": cid, "from": "me", "to": "ai"})
-    else:
-        for cid in my_ready:
-            card_movements.append({"card_id": cid, "from": "me", "to": "pool"})
-        for cid in ai_ready:
-            card_movements.append({"card_id": cid, "from": "ai", "to": "pool"})
-
+    # ===== 执行卡去向 =====
     pool = game.get("card_pool", [])
-    for m in card_movements:
+    for m in movements:
         cid = m["card_id"]
         frm = m["from"]
         to = m["to"]
@@ -1260,37 +1447,52 @@ def _resolve_challenge_round(game):
                 game["ai_level_map"] = ai_lv_map
     game["card_pool"] = pool
 
-    winners = []
-    for m in card_movements:
-        if m["from"] != m["to"] and m["to"] in ("me", "ai"):
-            if m["to"] not in winners:
-                winners.append(m["to"])
-
-    game["winners"] = winners
+    # ===== 高亮：赢家"打出"的卡 =====
     winner_card_ids = []
-    for m in card_movements:
+    for m in movements:
         if m["from"] in winners:
             winner_card_ids.append(m["card_id"])
+    # 去重
+    winner_card_ids = list(set(winner_card_ids))
+
+    game["winners"] = winners
     game["winner_card_ids"] = winner_card_ids
     game["winner_side"] = winners[0] if len(winners) == 1 else None
 
-    game["my_played"] = my_views
-    game["ai_played"] = ai_views
+    # 出牌展示（前端用）
+    game["my_played"] = my_cards
+    game["ai_played"] = ai_cards
     game["my_ready"] = []
     game["ai_ready"] = []
     game["phase"] = "revealing"
     game["revealed_at"] = datetime.now().isoformat()
 
-    if len(my_views) == 1:
-        my_card_for_record = my_views[0]
+    # ===== 记录 =====
+    # "我"这列：单卡显示卡，多卡组合显示组合名
+    if len(my_cards) == 1:
+        my_card_for_record = my_cards[0]
     else:
+        _, _, combo_name = calc_combo_stats(my_cards)
         my_card_for_record = {
-            "name": my_combo_name or "组合",
+            "name": combo_name or "组合",
             "level": 1,
-            "atk": my_eff_atk,
-            "def": my_eff_def,
+            "atk": my_eff_atk or 0,
+            "def": my_eff_def or 0,
             "is_combo": True,
-            "cards": my_views,
+            "cards": my_cards,
+        }
+
+    if len(ai_cards) == 1:
+        ai_card_for_record = ai_cards[0]
+    else:
+        _, _, combo_name = calc_combo_stats(ai_cards)
+        ai_card_for_record = {
+            "name": combo_name or "组合",
+            "level": 1,
+            "atk": ai_eff_atk or 0,
+            "def": ai_eff_def or 0,
+            "is_combo": True,
+            "cards": ai_cards,
         }
 
     hist = game.get("history", [])
@@ -1298,7 +1500,7 @@ def _resolve_challenge_round(game):
         "round": game.get("round_no", 1),
         "dim": dim,
         "my_card": my_card_for_record,
-        "ai_card": ai_views[0],
+        "ai_card": ai_card_for_record,
         "winners": winners,
     })
     game["history"] = hist
