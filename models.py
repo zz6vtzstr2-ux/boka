@@ -265,3 +265,13 @@ class BokaGameRecord(db.Model):
     score_change = db.Column(db.Integer, default=0)
     score_after = db.Column(db.Integer, default=0)
     played_at = db.Column(db.DateTime, nullable=True)
+
+class ChallengeRecord(db.Model):
+    """挑战对局记录（每局一条）"""
+    __tablename__ = "challenge_record"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    level = db.Column(db.Integer, nullable=False)
+    won = db.Column(db.Boolean, default=False)
+    played_at = db.Column(db.DateTime, nullable=True)
