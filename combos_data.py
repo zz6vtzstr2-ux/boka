@@ -18,6 +18,7 @@ COMBOS = [
     {"name": "风流威猛", "members": ["花荣", "徐宁"], "atk": 300, "def": 300, "special": "bomb_eater"},
     {"name": "五虎将", "members": ["关胜", "林冲", "秦明", "呼延灼", "董平"], "atk": 999, "def": 999, "special": "bomb_eater_steal1"},
     {"name": "八虎骑", "members": ["花荣", "徐宁", "杨志", "索超", "张清", "朱仝", "史进", "穆弘"], "atk": 999, "def": 999, "special": "bomb_eater_steal1"},
+    {"name": "双炸", "members": ["白胜", "孙二娘"], "atk": "bomb", "def": "bomb", "special": "double_bomb"},
 ]
 
 SPECIAL_CARDS = {
