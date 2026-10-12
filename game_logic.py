@@ -176,16 +176,17 @@ def calc_combo_stats(cards):
             dfn = _resolve_formula(combo["def"], cards, members)
             return atk, dfn, combo["name"]
 
-    # 智多星（吴用 + 任意 1 张）
+    # 智多星（吴用 + 任意 1 张，但"任意"不能是美女、炸弹）
     for combo in COMBOS:
         members = combo["members"]
         if "*" in members:
-            # 处理 吴用 + 任意
             if members[0] in names and len(cards) == 2:
-                # 智多星
                 wu = next((c for c in cards if c["name"] == "吴用"), None)
                 other = next((c for c in cards if c["name"] != "吴用"), None)
                 if wu and other:
+                    # 排除美女、炸弹
+                    if other["name"] in ("扈三娘", "白胜", "孙二娘"):
+                        continue
                     a, _ = card_with_level(wu, wu.get("level", 1))
                     _, d = card_with_level(other, other.get("level", 1))
                     return a + 10, d, combo["name"]
