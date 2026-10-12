@@ -885,6 +885,7 @@ def challenge_validate_combo():
         return jsonify({"valid": False, "reason": "无对局"})
     game = json_loads_safe(current_user.challenge_active_game)
     my_lv_map = game.get("my_level_map", {})
+    beauty_left = game.get("beauty_left", 3)
 
     cards = []
     for cid in card_ids:
@@ -895,13 +896,43 @@ def challenge_validate_combo():
         c2["level"] = int(my_lv_map.get(str(cid), 1))
         cards.append(c2)
 
-    if len(cards) == 1:
-        a, d = card_with_level(cards[0], cards[0]["level"])
-        return jsonify({"valid": True, "type": "single", "atk": a, "def": d, "name": ""})
+    names = [c["name"] for c in cards]
 
+    # ===== 1 张 =====
+    if len(cards) == 1:
+        c = cards[0]
+        a, d = card_with_level(c, c["level"])
+        if c["name"] == "扈三娘":
+            return jsonify({"valid": True, "type": "single_beauty", "name": f"美女 {beauty_left}次", "atk": a, "def": d})
+        if c["name"] in ("白胜", "孙二娘"):
+            return jsonify({"valid": True, "type": "single_bomb", "name": "炸弹", "atk": a, "def": d})
+        if c["name"] in ("林冲", "柴进", "燕青", "花荣", "徐宁"):
+            return jsonify({"valid": True, "type": "single_handsome", "name": "帅哥", "atk": a, "def": d})
+        # 普通单卡
+        return jsonify({"valid": True, "type": "single", "name": "", "atk": a, "def": d})
+
+    # ===== 多张 =====
+    # 双炸（白胜 + 孙二娘）
+    if set(names) == {"白胜", "孙二娘"}:
+        return jsonify({"valid": True, "type": "double_bomb", "name": "双炸", "atk": None, "def": None})
+
+    # 其他组合
     atk, dfn, combo_name = calc_combo_stats(cards)
-    if atk is None:
+    if atk is None and combo_name != "双炸":
         return jsonify({"valid": False, "reason": "无效的组合"})
+
+    # 智多星（吴用 + 某卡）
+    if combo_name == "智多星":
+        other = next((c for c in cards if c["name"] != "吴用"), None)
+        if other:
+            if other["name"] in ("林冲", "柴进", "燕青", "花荣", "徐宁"):
+                return jsonify({"valid": True, "type": "wu_yong_handsome", "name": "智多星 帅哥",
+                                "atk": atk, "def": dfn, "extra": "帅哥"})
+            return jsonify({"valid": True, "type": "wu_yong", "name": "智多星",
+                            "atk": atk, "def": dfn})
+        return jsonify({"valid": False, "reason": "无效的组合"})
+
+    # 五虎将 / 八虎骑 / 风流威猛 / 三兄弟 / 其他组合
     return jsonify({"valid": True, "type": "combo", "name": combo_name, "atk": atk, "def": dfn})
 
 @app.route('/challenge/play', methods=['POST'])
@@ -1038,25 +1069,91 @@ def challenge_state():
 
 
 def _ai_pick_card(game):
-    """AI 从手牌里挑一张：奇数轮选 atk 高的，偶数轮选 def 高的"""
+    """AI 出牌：能出组合就出组合（优先五虎将/八虎骑 → 风流威猛 → 三兄弟 → 其他组合）；否则出单卡"""
     ai_hand = game.get("ai_hand", [])
     if not ai_hand:
         return []
+
     is_atk_round = (game.get("round_no", 1) % 2 == 1)
     ai_lv = game.get("ai_level_map", {})
-    cards = []
+
+    # 构造 AI 手牌（含 level、攻防）
+    hand = []
     for cid in ai_hand:
         base = CARD_BY_ID.get(cid)
         if not base:
             continue
         lv = int(ai_lv.get(str(cid), 1))
         bonus = lv - 1
-        cards.append({"id": cid, "atk": base["atk"] + bonus, "def": base["def"] + bonus})
-    if not cards:
+        hand.append({
+            "id": cid,
+            "name": base["name"],
+            "atk": base["atk"] + bonus,
+            "def": base["def"] + bonus,
+        })
+    if not hand:
         return []
-    cards.sort(key=lambda x: (x["atk"] if is_atk_round else x["def"]), reverse=True)
-    return [cards[0]["id"]]
 
+    hand_names = [c["name"] for c in hand]
+
+    # 尝试找出优先级最高的合法组合（不超过 3 张，避免太复杂）
+    def try_combo(target_names):
+        if not all(n in hand_names for n in target_names):
+            return None
+        ids = []
+        used = set()
+        for n in target_names:
+            for c in hand:
+                if c["name"] == n and c["id"] not in used:
+                    ids.append(c["id"])
+                    used.add(c["id"])
+                    break
+        if len(ids) == len(target_names):
+            return ids
+        return None
+
+    # 优先级 1：五虎将
+    combo = try_combo(["关胜", "林冲", "秦明", "呼延灼", "董平"])
+    if combo:
+        return combo
+    # 优先级 1：八虎骑
+    combo = try_combo(["花荣", "徐宁", "杨志", "索超", "张清", "朱仝", "史进", "穆弘"])
+    if combo:
+        return combo
+    # 优先级 2：风流威猛
+    combo = try_combo(["花荣", "徐宁"])
+    if combo:
+        return combo
+    # 优先级 3：水军三兄弟
+    combo = try_combo(["阮小二", "阮小五", "阮小七"])
+    if combo:
+        return combo
+    # 优先级 4：水军兄弟（各种二人组）
+    for pair in [["阮小二", "阮小五"], ["阮小二", "阮小七"], ["阮小五", "阮小七"], ["张横", "张顺"]]:
+        combo = try_combo(pair)
+        if combo:
+            return combo
+    # 优先级 5：黑白双煞
+    combo = try_combo(["张顺", "李逵"])
+    if combo:
+        return combo
+    # 优先级 6：打猎兄弟
+    combo = try_combo(["解珍", "解宝"])
+    if combo:
+        return combo
+    # 优先级 7：智多星（吴用 + 任意非美女/炸弹）
+    if "吴用" in hand_names:
+        wu = next(c for c in hand if c["name"] == "吴用")
+        for c in hand:
+            if c["id"] == wu["id"]:
+                continue
+            if c["name"] in ("扈三娘", "白胜", "孙二娘"):
+                continue
+            return [wu["id"], c["id"]]
+
+    # 无组合：出单卡（比攻出 atk 最高；比防出 def 最高）
+    hand.sort(key=lambda x: (x["atk"] if is_atk_round else x["def"]), reverse=True)
+    return [hand[0]["id"]]
 
 def _resolve_challenge_round(game):
     """单人 PVE 的一轮结算：先去向，再总结赢家（支持组合）"""
