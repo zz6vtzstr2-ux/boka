@@ -10,6 +10,7 @@ from models import (
     WorldBoss, BossDeck, BossDamage, BossBattle,
     BokaRoom, BokaPlayer,
     BokaGame, BokaGamePlayer, BokaGameRecord,
+    ChallengeRecord,
 )
 from cards_data import CARDS, CARD_BY_NAME, CARD_BY_ID
 from combos_data import COMBOS, SPECIAL_CARDS
@@ -698,6 +699,17 @@ def ensure_challenge_today_reset(user):
 def challenge():
     ensure_challenge_today_reset(current_user)
 
+    # 每日 6 点重置今日胜场
+    now = datetime.now()
+    today_6 = now.replace(hour=6, minute=0, second=0, microsecond=0)
+    if now < today_6:
+        today_6 = today_6 - timedelta(days=1)
+    today_date = today_6.date()
+    if current_user.challenge_today_reset != today_date:
+        current_user.challenge_today_wins = 0
+        current_user.challenge_today_reset = today_date
+        db.session.commit()
+    
     level = int(request.args.get('level', current_user.challenge_level))
     level = max(1, min(CHALLENGE_MAX_LEVEL, level))
 
@@ -723,15 +735,22 @@ def challenge():
             c2["level"] = coll[str(c["id"])].get("level", 1)
             owned.append(c2)
 
+    # 查询当前关卡的胜败数
+    level_wins = ChallengeRecord.query.filter_by(
+        user_id=current_user.id, level=level, won=True
+    ).count()
+    level_losses = ChallengeRecord.query.filter_by(
+        user_id=current_user.id, level=level, won=False
+    ).count()
+
     return render_template('challenge.html',
                            level=level,
                            deck=deck,
                            cards=owned,
-                           wins=current_user.challenge_wins_total or 0,
-                           losses=current_user.challenge_losses_total or 0,
+                           level_wins=level_wins,
+                           level_losses=level_losses,
                            today_wins=current_user.challenge_today_wins or 0,
                            max_level=current_user.challenge_level)
-
 
 @app.route('/challenge/picker')
 @login_required
@@ -1134,17 +1153,24 @@ def _finish_challenge(game, user, level):
 
     materials = 0
     if won:
-        # 只对"当前关"发建材；回头打已通关的也发
         win_index = user.challenge_today_wins or 0
         materials = challenge_materials(level, win_index)
         user.materials = (user.materials or 0) + materials
         user.challenge_today_wins = win_index + 1
         user.challenge_wins_total = (user.challenge_wins_total or 0) + 1
-        # 若通过的是当前关，解锁下一关
         if level >= (user.challenge_level or 1):
             user.challenge_level = min(CHALLENGE_MAX_LEVEL, level + 1)
     else:
         user.challenge_losses_total = (user.challenge_losses_total or 0) + 1
+
+    # 写战绩
+    record = ChallengeRecord(
+        user_id=user.id,
+        level=level,
+        won=bool(won),
+        played_at=datetime.now(),
+    )
+    db.session.add(record)
 
     game["materials"] = materials
     current_user.challenge_active_game = json_dumps_safe(game)
