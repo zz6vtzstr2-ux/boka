@@ -406,12 +406,12 @@
 
       <div class="stats-row">
         <div class="stat-box">
-          <div class="lbl">胜利</div>
-          <div class="val">{{ wins }}</div>
+          <div class="lbl">本关胜利</div>
+          <div class="val">{{ level_wins }}</div>
         </div>
         <div class="stat-box">
-          <div class="lbl">失败</div>
-          <div class="val">{{ losses }}</div>
+          <div class="lbl">本关失败</div>
+          <div class="val">{{ level_losses }}</div>
         </div>
         <div class="stat-box">
           <div class="lbl">今日胜场</div>
@@ -436,7 +436,7 @@
   <!-- 关卡选择 -->
   <div class="lvl-modal" id="lvlModal" onclick="if(event.target===this)closeLevelPicker()">
     <div class="lvl-inner">
-      <h3>选择关卡（可回头打已通关的关）</h3>
+      <h3>选择关卡</h3>
       <div class="lvl-grid" id="lvlGrid"></div>
       <button class="lvl-close" onclick="closeLevelPicker()">关闭</button>
     </div>
