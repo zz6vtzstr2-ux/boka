@@ -169,6 +169,9 @@ def calc_combo_stats(cards):
         if "*" in members:
             continue
         if set(members) == set(names):
+            # 特判"双炸"：返回 (None, None, "双炸")
+            if combo.get("special") == "double_bomb":
+                return None, None, "双炸"
             atk = _resolve_formula(combo["atk"], cards, members)
             dfn = _resolve_formula(combo["def"], cards, members)
             return atk, dfn, combo["name"]
