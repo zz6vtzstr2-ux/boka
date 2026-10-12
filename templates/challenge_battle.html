@@ -737,11 +737,6 @@
         lastComboValid = true;
         return;
       }
-      if (myReady.length === 1) {
-        infoEl.innerHTML = '';
-        lastComboValid = true;
-        return;
-      }
       try {
         const res = await fetch('/challenge/validate_combo', {
           method: 'POST',
@@ -749,17 +744,52 @@
           body: JSON.stringify({card_ids: myReady.map(c => c.id)})
         });
         const data = await res.json();
-        if (data.valid) {
-          infoEl.innerHTML = `
-            <span class="combo-name">${data.name || '组合'}</span>
-            <span class="info-pill atk-pill">${data.atk}</span>
-            <span class="info-pill def-pill">${data.def}</span>
-          `;
-          lastComboValid = true;
-        } else {
+
+        if (!data.valid) {
           infoEl.innerHTML = `<span class="combo-error">无效的组合</span>`;
           lastComboValid = false;
+          return;
         }
+
+        const name = data.name || '';
+        const atk = data.atk;
+        const def = data.def;
+        let html = '';
+
+        if (data.type === 'single') {
+          // 单卡普通：不显示
+          infoEl.innerHTML = '';
+        } else if (data.type === 'single_beauty') {
+          html = `<span class="combo-name">${name}</span>`;
+          infoEl.innerHTML = html;
+        } else if (data.type === 'single_bomb') {
+          html = `<span class="combo-name">${name}</span>`;
+          infoEl.innerHTML = html;
+        } else if (data.type === 'single_handsome') {
+          html = `<span class="combo-name">${name}</span>`;
+          infoEl.innerHTML = html;
+        } else if (data.type === 'double_bomb') {
+          html = `<span class="combo-name">${name}</span>`;
+          infoEl.innerHTML = html;
+        } else if (data.type === 'wu_yong') {
+          html = `<span class="combo-name">${name}</span>`;
+          if (atk !== null) html += `<span class="info-pill atk-pill">${atk}</span>`;
+          if (def !== null) html += `<span class="info-pill def-pill">${def}</span>`;
+          infoEl.innerHTML = html;
+        } else if (data.type === 'wu_yong_handsome') {
+          html = `<span class="combo-name">${name}</span>`;
+          if (atk !== null) html += `<span class="info-pill atk-pill">${atk}</span>`;
+          if (def !== null) html += `<span class="info-pill def-pill">${def}</span>`;
+          infoEl.innerHTML = html;
+        } else if (data.type === 'combo') {
+          html = `<span class="combo-name">${name}</span>`;
+          if (atk !== null) html += `<span class="info-pill atk-pill">${atk}</span>`;
+          if (def !== null) html += `<span class="info-pill def-pill">${def}</span>`;
+          infoEl.innerHTML = html;
+        } else {
+          infoEl.innerHTML = '';
+        }
+        lastComboValid = true;
       } catch (e) {
         infoEl.innerHTML = `<span class="combo-error">校验失败</span>`;
         lastComboValid = false;
