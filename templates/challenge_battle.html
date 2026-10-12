@@ -21,6 +21,47 @@
       position: relative;
     }
 
+    .combo-info {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 40px;
+      font-size: 14px;
+      color: #666;
+      padding: 0 8px;
+      text-align: center;
+    }
+    .combo-info .combo-name {
+      font-weight: bold;
+      color: #8a6d1f;
+      letter-spacing: 1px;
+    }
+    .combo-info .info-pill {
+      font-size: 13px;
+      font-weight: bold;
+      padding: 2px 8px;
+      border-radius: 8px;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+    .combo-info .atk-pill {
+      background: #d89050;
+      color: #fff;
+      box-shadow: 0 1px 3px rgba(138,74,31,0.4);
+    }
+    .combo-info .def-pill {
+      background: #6ba0d0;
+      color: #fff;
+      box-shadow: 0 1px 3px rgba(42,74,122,0.4);
+    }
+    .combo-info .combo-error {
+      color: #b85a6a;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    
     .top-bar {
       position: sticky;
       top: 0;
@@ -524,6 +565,7 @@
         <div class="pname">{{ nickname }}</div>
         <div class="hand-count">手牌 <span id="myHandCount">6</span></div>
       </div>
+      <div class="combo-info" id="comboInfo"></div>
       <button class="play-square-btn" id="playBtn" onclick="submitPlay()" disabled>出战</button>
     </div>
     <div class="my-hand-area">
@@ -625,6 +667,7 @@
               myReady.push(c);
             }
             renderHand();
+            updateComboInfo();
             updatePlayBtn();
           };
         }
@@ -684,6 +727,50 @@
       }
     }
 
+    let lastComboValid = true;
+
+    async function updateComboInfo() {
+      const infoEl = document.getElementById('comboInfo');
+      if (!infoEl) return;
+      if (myReady.length === 0) {
+        infoEl.innerHTML = '';
+        lastComboValid = true;
+        return;
+      }
+      if (myReady.length === 1) {
+        const c = myReady[0];
+        infoEl.innerHTML = `
+          <span class="combo-name">${c.name}</span>
+          <span class="info-pill atk-pill">${c.atk}</span>
+          <span class="info-pill def-pill">${c.def}</span>
+        `;
+        lastComboValid = true;
+        return;
+      }
+      try {
+        const res = await fetch('/challenge/validate_combo', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({card_ids: myReady.map(c => c.id)})
+        });
+        const data = await res.json();
+        if (data.valid) {
+          infoEl.innerHTML = `
+            <span class="combo-name">${data.name || '组合'}</span>
+            <span class="info-pill atk-pill">${data.atk}</span>
+            <span class="info-pill def-pill">${data.def}</span>
+          `;
+          lastComboValid = true;
+        } else {
+          infoEl.innerHTML = `<span class="combo-error">无效的组合</span>`;
+          lastComboValid = false;
+        }
+      } catch (e) {
+        infoEl.innerHTML = `<span class="combo-error">校验失败</span>`;
+        lastComboValid = false;
+      }
+    }
+    
     async function submitPlay() {
       if (myReady.length === 0) { showToast('请选择卡牌'); return; }
       locked = true;
