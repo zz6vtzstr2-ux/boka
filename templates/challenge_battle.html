@@ -659,7 +659,7 @@
         const isSelected = myReady.find(x => x.id === c.id);
         const d = makeHeroCard(c, isSelected ? 'selected' : '');
         if (!locked) {
-          d.onclick = () => {
+          d.onclick = async () => {
             const idx = myReady.findIndex(x => x.id === c.id);
             if (idx >= 0) {
               myReady.splice(idx, 1);
@@ -667,7 +667,7 @@
               myReady.push(c);
             }
             renderHand();
-            updateComboInfo();
+            await updateComboInfo();
             updatePlayBtn();
           };
         }
@@ -738,12 +738,7 @@
         return;
       }
       if (myReady.length === 1) {
-        const c = myReady[0];
-        infoEl.innerHTML = `
-          <span class="combo-name">${c.name}</span>
-          <span class="info-pill atk-pill">${c.atk}</span>
-          <span class="info-pill def-pill">${c.def}</span>
-        `;
+        infoEl.innerHTML = '';
         lastComboValid = true;
         return;
       }
