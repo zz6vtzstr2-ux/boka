@@ -872,6 +872,37 @@ def challenge_battle():
                            level=level,
                            my_hand=my_hand)
 
+@app.route('/challenge/validate_combo', methods=['POST'])
+@login_required
+def challenge_validate_combo():
+    card_ids = request.json.get('card_ids', [])
+    if not isinstance(card_ids, list):
+        return jsonify({"valid": False, "reason": "参数错误"})
+    if len(card_ids) == 0:
+        return jsonify({"valid": False, "reason": "至少出 1 张"})
+
+    if not current_user.challenge_active_game:
+        return jsonify({"valid": False, "reason": "无对局"})
+    game = json_loads_safe(current_user.challenge_active_game)
+    my_lv_map = game.get("my_level_map", {})
+
+    cards = []
+    for cid in card_ids:
+        base = CARD_BY_ID.get(cid)
+        if not base:
+            return jsonify({"valid": False, "reason": "卡不存在"})
+        c2 = dict(base)
+        c2["level"] = int(my_lv_map.get(str(cid), 1))
+        cards.append(c2)
+
+    if len(cards) == 1:
+        a, d = card_with_level(cards[0], cards[0]["level"])
+        return jsonify({"valid": True, "type": "single", "atk": a, "def": d, "name": ""})
+
+    atk, dfn, combo_name = calc_combo_stats(cards)
+    if atk is None:
+        return jsonify({"valid": False, "reason": "无效的组合"})
+    return jsonify({"valid": True, "type": "combo", "name": combo_name, "atk": atk, "def": dfn})
 
 @app.route('/challenge/play', methods=['POST'])
 @login_required
@@ -891,6 +922,21 @@ def challenge_play():
     for cid in card_ids:
         if cid not in my_hand:
             return jsonify({"error": f"卡 {cid} 不在手牌"}), 400
+
+    # 组合校验
+    if len(card_ids) > 1:
+        my_lv_map = game.get("my_level_map", {})
+        cards_tmp = []
+        for cid in card_ids:
+            base = CARD_BY_ID.get(cid)
+            if not base:
+                return jsonify({"error": "卡不存在"}), 400
+            c2 = dict(base)
+            c2["level"] = int(my_lv_map.get(str(cid), 1))
+            cards_tmp.append(c2)
+        atk, dfn, combo_name = calc_combo_stats(cards_tmp)
+        if atk is None:
+            return jsonify({"error": "无效的组合"}), 400
 
     game["my_ready"] = list(card_ids)
     game["my_hand"] = [c for c in my_hand if c not in card_ids]
@@ -1013,7 +1059,7 @@ def _ai_pick_card(game):
 
 
 def _resolve_challenge_round(game):
-    """单人 PVE 的一轮结算：先去向，再总结赢家"""
+    """单人 PVE 的一轮结算：先去向，再总结赢家（支持组合）"""
     is_atk_round = (game.get("round_no", 1) % 2 == 1)
     dim = "atk" if is_atk_round else "def"
     other_dim = "def" if is_atk_round else "atk"
@@ -1041,36 +1087,55 @@ def _resolve_challenge_round(game):
             "def": base["def"] + bonus,
         }
 
-    my_cid = my_ready[0]
-    ai_cid = ai_ready[0]
-    my_view = make_view(my_cid, my_lv)
-    ai_view = make_view(ai_cid, ai_lv)
-    if my_view is None or ai_view is None:
+    my_views = [v for v in (make_view(cid, my_lv) for cid in my_ready) if v]
+    ai_views = [v for v in (make_view(cid, ai_lv) for cid in ai_ready) if v]
+    if not my_views or not ai_views:
         return
 
-    my_value = my_view[dim]
-    ai_value = ai_view[dim]
-    my_other = my_view[other_dim]
-    ai_other = ai_view[other_dim]
-
-    # ===== 阶段 1：计算每张卡的去向 =====
-    # {"card_id": cid, "from": "me"/"ai", "to": "pool"/"me"/"ai"}
-    card_movements = []
-
-    if my_value > ai_value or (my_value == ai_value and my_other > ai_other):
-        # 我赢：我的卡进卡袋，AI 的卡进我手牌
-        card_movements.append({"card_id": my_cid, "from": "me", "to": "pool"})
-        card_movements.append({"card_id": ai_cid, "from": "ai", "to": "me"})
-    elif my_value < ai_value or (my_value == ai_value and my_other < ai_other):
-        # AI 赢：AI 的卡进卡袋，我的卡进 AI 手牌
-        card_movements.append({"card_id": ai_cid, "from": "ai", "to": "pool"})
-        card_movements.append({"card_id": my_cid, "from": "me", "to": "ai"})
+    my_combo_name = None
+    if len(my_views) == 1:
+        my_eff_atk = my_views[0]["atk"]
+        my_eff_def = my_views[0]["def"]
     else:
-        # 平局：双方卡都进卡袋
-        card_movements.append({"card_id": my_cid, "from": "me", "to": "pool"})
-        card_movements.append({"card_id": ai_cid, "from": "ai", "to": "pool"})
+        temp_cards = []
+        for v in my_views:
+            base = CARD_BY_ID.get(v["id"])
+            if base:
+                c2 = dict(base)
+                c2["level"] = v["level"]
+                temp_cards.append(c2)
+        atk, dfn, combo_name = calc_combo_stats(temp_cards)
+        if atk is None:
+            return
+        my_eff_atk = atk
+        my_eff_def = dfn
+        my_combo_name = combo_name
 
-    # ===== 阶段 2：执行卡去向 =====
+    ai_eff_atk = ai_views[0]["atk"]
+    ai_eff_def = ai_views[0]["def"]
+
+    my_value = my_eff_atk if dim == "atk" else my_eff_def
+    ai_value = ai_eff_atk if dim == "atk" else ai_eff_def
+    my_other = my_eff_def if dim == "atk" else my_eff_atk
+    ai_other = ai_eff_def if dim == "atk" else ai_eff_atk
+
+    card_movements = []
+    if my_value > ai_value or (my_value == ai_value and my_other > ai_other):
+        for cid in my_ready:
+            card_movements.append({"card_id": cid, "from": "me", "to": "pool"})
+        for cid in ai_ready:
+            card_movements.append({"card_id": cid, "from": "ai", "to": "me"})
+    elif my_value < ai_value or (my_value == ai_value and my_other < ai_other):
+        for cid in ai_ready:
+            card_movements.append({"card_id": cid, "from": "ai", "to": "pool"})
+        for cid in my_ready:
+            card_movements.append({"card_id": cid, "from": "me", "to": "ai"})
+    else:
+        for cid in my_ready:
+            card_movements.append({"card_id": cid, "from": "me", "to": "pool"})
+        for cid in ai_ready:
+            card_movements.append({"card_id": cid, "from": "ai", "to": "pool"})
+
     pool = game.get("card_pool", [])
     for m in card_movements:
         cid = m["card_id"]
@@ -1098,41 +1163,48 @@ def _resolve_challenge_round(game):
                 game["ai_level_map"] = ai_lv_map
     game["card_pool"] = pool
 
-    # ===== 阶段 3：从去向总结"赢家" =====
     winners = []
     for m in card_movements:
         if m["from"] != m["to"] and m["to"] in ("me", "ai"):
             if m["to"] not in winners:
                 winners.append(m["to"])
 
-    # ===== 阶段 4：记录本轮 =====
     game["winners"] = winners
-    # 高亮：赢家"打出"的卡
     winner_card_ids = []
     for m in card_movements:
         if m["from"] in winners:
             winner_card_ids.append(m["card_id"])
     game["winner_card_ids"] = winner_card_ids
-    # 兼容旧字段
     game["winner_side"] = winners[0] if len(winners) == 1 else None
 
-    game["my_played"] = [my_view]
-    game["ai_played"] = [ai_view]
+    game["my_played"] = my_views
+    game["ai_played"] = ai_views
     game["my_ready"] = []
     game["ai_ready"] = []
     game["phase"] = "revealing"
     game["revealed_at"] = datetime.now().isoformat()
 
+    if len(my_views) == 1:
+        my_card_for_record = my_views[0]
+    else:
+        my_card_for_record = {
+            "name": my_combo_name or "组合",
+            "level": 1,
+            "atk": my_eff_atk,
+            "def": my_eff_def,
+            "is_combo": True,
+            "cards": my_views,
+        }
+
     hist = game.get("history", [])
     hist.append({
         "round": game.get("round_no", 1),
         "dim": dim,
-        "my_card": my_view,
-        "ai_card": ai_view,
+        "my_card": my_card_for_record,
+        "ai_card": ai_views[0],
         "winners": winners,
     })
     game["history"] = hist
-
 
 def _finish_challenge(game, user, level):
     """结束挑战，结算胜负、建材"""
