@@ -1461,31 +1461,44 @@ def _resolve_challenge_round(game):
 
     # ===== 记录 =====
     # "我"这列：单卡显示卡，多卡组合显示组合名
+    SPECIAL_NAMES = {"五虎将", "八虎骑", "水军三兄弟", "风流威猛", "双炸", "炸弹", "美女"}
     if len(my_cards) == 1:
-        my_card_for_record = my_cards[0]
+        c = my_cards[0]
+        my_card_for_record = dict(c)
+        if c["name"] in ("扈三娘", "白胜", "孙二娘"):
+            my_card_for_record["no_stats"] = True
     else:
         _, _, combo_name = calc_combo_stats(my_cards)
+        name = combo_name or "组合"
         my_card_for_record = {
-            "name": combo_name or "组合",
+            "name": name,
             "level": 1,
             "atk": my_eff_atk or 0,
             "def": my_eff_def or 0,
             "is_combo": True,
             "cards": my_cards,
         }
+        if name in SPECIAL_NAMES:
+            my_card_for_record["no_stats"] = True
 
     if len(ai_cards) == 1:
-        ai_card_for_record = ai_cards[0]
+        c = ai_cards[0]
+        ai_card_for_record = dict(c)
+        if c["name"] in ("扈三娘", "白胜", "孙二娘"):
+            ai_card_for_record["no_stats"] = True
     else:
         _, _, combo_name = calc_combo_stats(ai_cards)
+        name = combo_name or "组合"
         ai_card_for_record = {
-            "name": combo_name or "组合",
+            "name": name,
             "level": 1,
             "atk": ai_eff_atk or 0,
             "def": ai_eff_def or 0,
             "is_combo": True,
             "cards": ai_cards,
         }
+        if name in SPECIAL_NAMES:
+            ai_card_for_record["no_stats"] = True
 
     hist = game.get("history", [])
     hist.append({
