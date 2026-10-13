@@ -909,11 +909,16 @@
           setTimeout(() => showResult(data), 500);
         }
       } catch (e) {
-        console.error(e);
-      }
+        console.error(    // ===== 记录弹窗 =====
+    const DISPLAY_NAME_MAP = {
+      "扈三娘": "美女",
+      "白胜": "炸弹",
+      "孙二娘": "炸弹",
+    };
+    function displayName(name) {
+      return DISPLAY_NAME_MAP[name] || name;
     }
 
-    // ===== 记录弹窗 =====
     function renderRecord() {
       const el = document.getElementById('recordContent');
       if (!lastHistory || lastHistory.length === 0) {
@@ -938,19 +943,19 @@
         const aiCard = h.ai_card || {};
         let myText;
         if (myCard.no_stats) {
-          myText = myCard.name || '?';
+          myText = displayName(myCard.name) || '?';
         } else if (myCard.is_combo) {
-          myText = `${myCard.name} ${myCard.atk}/${myCard.def}`;
+          myText = `${displayName(myCard.name)} ${myCard[dimKey] ?? '-'}`;
         } else {
-          myText = `${myCard.name || '?'} ${myCard[dimKey] || '-'}`;
+          myText = `${displayName(myCard.name) || '?'} ${myCard[dimKey] ?? '-'}`;
         }
         let aiText;
         if (aiCard.no_stats) {
-          aiText = aiCard.name || '?';
+          aiText = displayName(aiCard.name) || '?';
         } else if (aiCard.is_combo) {
-          aiText = `${aiCard.name} ${aiCard.atk}/${aiCard.def}`;
+          aiText = `${displayName(aiCard.name)} ${aiCard[dimKey] ?? '-'}`;
         } else {
-          aiText = `${aiCard.name || '?'} ${aiCard[dimKey] || '-'}`;
+          aiText = `${displayName(aiCard.name) || '?'} ${aiCard[dimKey] ?? '-'}`;
         }
 
         const winners = h.winners || [];
