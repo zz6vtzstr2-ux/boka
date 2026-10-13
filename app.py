@@ -10,7 +10,7 @@ from models import (
     WorldBoss, BossDeck, BossDamage, BossBattle,
     BokaRoom, BokaPlayer,
     BokaGame, BokaGamePlayer, BokaGameRecord,
-    ChallengeRecord,
+    ChallengeRecord, Mail,
 )
 from cards_data import CARDS, CARD_BY_NAME, CARD_BY_ID
 from combos_data import COMBOS, SPECIAL_CARDS
@@ -2964,6 +2964,7 @@ with app.app_context():
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS round_winner_card_id INTEGER',
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS beauty_left INTEGER DEFAULT 3',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS building_last_collect TEXT DEFAULT \'{}\'',
+        'ALTER TABLE "mail" ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMP',
     ]
     try:
         with db.engine.begin() as conn:
