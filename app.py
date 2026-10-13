@@ -2816,6 +2816,71 @@ def data_rank(mode):
     ranks.sort(key=lambda x: x["value"], reverse=True)
     return jsonify({"ranks": ranks})
 
+# ========== 站内邮件 ==========
+MAIL_KEEP_DAYS = 7
+
+def cleanup_expired_mails(user):
+    """惰性清理：已领取且超过 7 天的邮件"""
+    now = datetime.now()
+    cutoff = now - timedelta(days=MAIL_KEEP_DAYS)
+    Mail.query.filter(
+        Mail.user_id == user.id,
+        Mail.is_claimed == True,
+        Mail.claimed_at != None,
+        Mail.claimed_at < cutoff,
+    ).delete(synchronize_session=False)
+    db.session.commit()
+
+
+@app.route('/mail/list')
+@login_required
+def mail_list():
+    cleanup_expired_mails(current_user)
+    mails = Mail.query.filter_by(user_id=current_user.id).order_by(Mail.created_at.desc()).all()
+    unclaimed = sum(1 for m in mails if not m.is_claimed)
+    return jsonify({
+        "unclaimed": unclaimed,
+        "mails": [{
+            "id": m.id,
+            "title": m.title,
+            "content": m.content,
+            "gold": m.gold,
+            "is_read": m.is_read,
+            "is_claimed": m.is_claimed,
+            "created_at": m.created_at.strftime("%Y-%m-%d %H:%M"),
+        } for m in mails],
+    })
+
+
+@app.route('/mail/read/<int:mid>', methods=['POST'])
+@login_required
+def mail_read(mid):
+    m = Mail.query.filter_by(id=mid, user_id=current_user.id).first()
+    if not m:
+        return jsonify({"error": "邮件不存在"}), 404
+    if not m.is_read:
+        m.is_read = True
+        db.session.commit()
+    return jsonify({"success": True})
+
+
+@app.route('/mail/claim/<int:mid>', methods=['POST'])
+@login_required
+def mail_claim(mid):
+    m = Mail.query.filter_by(id=mid, user_id=current_user.id).first()
+    if not m:
+        return jsonify({"error": "邮件不存在"}), 404
+    if m.is_claimed:
+        return jsonify({"error": "已领取"}), 400
+    if m.gold <= 0:
+        return jsonify({"error": "该邮件无奖励"}), 400
+    current_user.gold += m.gold
+    m.is_claimed = True
+    m.is_read = True
+    m.claimed_at = datetime.now()
+    db.session.commit()
+    return jsonify({"success": True, "gold": m.gold, "total_gold": current_user.gold})
+
 # ========== 我的资料 ==========
 @app.route('/profile')
 @login_required
