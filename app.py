@@ -1473,6 +1473,7 @@ def _finish_challenge(game, user, level):
     """结束挑战，结算胜负、建材"""
     if game.get("finished"):
         return
+    ensure_challenge_today_reset(user)
     won = False
     if len(game.get("my_hand", [])) > 0 and len(game.get("ai_hand", [])) == 0:
         won = True
