@@ -565,71 +565,6 @@ def upgrade_building():
     db.session.commit()
     return jsonify({"success": True, "new_level": level + 1})
 
-# ========== 挑战：AI 卡组生成 ==========
-AI_EXCLUDE_NAMES = {"白胜", "孙二娘", "扈三娘", "宋江"}
-
-def gen_ai_deck(target_min, target_max, max_tries=2000):
-    """
-    从 108 张（排除炸弹、美女、宋江）里挑 6 张卡，
-    每张卡随机 1~25 级（星级影响 atk/def），
-    使 6 张卡的 (atk + def) 之和 ∈ [target_min, target_max]。
-    要求：6 张卡完全不同，3 张"攻卡"（atk 高的）+ 3 张"防卡"（def 高的）。
-    返回 list of dict（含 id, name, level, atk, def, atk_total, def_total）
-    """
-    # 可用卡池
-    pool = [c for c in CARDS if c["name"] not in AI_EXCLUDE_NAMES]
-
-    best = None
-    best_diff = None
-
-    for _ in range(max_tries):
-        # 随机挑 6 张不同的卡
-        picked = random.sample(pool, 6)
-
-        # 每张卡随机星级 1~25
-        cards = []
-        for c in picked:
-            level = random.randint(1, 25)
-            bonus = level - 1
-            a = c["atk"] + bonus
-            d = c["def"] + bonus
-            cards.append({
-                "id": c["id"],
-                "name": c["name"],
-                "nick": c.get("nick", ""),
-                "level": level,
-                "atk": a,
-                "def": d,
-            })
-
-        total = sum(c["atk"] + c["def"] for c in cards)
-        if target_min <= total <= target_max:
-            # 按 atk 降序排前 3 张作为"攻卡"，其余为"防卡"
-            cards.sort(key=lambda x: x["atk"], reverse=True)
-            for c in cards:
-                c["role"] = "atk"
-            for c in cards[3:]:
-                c["role"] = "def"
-            return cards
-
-        # 记录最接近的
-        if total < target_min:
-            diff = target_min - total
-        else:
-            diff = total - target_max
-        if best_diff is None or diff < best_diff:
-            best_diff = diff
-            best = cards
-
-    # 2000 次都没成功，返回最接近的
-    if best:
-        best.sort(key=lambda x: x["atk"], reverse=True)
-        for c in best:
-            c["role"] = "atk"
-        for c in best[3:]:
-            c["role"] = "def"
-    return best
-
 # ========== 挑战 ==========
 CHALLENGE_MAX_LEVEL = 800
 AI_EXCLUDE_NAMES = {"白胜", "孙二娘", "扈三娘", "宋江"}
@@ -648,14 +583,16 @@ def gen_ai_deck(target_min, target_max, max_tries=2000):
 
     for _ in range(max_tries):
         picked = random.sample(pool, 6)
+# 改后
         cards = []
         for c in picked:
             lv = random.randint(1, 25)
+            bonus = lv - 1
             cards.append({
                 "id": c["id"], "name": c["name"], "nick": c.get("nick", ""),
                 "level": lv,
-                "atk": c["atk"],
-                "def": c["def"],
+                "atk": c["atk"] + bonus,
+                "def": c["def"] + bonus,
             })
         total = sum(c["atk"] + c["def"] for c in cards)
         if target_min <= total <= target_max:
