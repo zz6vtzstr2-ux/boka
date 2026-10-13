@@ -340,9 +340,17 @@
       const grid = document.getElementById('cardGrid');
       const sorted = [...ownedCards].sort((a, b) => {
         if (sortKey === 'rank') return a.id - b.id;
-        const aVal = sortKey === 'atk' ? (a.atk + (a.level - 1)) : (a.def + (a.level - 1));
-        const bVal = sortKey === 'atk' ? (b.atk + (b.level - 1)) : (b.def + (b.level - 1));
-        return bVal - aVal;
+        const aAtk = a.atk + (a.level - 1);
+        const bAtk = b.atk + (b.level - 1);
+        const aDef = a.def + (a.level - 1);
+        const bDef = b.def + (b.level - 1);
+        if (sortKey === 'atk') {
+          if (bAtk !== aAtk) return bAtk - aAtk;
+          return bDef - aDef;
+        }
+        // sortKey === 'def'
+        if (bDef !== aDef) return bDef - aDef;
+        return bAtk - aAtk;
       });
       grid.innerHTML = '';
       sorted.forEach(c => {
