@@ -275,3 +275,17 @@ class ChallengeRecord(db.Model):
     level = db.Column(db.Integer, nullable=False)
     won = db.Column(db.Boolean, default=False)
     played_at = db.Column(db.DateTime, nullable=True)
+
+class Mail(db.Model):
+    """站内邮件：奖励 / 公告"""
+    __tablename__ = "mail"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    content = db.Column(db.Text, default="")
+    gold = db.Column(db.Integer, default=0)
+    is_read = db.Column(db.Boolean, default=False)
+    is_claimed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, nullable=False)
+    claimed_at = db.Column(db.DateTime, nullable=True)
