@@ -649,6 +649,8 @@ def challenge():
     
     level = int(request.args.get('level', current_user.challenge_level))
     level = max(1, min(CHALLENGE_MAX_LEVEL, level))
+    if level > current_user.challenge_level:
+        level = current_user.challenge_level
 
     # 玩家卡组
     deck_ids = json_loads_safe(current_user.challenge_deck)
@@ -693,6 +695,8 @@ def challenge():
 @login_required
 def challenge_picker():
     level = int(request.args.get('level', current_user.challenge_level))
+    if level > current_user.challenge_level:
+        level = current_user.challenge_level
     coll = ensure_collection_migrated(current_user)
     owned_ids = set(int(cid) for cid, e in coll.items() if e.get("count", 0) > 0)
     owned = []
@@ -729,6 +733,8 @@ def challenge_deck_save():
 def challenge_start():
     level = int(request.json.get('level', current_user.challenge_level))
     level = max(1, min(CHALLENGE_MAX_LEVEL, level))
+    if level > current_user.challenge_level:
+        return jsonify({"error": "关卡未解锁"}), 400
 
     # 卡组必须 6 张
     deck_ids = json_loads_safe(current_user.challenge_deck)
