@@ -662,7 +662,11 @@ def challenge():
             card = CARD_BY_ID.get(cid)
             if card:
                 c2 = dict(card)
-                c2["level"] = entry.get("level", 1)
+                lv = entry.get("level", 1)
+                bonus = lv - 1
+                c2["level"] = lv
+                c2["atk"] = card["atk"] + bonus
+                c2["def"] = card["def"] + bonus
                 deck.append(c2)
 
     # 拥有的卡（供选卡用）
