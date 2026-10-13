@@ -1213,7 +1213,12 @@ def _resolve_challenge_round(game):
 
     def move(cards, frm, to):
         for c in cards:
-            movements.append({"card_id": c["id"], "from": frm, "to": to})
+            movements.append({
+                "card_id": c["id"],
+                "level": c.get("level", 1),
+                "from": frm,
+                "to": to,
+            })
 
     def give_combo_win(winner_side, winner_play, loser_play):
         """组合直接赢（五虎将/八虎骑/风流威猛/三兄弟）：赢家卡进卡袋，其余卡进赢家手牌 + 抽卡"""
@@ -1381,7 +1386,7 @@ def _resolve_challenge_round(game):
         elif frm == "ai":
             game["ai_hand"] = [c for c in game.get("ai_hand", []) if c != cid]
         if to == "pool":
-            pool.append(cid)
+            pool.append({"id": cid, "level": m.get("level", 1)})
         elif to == "me":
             game["my_hand"].append(cid)
             if frm == "ai":
