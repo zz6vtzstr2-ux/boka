@@ -942,6 +942,60 @@ def challenge_play():
     db.session.commit()
     return jsonify({"success": True})
 
+@app.route('/challenge/songjiang_draw', methods=['POST'])
+@login_required
+def challenge_songjiang_draw():
+    if not current_user.challenge_active_game:
+        return jsonify({"error": "无对局"}), 400
+    game = json_loads_safe(current_user.challenge_active_game)
+    if not isinstance(game, dict) or not game:
+        return jsonify({"error": "对局数据异常"}), 500
+    if game.get("phase") != "selecting":
+        return jsonify({"error": "当前不可操作"}), 400
+
+    pool = game.get("card_pool", [])
+    if len(pool) == 0:
+        return jsonify({"error": "卡袋为空"}), 400
+
+    # 找手牌里的宋江
+    my_hand = game.get("my_hand", [])
+    my_lv_map = game.get("my_level_map", {})
+    songjiang_id = None
+    for cid in my_hand:
+        base = CARD_BY_ID.get(cid)
+        if base and base["name"] == "宋江":
+            songjiang_id = cid
+            break
+    if songjiang_id is None:
+        return jsonify({"error": "手牌中没有宋江"}), 400
+
+    # 从卡袋随机抽 1 张（兼容旧的 id 格式和新的 {id, level} 格式）
+    idx = random.randrange(len(pool))
+    picked = pool.pop(idx)
+    if isinstance(picked, dict):
+        picked_id = picked["id"]
+        picked_level = picked.get("level", 1)
+    else:
+        picked_id = picked
+        picked_level = 1
+
+    # 抽到的卡进手牌
+    my_hand.append(picked_id)
+    my_lv_map[str(picked_id)] = picked_level
+
+    # 宋江进卡袋（等级用他当前的等级）
+    songjiang_level = my_lv_map.get(str(songjiang_id), 1)
+    pool.append({"id": songjiang_id, "level": songjiang_level})
+    my_hand = [c for c in my_hand if c != songjiang_id]
+
+    game["my_hand"] = my_hand
+    game["my_level_map"] = my_lv_map
+    game["card_pool"] = pool
+
+    current_user.challenge_active_game = json_dumps_safe(game)
+    db.session.commit()
+    return jsonify({"success": True, "picked_id": picked_id, "picked_level": picked_level})
+
 @app.route('/challenge/state')
 @login_required
 def challenge_state():
