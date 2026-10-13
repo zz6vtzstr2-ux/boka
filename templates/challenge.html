@@ -530,6 +530,25 @@
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({level: currentLevel})
       });
+
+      // 未完成对局：409
+      if (res.status === 409) {
+        const data = await res.json();
+        if (data.error === 'has_unfinished') {
+          const goContinue = confirm(
+            '你有一局未完成的挑战（第 ' + data.level + ' 关）。\n\n' +
+            '点"确定"继续该对局；点"取消"放弃并重新开始。'
+          );
+          if (goContinue) {
+            window.location.href = '/challenge/battle?level=' + data.level;
+          } else {
+            await fetch('/challenge/quit', { method: 'POST' });
+            window.location.reload();
+          }
+          return;
+        }
+      }
+
       const data = await res.json();
       if (data.error) { showToast(data.error); return; }
       window.location.href = '/challenge/battle?level=' + currentLevel;
