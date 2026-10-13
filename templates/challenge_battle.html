@@ -909,7 +909,11 @@
           setTimeout(() => showResult(data), 500);
         }
       } catch (e) {
-        console.error(    // ===== 记录弹窗 =====
+        console.error(e);
+      }
+    }
+
+    // ===== 记录弹窗 =====
     const DISPLAY_NAME_MAP = {
       "扈三娘": "美女",
       "白胜": "炸弹",
