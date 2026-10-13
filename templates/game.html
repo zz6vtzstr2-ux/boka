@@ -172,6 +172,189 @@
     .nav a.short { letter-spacing: 8px; text-indent: 8px; }
     .nav a.medium { letter-spacing: 3px; text-indent: 3px; }
     .nav a.long { letter-spacing: 1px; text-indent: 1px; }
+    /* ===== 邮箱入口 ===== */
+    .mail-btn {
+      position: relative;
+      background: #fdf6d8;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid #f0e0a0;
+      font-size: 15px;
+      color: #8a6d1f;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .mail-btn:hover { background: #f8ecc8; }
+    .mail-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      background: #d9534f;
+      color: #fff;
+      font-size: 11px;
+      font-weight: bold;
+      line-height: 18px;
+      text-align: center;
+      display: none;
+    }
+    .mail-badge.show { display: inline-block; }
+
+    /* ===== 邮箱弹窗 ===== */
+    .mail-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 400;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+    .mail-modal.active { display: flex; }
+    .mail-inner {
+      background: #fffdf5;
+      border-radius: 16px;
+      padding: 18px;
+      max-width: 520px;
+      width: 100%;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      border: 4px double #f0e0a0;
+    }
+    .mail-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e8e0cc;
+      margin-bottom: 12px;
+    }
+    .mail-head h3 {
+      margin: 0;
+      color: #8a6d1f;
+      letter-spacing: 2px;
+    }
+    .mail-back {
+      background: #fce8ec;
+      border: 1px solid #e8c8d0;
+      color: #b85a6a;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .mail-back:hover { background: #f8d8de; }
+    .mail-close {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      margin-top: 14px;
+    }
+
+    .mail-list {
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+    }
+    .mail-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 10px;
+      border-bottom: 1px solid #e8e0cc;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+    .mail-item:hover { background: #f9f5e8; }
+    .mail-item .title {
+      font-size: 15px;
+      font-weight: bold;
+      color: #4a4a4a;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mail-item .time {
+      font-size: 12px;
+      color: #999;
+      white-space: nowrap;
+    }
+    .mail-item .flag {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 8px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: bold;
+      vertical-align: middle;
+    }
+    .flag-unclaimed { background: #f5d76e; color: #7a5a1a; }
+    .flag-claimed   { background: #d8e8dc; color: #4a7a5a; }
+    .mail-empty {
+      text-align: center;
+      color: #bbb;
+      padding: 40px 0;
+      font-size: 14px;
+    }
+
+    .mail-detail {
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+      padding: 4px 2px;
+    }
+    .mail-detail h4 {
+      margin: 0 0 6px 0;
+      color: #2c3e50;
+      font-size: 17px;
+      letter-spacing: 1px;
+    }
+    .mail-detail .detail-time {
+      font-size: 12px;
+      color: #999;
+      margin-bottom: 14px;
+    }
+    .mail-detail .detail-body {
+      font-size: 14px;
+      color: #444;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      margin-bottom: 18px;
+    }
+    .mail-claim {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background: #5cb85c;
+      color: #fff;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 2px;
+    }
+    .mail-claim:hover:not(:disabled) { background: #4ea84e; }
+    .mail-claim:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -193,6 +376,10 @@
           <span class="money-item">{{ silver }}<span class="coin coin-silver"></span></span>
           <span class="money-item">{{ copper }}<span class="coin coin-copper"></span></span>
         </span>
+        <button class="mail-btn" id="mailBtn" onclick="openMail()">
+          ✉ 邮箱
+          <span class="mail-badge" id="mailBadge">0</span>
+        </button>
         <a href="/logout" class="link-btn">退出登录</a>
       </div>
     </div>
@@ -207,5 +394,138 @@
       <a href="/data" class="short">数据</a>
     </div>
   </div>
+  <!-- 邮箱弹窗 -->
+  <div class="mail-modal" id="mailModal" onclick="if(event.target===this)closeMail()">
+    <div class="mail-inner">
+      <div class="mail-head" id="mailHead">
+        <h3 id="mailHeadTitle">邮箱</h3>
+        <button class="mail-back" id="mailBack" style="display:none;" onclick="showMailList()">← 返回列表</button>
+      </div>
+
+      <div class="mail-list" id="mailListView">
+        <div class="mail-empty">加载中...</div>
+      </div>
+
+      <div class="mail-detail" id="mailDetailView" style="display:none;"></div>
+
+      <button class="mail-close" onclick="closeMail()">关闭</button>
+    </div>
+  </div>
+
+  <script>
+    let mailCache = [];
+
+    async function refreshMailBadge() {
+      try {
+        const res = await fetch('/mail/list');
+        const data = await res.json();
+        if (data.error) return;
+        mailCache = data.mails || [];
+        const badge = document.getElementById('mailBadge');
+        if (data.unclaimed > 0) {
+          badge.textContent = data.unclaimed;
+          badge.classList.add('show');
+        } else {
+          badge.classList.remove('show');
+        }
+      } catch (e) { /* 静默 */ }
+    }
+
+    function openMail() {
+      document.getElementById('mailModal').classList.add('active');
+      showMailList();
+      loadMailList();
+    }
+    function closeMail() {
+      document.getElementById('mailModal').classList.remove('active');
+    }
+
+    function showMailList() {
+      document.getElementById('mailHeadTitle').textContent = '邮箱';
+      document.getElementById('mailBack').style.display = 'none';
+      document.getElementById('mailListView').style.display = 'block';
+      document.getElementById('mailDetailView').style.display = 'none';
+    }
+
+    async function loadMailList() {
+      const listEl = document.getElementById('mailListView');
+      listEl.innerHTML = '<div class="mail-empty">加载中...</div>';
+      const res = await fetch('/mail/list');
+      const data = await res.json();
+      if (data.error) {
+        listEl.innerHTML = '<div class="mail-empty">加载失败</div>';
+        return;
+      }
+      mailCache = data.mails || [];
+      if (mailCache.length === 0) {
+        listEl.innerHTML = '<div class="mail-empty">暂无邮件</div>';
+        return;
+      }
+      listEl.innerHTML = '';
+      mailCache.forEach(m => {
+        const item = document.createElement('div');
+        item.className = 'mail-item';
+        let flag = '';
+        if (m.gold > 0) {
+          flag = m.is_claimed
+            ? '<span class="flag flag-claimed">已领</span>'
+            : '<span class="flag flag-unclaimed">可领</span>';
+        }
+        item.innerHTML = `
+          <span class="title">${m.title}${flag}</span>
+          <span class="time">${m.created_at}</span>
+        `;
+        item.onclick = () => openMailDetail(m.id);
+        listEl.appendChild(item);
+      });
+    }
+
+    async function openMailDetail(mid) {
+      const m = mailCache.find(x => x.id === mid);
+      if (!m) return;
+      document.getElementById('mailHeadTitle').textContent = '邮件详情';
+      document.getElementById('mailBack').style.display = 'inline-block';
+      document.getElementById('mailListView').style.display = 'none';
+      const detailEl = document.getElementById('mailDetailView');
+      detailEl.style.display = 'block';
+
+      let claimHtml = '';
+      if (m.gold > 0) {
+        if (m.is_claimed) {
+          claimHtml = `<button class="mail-claim" disabled>已领取</button>`;
+        } else {
+          claimHtml = `<button class="mail-claim" onclick="claimMail(${m.id})">领取 ${m.gold} 金币</button>`;
+        }
+      }
+      detailEl.innerHTML = `
+        <h4>${m.title}</h4>
+        <div class="detail-time">${m.created_at}</div>
+        <div class="detail-body">${m.content || '（无正文）'}</div>
+        ${claimHtml}
+      `;
+
+      // 标记已读
+      if (!m.is_read) {
+        fetch('/mail/read/' + mid, { method: 'POST' }).catch(() => {});
+        m.is_read = true;
+      }
+    }
+
+    async function claimMail(mid) {
+      const res = await fetch('/mail/claim/' + mid, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+      alert('领取成功，获得 ' + data.gold + ' 金币');
+      await refreshMailBadge();
+      await loadMailList();
+      openMailDetail(mid);
+    }
+
+    // 页面加载时拉一次红点
+    refreshMailBadge();
+  </script>
 </body>
 </html>
