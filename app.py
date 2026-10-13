@@ -1067,6 +1067,7 @@ def challenge_state():
         "history": game.get("history", []),
         "elapsed_since_reveal": elapsed_since_reveal if elapsed_since_reveal is not None else -1,
         "beauty_left": game.get("beauty_left", 3),
+        "all_loser": game.get("all_loser", False),
     })
 
 
@@ -1193,6 +1194,7 @@ def _classify_play(cards):
 
 def _resolve_challenge_round(game):
     """单人 PVE 的一轮结算：优先级链 + 卡去向 + 赢家（支持美女/炸弹/帅哥/组合）"""
+    game["all_loser"] = False
     is_atk_round = (game.get("round_no", 1) % 2 == 1)
     dim = "atk" if is_atk_round else "def"
     other_dim = "def" if is_atk_round else "atk"
@@ -1295,6 +1297,7 @@ def _resolve_challenge_round(game):
         """双炸 / 单炸：场上所有卡进卡袋"""
         move(my_play["cards"], "me", "pool")
         move(ai_play["cards"], "ai", "pool")
+        game["all_loser"] = True
 
     def give_beauty(beauty_side, beauty_play, other_play):
         """美女处理"""
