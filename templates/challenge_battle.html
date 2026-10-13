@@ -682,7 +682,7 @@
       btn.textContent = locked ? '锁定' : '出战';
     }
 
-    function renderPlayed(myCards, aiCards, step, winnerIds) {
+    function renderPlayed(myCards, aiCards, step, winnerIds, allLoser) {
       const myEl = document.getElementById('myPlayed');
       const aiEl = document.getElementById('aiPlayed');
       myEl.innerHTML = '';
@@ -712,15 +712,23 @@
         aiEl.classList.toggle('empty', aiCards.length === 0);
         myCards.forEach(c => {
           let cls = '';
-          if (step === "result" && winSet.size > 0) {
-            cls = winSet.has(c.id) ? 'winner' : 'loser';
+          if (step === "result") {
+            if (allLoser) {
+              cls = 'loser';
+            } else if (winSet.size > 0) {
+              cls = winSet.has(c.id) ? 'winner' : 'loser';
+            }
           }
           myEl.appendChild(makeHeroCard(c, cls));
         });
         aiCards.forEach(c => {
           let cls = '';
-          if (step === "result" && winSet.size > 0) {
-            cls = winSet.has(c.id) ? 'winner' : 'loser';
+          if (step === "result") {
+            if (allLoser) {
+              cls = 'loser';
+            } else if (winSet.size > 0) {
+              cls = winSet.has(c.id) ? 'winner' : 'loser';
+            }
           }
           aiEl.appendChild(makeHeroCard(c, cls));
         });
@@ -866,7 +874,8 @@
             step = "result";
           }
           const winnerIds = (step === "result") ? (data.winner_card_ids || []) : [];
-          renderPlayed(data.my_played || [], data.ai_played || [], step, winnerIds);
+          const allLoser = (step === "result") ? (data.all_loser || false) : false;
+          renderPlayed(data.my_played || [], data.ai_played || [], step, winnerIds, allLoser);
 
           if (step === "result") {
             if (shownStep !== "result" || shownRound !== roundNo) {
@@ -928,13 +937,17 @@
         const myCard = h.my_card || {};
         const aiCard = h.ai_card || {};
         let myText;
-        if (myCard.is_combo) {
+        if (myCard.no_stats) {
+          myText = myCard.name || '?';
+        } else if (myCard.is_combo) {
           myText = `${myCard.name} ${myCard.atk}/${myCard.def}`;
         } else {
           myText = `${myCard.name || '?'} ${myCard[dimKey] || '-'}`;
         }
         let aiText;
-        if (aiCard.is_combo) {
+        if (aiCard.no_stats) {
+          aiText = aiCard.name || '?';
+        } else if (aiCard.is_combo) {
           aiText = `${aiCard.name} ${aiCard.atk}/${aiCard.def}`;
         } else {
           aiText = `${aiCard.name || '?'} ${aiCard[dimKey] || '-'}`;
