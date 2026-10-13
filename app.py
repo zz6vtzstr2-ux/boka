@@ -739,6 +739,15 @@ def challenge_start():
     level = max(1, min(CHALLENGE_MAX_LEVEL, level))
     if level > current_user.challenge_level:
         return jsonify({"error": "关卡未解锁"}), 400
+    # 检查是否有未完成对局
+    existing_raw = current_user.challenge_active_game
+    if existing_raw:
+        existing = json_loads_safe(existing_raw)
+        if isinstance(existing, dict) and existing and not existing.get("finished"):
+            return jsonify({
+                "error": "has_unfinished",
+                "level": existing.get("level", 1),
+            }), 409
 
     # 卡组必须 6 张
     deck_ids = json_loads_safe(current_user.challenge_deck)
