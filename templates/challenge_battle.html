@@ -334,10 +334,11 @@
     }
     .ready-row {
       display: flex;
-      align-items: center;
+      align-items: stretch;
       justify-content: space-between;
       gap: 10px;
       padding: 10px 12px;
+      min-height: 80px;
     }
     .my-avatar-block {
       display: flex;
@@ -375,7 +376,6 @@
     .play-square-btn {
       flex-shrink: 0;
       width: 64px;
-      height: 64px;
       border: none;
       border-radius: 12px;
       background: #5bb8e8;
@@ -931,9 +931,14 @@
         if (myCard.is_combo) {
           myText = `${myCard.name} ${myCard.atk}/${myCard.def}`;
         } else {
-          myText = `lv${myCard.level || 1}${myCard.name || '?'} ${myCard[dimKey] || '-'}`;
+          myText = `${myCard.name || '?'} ${myCard[dimKey] || '-'}`;
         }
-        const aiText = `lv${aiCard.level || 1}${aiCard.name || '?'} ${aiCard[dimKey] || '-'}`;
+        let aiText;
+        if (aiCard.is_combo) {
+          aiText = `${aiCard.name} ${aiCard.atk}/${aiCard.def}`;
+        } else {
+          aiText = `${aiCard.name || '?'} ${aiCard[dimKey] || '-'}`;
+        }
 
         const winners = h.winners || [];
         let winnerText = '/';
