@@ -639,7 +639,7 @@
             window.location.href = '/challenge/battle?level=' + data.level;
           } else {
             await fetch('/challenge/quit', { method: 'POST' });
-            window.location.reload();
+            startChallenge();
           }
           return;
         }
