@@ -21,7 +21,12 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
     }
     .title-block .page-name {
       font-size: 28px;
@@ -432,15 +437,15 @@
 </head>
 <body>
   <div class="container">
-    <div class="panel">
-      <div class="header">
-        <div class="title-block">
-          <div class="page-name">个人挑战</div>
-          <div class="en">Challenge</div>
-        </div>
-        <a href="/" class="back-btn">返回主页</a>
+    <div class="header">
+      <div class="title-block">
+        <div class="page-name">个人挑战</div>
+        <div class="en">Challenge</div>
       </div>
+      <a href="/" class="back-btn">返回主页</a>
+    </div>
 
+    <div class="panel">
       <div class="user-block">
         <a href="/profile" class="user-link">
           <img src="/static/avatars/{{ current_user.username }}.jpg" alt="">
