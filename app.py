@@ -1082,7 +1082,13 @@ def challenge_state():
 
 
 def _ai_pick_card(game):
-    """AI 出牌：能出组合就出组合（优先五虎将/八虎骑 → 风流威猛 → 三兄弟 → 其他组合）；否则出单卡"""
+    """
+    AI 出牌逻辑（重写版）：
+    1. 预处理：手牌打成"卡包"（组合包 / 单卡包 / 功能卡包 / 宋江单独留）
+    2. 分类：按 atk - def >= 35 分"适合攻击"/"适合防御"，功能卡不分类两边都参与
+    3. 随机：按轮次从对应候选池随机一个卡包
+    4. 兜底：候选池空 → 出该轮对方属性最低的卡包
+    """
     ai_hand = game.get("ai_hand", [])
     if not ai_hand:
         return []
@@ -1090,7 +1096,7 @@ def _ai_pick_card(game):
     is_atk_round = (game.get("round_no", 1) % 2 == 1)
     ai_lv = game.get("ai_level_map", {})
 
-    # 构造 AI 手牌（含 level、攻防）
+    # ===== 构造手牌（含 level / atk / def）=====
     hand = []
     for cid in ai_hand:
         base = CARD_BY_ID.get(cid)
@@ -1101,72 +1107,199 @@ def _ai_pick_card(game):
         hand.append({
             "id": cid,
             "name": base["name"],
+            "level": lv,
             "atk": base["atk"] + bonus,
             "def": base["def"] + bonus,
         })
     if not hand:
         return []
 
-    hand_names = [c["name"] for c in hand]
+    hand_by_name = {}
+    for c in hand:
+        hand_by_name.setdefault(c["name"], []).append(c)
 
-    # 尝试找出优先级最高的合法组合（不超过 3 张，避免太复杂）
-    def try_combo(target_names):
-        if not all(n in hand_names for n in target_names):
+    # ===== 1. 宋江特殊处理 =====
+    songjiang = hand_by_name.get("宋江", [])
+    songjiang_card = songjiang[0] if songjiang else None
+
+    pool = game.get("card_pool", [])
+    if pool and songjiang_card:
+        pool_powers = []
+        for entry in pool:
+            if isinstance(entry, dict):
+                pid = entry.get("id")
+                plevel = entry.get("level", 1)
+            else:
+                pid = entry
+                plevel = 1
+            pbase = CARD_BY_ID.get(pid)
+            if not pbase:
+                continue
+            pbonus = plevel - 1
+            pool_powers.append(pbase["atk"] + pbonus + pbase["def"] + pbonus)
+        if pool_powers:
+            avg_power = sum(pool_powers) / len(pool_powers)
+            sj_power = songjiang_card["atk"] + songjiang_card["def"]
+            if avg_power > sj_power:
+                return [songjiang_card["id"]]
+
+    # ===== 2. 组合检测 =====
+    used_ids = set()
+    packages = []
+
+    def try_combo(names):
+        if not all(n in hand_by_name for n in names):
             return None
-        ids = []
-        used = set()
-        for n in target_names:
-            for c in hand:
-                if c["name"] == n and c["id"] not in used:
-                    ids.append(c["id"])
-                    used.add(c["id"])
+        picked = []
+        for n in names:
+            for c in hand_by_name[n]:
+                if c["id"] not in used_ids:
+                    picked.append(c)
                     break
-        if len(ids) == len(target_names):
-            return ids
-        return None
+            else:
+                return None
+        return picked
 
-    # 优先级 1：五虎将
+    def consume(cards):
+        for c in cards:
+            used_ids.add(c["id"])
+
+    # 优先级：五虎将 → 八虎骑 → 水军三兄弟 → 风流威猛
+    # → 黑白双煞 → 打猎兄弟 → 水军2兄弟（阮小二） → 水军2兄弟（其他） → 智多星
+
+    # 五虎将（必须 5 张）
     combo = try_combo(["关胜", "林冲", "秦明", "呼延灼", "董平"])
     if combo:
-        return combo
-    # 优先级 1：八虎骑
-    combo = try_combo(["花荣", "徐宁", "杨志", "索超", "张清", "朱仝", "史进", "穆弘"])
-    if combo:
-        return combo
-    # 优先级 2：风流威猛
-    combo = try_combo(["花荣", "徐宁"])
-    if combo:
-        return combo
-    # 优先级 3：水军三兄弟
+        consume(combo)
+        packages.append({"type": "combo", "cards": combo})
+
+    # 八虎骑（必须 8 张，凑不到不组）
+    bahu_members = ["花荣", "徐宁", "杨志", "索超", "张清", "朱仝", "史进", "穆弘"]
+    bahu_available = [hand_by_name[n][0] for n in bahu_members
+                      if n in hand_by_name and hand_by_name[n][0]["id"] not in used_ids]
+    if len(bahu_available) >= 8:
+        consume(bahu_available)
+        packages.append({"type": "combo", "cards": bahu_available})
+
+    # 水军三兄弟
     combo = try_combo(["阮小二", "阮小五", "阮小七"])
     if combo:
-        return combo
-    # 优先级 4：水军兄弟（各种二人组）
-    for pair in [["阮小二", "阮小五"], ["阮小二", "阮小七"], ["阮小五", "阮小七"], ["张横", "张顺"]]:
-        combo = try_combo(pair)
-        if combo:
-            return combo
-    # 优先级 5：黑白双煞
+        consume(combo)
+        packages.append({"type": "combo", "cards": combo})
+
+    # 风流威猛（花荣 + 徐宁）
+    combo = try_combo(["花荣", "徐宁"])
+    if combo:
+        consume(combo)
+        packages.append({"type": "combo", "cards": combo})
+
+    # 黑白双煞（张顺 + 李逵）
     combo = try_combo(["张顺", "李逵"])
     if combo:
-        return combo
-    # 优先级 6：打猎兄弟
+        consume(combo)
+        packages.append({"type": "combo", "cards": combo})
+
+    # 打猎兄弟（解珍 + 解宝）
     combo = try_combo(["解珍", "解宝"])
     if combo:
-        return combo
-    # 优先级 7：智多星（吴用 + 任意非美女/炸弹）
-    if "吴用" in hand_names:
-        wu = next(c for c in hand if c["name"] == "吴用")
-        for c in hand:
-            if c["id"] == wu["id"]:
-                continue
-            if c["name"] in ("扈三娘", "白胜", "孙二娘"):
-                continue
-            return [wu["id"], c["id"]]
+        consume(combo)
+        packages.append({"type": "combo", "cards": combo})
 
-    # 无组合：出单卡（比攻出 atk 最高；比防出 def 最高）
-    hand.sort(key=lambda x: (x["atk"] if is_atk_round else x["def"]), reverse=True)
-    return [hand[0]["id"]]
+    # 水军兄弟（含阮小二）
+    for pair in [["阮小二", "阮小五"], ["阮小二", "阮小七"]]:
+        combo = try_combo(pair)
+        if combo:
+            consume(combo)
+            packages.append({"type": "combo", "cards": combo})
+            break
+
+    # 其他水军兄弟
+    for pair in [["阮小五", "阮小七"], ["张横", "张顺"]]:
+        combo = try_combo(pair)
+        if combo:
+            consume(combo)
+            packages.append({"type": "combo", "cards": combo})
+            break
+
+    # 智多星（最后，配战斗力最低的非功能非宋江卡）
+    wu = hand_by_name.get("吴用", [])
+    if wu and wu[0]["id"] not in used_ids:
+        wu_card = wu[0]
+        candidates = [c for c in hand
+                      if c["id"] not in used_ids
+                      and c["name"] != "吴用"
+                      and c["name"] != "宋江"
+                      and c["name"] not in ("扈三娘", "白胜", "孙二娘")]
+        if candidates:
+            lowest = min(candidates, key=lambda c: c["atk"] + c["def"])
+            combo = [wu_card, lowest]
+            consume(combo)
+            packages.append({"type": "combo", "cards": combo})
+
+    # ===== 3. 剩余卡处理 =====
+    FUNCTIONAL_NAMES = {"白胜", "孙二娘", "扈三娘"}
+    for c in hand:
+        if c["id"] in used_ids:
+            continue
+        if c["name"] == "宋江":
+            continue
+        if c["name"] in FUNCTIONAL_NAMES:
+            packages.append({"type": "func", "cards": [c]})
+        else:
+            packages.append({"type": "single", "cards": [c]})
+
+    # ===== 4. 计算每个卡包的 atk/def =====
+    def package_stats(pkg):
+        cards = pkg["cards"]
+        if len(cards) == 1:
+            return cards[0]["atk"], cards[0]["def"]
+        combo_cards = []
+        for c in cards:
+            base = CARD_BY_ID.get(c["id"])
+            if base:
+                combo_cards.append({**base, "level": c["level"]})
+        atk, dfn, _ = calc_combo_stats(combo_cards)
+        if atk is None or dfn is None:
+            atk = sum(c["atk"] for c in cards)
+            dfn = sum(c["def"] for c in cards)
+        return atk, dfn
+
+    for pkg in packages:
+        pkg["atk"], pkg["def"] = package_stats(pkg)
+
+    # ===== 5. 分类 =====
+    atk_pkgs = []
+    def_pkgs = []
+    func_pkgs = []
+    for pkg in packages:
+        if pkg["type"] == "func":
+            func_pkgs.append(pkg)
+        else:
+            if pkg["atk"] - pkg["def"] >= 35:
+                atk_pkgs.append(pkg)
+            else:
+                def_pkgs.append(pkg)
+
+    # ===== 6. 按轮次选 =====
+    if is_atk_round:
+        candidates = atk_pkgs + func_pkgs
+        fallback_key = "def"
+    else:
+        candidates = def_pkgs + func_pkgs
+        fallback_key = "atk"
+
+    if candidates:
+        chosen = random.choice(candidates)
+    else:
+        all_pkgs = atk_pkgs + def_pkgs
+        if not all_pkgs:
+            if songjiang_card:
+                return [songjiang_card["id"]]
+            return []
+        all_pkgs.sort(key=lambda p: p[fallback_key])
+        chosen = all_pkgs[0]
+
+    return [c["id"] for c in chosen["cards"]]
 
 def _classify_play(cards):
     """判断一组出牌的类型（cards 含 name）"""
