@@ -797,6 +797,7 @@
         const d = makeHeroCard(c, isSelected ? 'selected' : '');
         if (!locked) {
           d.onclick = async () => {
+            if (locked) return;
             const idx = myReady.findIndex(x => x.id === c.id);
             if (idx >= 0) {
               myReady.splice(idx, 1);
@@ -927,6 +928,7 @@
     let lastComboValid = true;
 
     async function updateComboInfo() {
+      if (locked) return;
       const infoEl = document.getElementById('comboInfo');
       if (!infoEl) return;
       if (myReady.length === 0) {
@@ -1003,6 +1005,7 @@
       }
 
       locked = true;
+      renderHand();
       updatePlayBtn();
 
       const res = await fetch('/challenge/play', {
