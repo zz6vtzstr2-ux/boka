@@ -106,6 +106,7 @@
     .user-block {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 14px;
       margin-bottom: 18px;
       padding-bottom: 18px;
@@ -134,34 +135,17 @@
       color: #2c3e50;
       letter-spacing: 1px;
     }
-
-    /* 关卡 */
-    .level-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      background: #f9f5e8;
-      border: 1px solid #e0d8c0;
-      border-radius: 12px;
-      padding: 14px 18px;
-      margin-bottom: 12px;
-    }
-    .level-row .label {
-      font-size: 15px;
-      color: #888;
-      letter-spacing: 2px;
-    }
-    .level-row .num {
-      font-size: 28px;
+    .level-num {
+      font-size: 24px;
       font-weight: bold;
       color: #b85a6a;
       cursor: pointer;
-      padding: 2px 12px;
+      padding: 4px 14px;
       border-radius: 8px;
       letter-spacing: 2px;
+      white-space: nowrap;
     }
-    .level-row .num:hover { background: #fce8ec; }
+    .level-num:hover { background: #fce8ec; }
 
     .stats-row {
       display: flex;
@@ -467,11 +451,7 @@
           <img src="/static/avatars/{{ current_user.username }}.jpg" alt="">
           <span class="nickname">{{ current_user.nickname or current_user.username }}</span>
         </a>
-      </div>
-
-      <div class="level-row">
-        <span class="label">当前关卡</span>
-        <span class="num" onclick="openLevelPicker()">第 {{ level }} 关</span>
+        <span class="level-num" onclick="openLevelPicker()">第 {{ level }} 关</span>
       </div>
 
       <div class="stats-row">
