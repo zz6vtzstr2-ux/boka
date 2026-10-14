@@ -830,6 +830,25 @@
         return;
       }
 
+      // 抽卡成功：清空选择，直接从后端拉一次状态
+      myReady = [];
+      songjiangShownForCurrentSelection = false;
+
+      const stateRes = await fetch('/challenge/state?level=' + level);
+      const state = await stateRes.json();
+      if (!state.error) {
+        myHand = state.my_hand || [];
+        document.getElementById('myHandCount').textContent = state.my_hand_count || 0;
+        document.getElementById('aiHandCount').textContent = state.ai_hand_count || 0;
+        poolCount = state.card_pool_count || 0;
+        document.getElementById('poolInfo').textContent = '卡袋 ' + poolCount;
+      }
+
+      renderHand();
+      updateComboInfo();
+      updatePlayBtn();
+    }
+
       // 抽卡成功：清空选择，刷新状态
       myReady = [];
       songjiangShownForCurrentSelection = false;
