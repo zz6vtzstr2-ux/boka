@@ -728,6 +728,7 @@
     let poolCount = 0;
     let songjiangShownForCurrentSelection = false;
     let songjiangResolver = null;
+    let songjiangShowTimer = null;
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -839,6 +840,17 @@
       if (data.error) {
         showToast(data.error);
         return;
+      }
+
+      // 在亮卡区展示宋江 2 秒（金边）
+      const songjiangCard = myHand.find(c => c.name === '宋江');
+      if (songjiangCard) {
+        renderPlayed([songjiangCard], [], "face", [songjiangCard.id], false);
+        if (songjiangShowTimer) clearTimeout(songjiangShowTimer);
+        songjiangShowTimer = setTimeout(() => {
+          renderPlayed([], [], "idle", null);
+          songjiangShowTimer = null;
+        }, 2000);
       }
 
       myReady = [];
@@ -983,6 +995,13 @@
     async function submitPlay() {
       if (myReady.length === 0) { showToast('请选择卡牌'); return; }
       if (!lastComboValid) { showToast('组合无效'); return; }
+
+      // 提前取消宋江展示
+      if (songjiangShowTimer) {
+        clearTimeout(songjiangShowTimer);
+        songjiangShowTimer = null;
+      }
+
       locked = true;
       updatePlayBtn();
 
