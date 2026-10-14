@@ -3139,6 +3139,16 @@ def user_profile(username):
                            boss_best=user.boss_best_damage,
                            boss_best_time=user.boss_best_time)
 
+@app.route('/player_profile')
+@login_required
+def player_profile():
+    trophies = current_user.get_champion_months()
+    return render_template('player_profile.html',
+                           trophies=trophies,
+                           boka_best=current_user.boka_best_score,
+                           boka_best_time=current_user.boka_best_time,
+                           boss_best=current_user.boss_best_damage,
+                           boss_best_time=current_user.boss_best_time)
 # ========== 临时创建账号 ==========
 @app.route('/init_accounts')
 def init_accounts():
