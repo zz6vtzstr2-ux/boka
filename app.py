@@ -1806,9 +1806,7 @@ def _try_join_table(table, user):
     """尝试加入卡桌，返回 (success, error_msg)"""
     if user.boka_room_id == table.id:
         return True, None  # 已在
-    # 已在别的房间（理论上没有别的房间了，保险起见）
-    leave_any_room(user)
-
+    
     if table.status != "waiting":
         return False, "卡桌正在搏卡中"
 
