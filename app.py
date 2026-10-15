@@ -1745,6 +1745,91 @@ def challenge_test_ai_deck():
     return "<pre>" + "\n".join(lines) + "</pre>"
 
 # ========== 搏卡 ==========
+# ========== 搏卡（单卡桌） ==========
+TABLE_CODE = "TABLE1"
+
+
+def get_or_create_table():
+    """获取唯一卡桌（id=1），没有就创建"""
+    table = BokaRoom.query.filter_by(id=1).first()
+    if table is None:
+        table = BokaRoom(
+            id=1,
+            room_code=TABLE_CODE,
+            owner_username="",
+            status="waiting",
+            max_players=14,
+            created_at=datetime.now(),
+        )
+        db.session.add(table)
+        db.session.commit()
+    else:
+        # 兼容旧的：把 room_code 强制统一
+        if table.room_code != TABLE_CODE:
+            table.room_code = TABLE_CODE
+            db.session.commit()
+    return table
+
+
+def cleanup_expired_players(table):
+    """惰性清理：未准备超 2 分钟 / 已准备超 30 分钟的玩家（AI 不清理）"""
+    if table.status != "waiting":
+        return
+    now = datetime.now()
+    players = BokaPlayer.query.filter_by(room_id=table.id).all()
+    changed = False
+    for p in players:
+        if p.is_ai:
+            continue  # AI 不清理
+        if p.status_changed_at is None:
+            continue
+        elapsed = (now - p.status_changed_at).total_seconds()
+        if p.ready and elapsed > 30 * 60:
+            # 已准备 30 分钟
+            u = User.query.filter_by(username=p.username).first()
+            if u:
+                u.boka_room_id = None
+            db.session.delete(p)
+            changed = True
+        elif (not p.ready) and elapsed > 2 * 60:
+            # 未准备 2 分钟
+            u = User.query.filter_by(username=p.username).first()
+            if u:
+                u.boka_room_id = None
+            db.session.delete(p)
+            changed = True
+    if changed:
+        db.session.commit()
+
+
+def _try_join_table(table, user):
+    """尝试加入卡桌，返回 (success, error_msg)"""
+    if user.boka_room_id == table.id:
+        return True, None  # 已在
+    # 已在别的房间（理论上没有别的房间了，保险起见）
+    leave_any_room(user)
+
+    if table.status != "waiting":
+        return False, "卡桌正在搏卡中"
+
+    player_count = BokaPlayer.query.filter_by(room_id=table.id).count()
+    if player_count >= table.max_players:
+        return False, "卡桌已满"
+
+    p = BokaPlayer(
+        room_id=table.id,
+        username=user.username,
+        nickname=user.nickname or user.username,
+        ready=False,
+        seat=player_count,
+        joined_at=datetime.now(),
+        status_changed_at=datetime.now(),
+        is_ai=False,
+    )
+    db.session.add(p)
+    user.boka_room_id = table.id
+    db.session.commit()
+    return True, None
 def gen_room_code():
     chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     for _ in range(50):
@@ -1752,41 +1837,15 @@ def gen_room_code():
         if not BokaRoom.query.filter_by(room_code=code).first():
             return code
     return ''.join(random.choices(chars, k=6))
-
-@app.route('/boka/reset_all')
-@login_required
-def boka_reset_all():
-    BokaGamePlayer.query.delete()
-    BokaGame.query.delete()
-    BokaPlayer.query.delete()
-    BokaRoom.query.delete()
-    User.query.update({"boka_room_id": None})
-    db.session.commit()
-    return "✅ 搏卡房间数据已全部清空"
-
 @app.route('/boka')
 @login_required
 def boka():
-    # 处理 ?join=<code> 自动加入
-    join_code = request.args.get('join')
-    if join_code:
-        room = BokaRoom.query.filter_by(room_code=join_code).first()
-        if room and room.status == "waiting":
-            if current_user.boka_room_id != room.id:
-                leave_any_room(current_user)
-                player_count = BokaPlayer.query.filter_by(room_id=room.id).count()
-                if player_count < room.max_players:
-                    p = BokaPlayer(
-                        room_id=room.id,
-                        username=current_user.username,
-                        nickname=current_user.nickname or current_user.username,
-                        ready=False,
-                        seat=player_count,
-                        joined_at=datetime.now(),
-                    )
-                    db.session.add(p)
-                    current_user.boka_room_id = room.id
-                    db.session.commit()
+    table = get_or_create_table()
+    cleanup_expired_players(table)
+
+    # 处理 ?join=1 自动加入
+    if request.args.get('join') == '1':
+        _try_join_table(table, current_user)
 
     all_users = User.query.order_by(User.score.desc()).all()
     my_rank = 0
@@ -1799,183 +1858,146 @@ def boka():
                            score=current_user.score,
                            rank=my_rank)
 
-@app.route('/boka/create', methods=['POST'])
+
+@app.route('/boka/table_state')
 @login_required
-def boka_create():
-    leave_any_room(current_user)
-    code = gen_room_code()
-    room = BokaRoom(
-        room_code=code, owner_username=current_user.username,
-        status="waiting", max_players=14, created_at=datetime.now(),
-    )
-    db.session.add(room)
-    db.session.flush()
-    p = BokaPlayer(
-        room_id=room.id, username=current_user.username,
-        nickname=current_user.nickname or current_user.username,
-        ready=False, seat=0, joined_at=datetime.now(),
-    )
-    db.session.add(p)
-    current_user.boka_room_id = room.id
-    db.session.commit()
-    return jsonify({"room_id": code})
+def boka_table_state():
+    table = get_or_create_table()
+    cleanup_expired_players(table)
 
-@app.route('/boka/rooms')
-@login_required
-def boka_rooms():
-    rooms = BokaRoom.query.filter(
-        BokaRoom.status.in_(["waiting", "playing"])
-    ).order_by(BokaRoom.created_at.desc()).all()
+    # 同步当前用户的 boka_room_id
+    me_player = BokaPlayer.query.filter_by(room_id=table.id, username=current_user.username).first()
+    if current_user.boka_room_id == table.id and me_player is None:
+        current_user.boka_room_id = None
+        db.session.commit()
 
-    my_room_id = current_user.boka_room_id
-    result = []
-    class_cards_count = ClassCollection.query.count()
-    for r in rooms:
-        players = BokaPlayer.query.filter_by(room_id=r.id).order_by(BokaPlayer.seat).all()
+    players = BokaPlayer.query.filter_by(room_id=table.id).order_by(BokaPlayer.seat).all()
 
-        # 查询是否在搏卡中 + 每个玩家的手牌数
-        game = BokaGame.query.filter_by(room_id=r.id).order_by(BokaGame.id.desc()).first()
-        hand_counts = {}
-        if game and game.phase in ("selecting", "revealing"):
-            gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
-            for gp in gps:
-                hand_counts[gp.username] = len(json_loads_safe(gp.hand))
+    # 查游戏状态
+    game = BokaGame.query.filter_by(room_id=table.id).order_by(BokaGame.id.desc()).first()
+    hand_counts = {}
+    is_playing = False
+    if game and game.phase in ("selecting", "revealing"):
+        is_playing = True
+        gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+        for gp in gps:
+            hand_counts[gp.username] = len(json_loads_safe(gp.hand))
 
-        ready_count = sum(1 for p in players if p.ready)
-        player_list = []
-        for p in players:
-            player_list.append({
-                "username": p.username,
-                "nickname": p.nickname or p.username,
-                "avatar": f"/static/avatars/{p.username}.jpg",
-                "is_owner": p.username == r.owner_username,
-                "ready": p.ready,
-                "is_away": p.is_temporary_away,
-                "hand_count": hand_counts.get(p.username, -1),
-            })
-
-        is_playing = game is not None and game.phase in ("selecting", "revealing")
-
-        result.append({
-            "room_id": r.room_code,
-            "status": r.status,
-            "is_playing": is_playing,
-            "owner": r.owner_username,
-            "owner_nickname": next((p.nickname or p.username for p in players if p.username == r.owner_username), r.owner_username),
-            "count": len(players),
-            "max_players": r.max_players,
-            "ready_count": ready_count,
-            "players": player_list,
-            "is_my_room": r.id == my_room_id,
-            "is_my_created": r.owner_username == current_user.username,
-            "invite_url": f"{request.host_url.rstrip('/')}/boka?join={r.room_code}",
-            "class_cards_count": class_cards_count,
+    ready_count = sum(1 for p in players if p.ready)
+    player_list = []
+    for p in players:
+        player_list.append({
+            "username": p.username,
+            "nickname": p.nickname or p.username,
+            "avatar": f"/static/cards/{p.nickname}.PNG" if p.is_ai else f"/static/avatars/{p.username}.jpg",
+            "is_ai": p.is_ai,
+            "ready": p.ready,
+            "hand_count": hand_counts.get(p.username, -1),
         })
 
-    return jsonify({"rooms": result, "my_room_id": my_room_id})
+    class_count = ClassCollection.query.count()
+    pool_capacity = min(class_count, 42)
+    max_players = pool_capacity // 3
 
-def leave_any_room(user):
-    if not user.boka_room_id:
-        return
-    room = BokaRoom.query.get(user.boka_room_id)
-    if room:
-        if room.owner_username == user.username:
-            BokaPlayer.query.filter_by(room_id=room.id).delete()
-            db.session.delete(room)
-        else:
-            BokaPlayer.query.filter_by(room_id=room.id, username=user.username).delete()
-    user.boka_room_id = None
-    db.session.commit()
-
-@app.route('/boka/room/<room_code>')
-@login_required
-def boka_room(room_code):
-    room = BokaRoom.query.filter_by(room_code=room_code).first()
-    if not room:
-        return redirect(url_for('boka'))
-    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
-    if not me:
-        if current_user.boka_room_id and current_user.boka_room_id != room.id:
-            leave_any_room(current_user)
-            room = BokaRoom.query.filter_by(room_code=room_code).first()
-            if not room:
-                return redirect(url_for('boka'))
-            me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
-        if not me:
-            player_count = BokaPlayer.query.filter_by(room_id=room.id).count()
-            if player_count >= room.max_players:
-                return "房间已满", 403
-            me = BokaPlayer(
-                room_id=room.id, username=current_user.username,
-                nickname=current_user.nickname or current_user.username,
-                ready=False, seat=player_count, joined_at=datetime.now(),
-            )
-            db.session.add(me)
-            current_user.boka_room_id = room.id
-            db.session.commit()
-    if room.status == "playing":
-        return redirect(url_for('boka_battle', room_code=room_code))
-    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
-    ready_count = sum(1 for p in players if p.ready)
-    is_owner = room.owner_username == current_user.username
-    is_ready = me.ready
-    if me.is_temporary_away:
-        me.is_temporary_away = False
-        db.session.commit()
-    return render_template('boka_room.html',
-                           room_code=room.room_code, room_id=room.id,
-                           invite_url=request.url,
-                           ready_count=ready_count, player_count=len(players),
-                           is_ready=is_ready, is_owner=is_owner,
-                           players=[
-                               {"username": p.username, "nickname": p.nickname or p.username,
-                                "is_owner": p.username == room.owner_username,
-                                "ready": p.ready, "is_away": p.is_temporary_away}
-                               for p in players
-                           ])
-
-@app.route('/boka/room/<room_code>/state')
-@login_required
-def boka_room_state(room_code):
-    room = BokaRoom.query.filter_by(room_code=room_code).first()
-    if not room:
-        return jsonify({"error": "房间不存在"}), 404
-    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
     return jsonify({
-        "status": room.status,
-        "ready_count": sum(1 for p in players if p.ready),
-        "player_count": len(players),
-        "owner": room.owner_username,
-        "players": [
-            {"username": p.username, "nickname": p.nickname or p.username,
-             "is_owner": p.username == room.owner_username,
-             "ready": p.ready, "is_away": p.is_temporary_away}
-            for p in players
-        ],
+        "status": table.status,
+        "is_playing": is_playing,
+        "max_players": table.max_players,
+        "count": len(players),
+        "ready_count": ready_count,
+        "players": player_list,
+        "pool_capacity": pool_capacity,
+        "max_supported_players": max_players,
+        "my_in_table": current_user.boka_room_id == table.id,
     })
 
-@app.route('/boka/room/<room_code>/ready', methods=['POST'])
+
+@app.route('/boka/join', methods=['POST'])
 @login_required
-def boka_ready(room_code):
-    room = BokaRoom.query.filter_by(room_code=room_code).first()
-    if not room:
-        return jsonify({"error": "房间不存在"}), 404
-    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
+def boka_join():
+    table = get_or_create_table()
+    ok, err = _try_join_table(table, current_user)
+    if not ok:
+        return jsonify({"error": err}), 400
+    return jsonify({"success": True})
+
+
+@app.route('/boka/leave', methods=['POST'])
+@login_required
+def boka_leave():
+    table = get_or_create_table()
+    me = BokaPlayer.query.filter_by(room_id=table.id, username=current_user.username).first()
+    if me:
+        db.session.delete(me)
+        current_user.boka_room_id = None
+        db.session.commit()
+    return jsonify({"success": True})
+
+
+@app.route('/boka/ready', methods=['POST'])
+@login_required
+def boka_ready():
+    table = get_or_create_table()
+    if table.status != "waiting":
+        return jsonify({"error": "卡桌正在搏卡中"}), 400
+    me = BokaPlayer.query.filter_by(room_id=table.id, username=current_user.username).first()
     if not me:
-        return jsonify({"error": "你不在房间"}), 400
+        return jsonify({"error": "你不在卡桌"}), 400
     me.ready = not me.ready
+    me.status_changed_at = datetime.now()
     db.session.commit()
     return jsonify({"success": True, "ready": me.ready})
 
-@app.route('/boka/room/<room_code>/start', methods=['POST'])
+
+@app.route('/boka/add_ai', methods=['POST'])
 @login_required
-def boka_start(room_code):
-    room = BokaRoom.query.filter_by(room_code=room_code).first()
-    if not room:
-        return jsonify({"error": "房间不存在"}), 404
-    if room.owner_username != current_user.username:
-        return jsonify({"error": "只有房主能开始"}), 403
-    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+def boka_add_ai():
+    table = get_or_create_table()
+    if table.status != "waiting":
+        return jsonify({"error": "卡桌正在搏卡中"}), 400
+
+    player_count = BokaPlayer.query.filter_by(room_id=table.id).count()
+    if player_count >= table.max_players:
+        return jsonify({"error": "卡桌已满"}), 400
+
+    # 随机选一个水浒角色名
+    import random as _random
+    existing_names = {p.nickname for p in BokaPlayer.query.filter_by(room_id=table.id).all()}
+    candidates = [c["name"] for c in CARDS if c["name"] not in existing_names]
+    if not candidates:
+        candidates = [c["name"] for c in CARDS]
+    ai_name = _random.choice(candidates)
+
+    ai_username = f"ai_{ai_name}"
+    # 防重名（可能已有同名 AI）
+    suffix = 1
+    while BokaPlayer.query.filter_by(room_id=table.id, username=ai_username).first():
+        ai_username = f"ai_{ai_name}_{suffix}"
+        suffix += 1
+
+    p = BokaPlayer(
+        room_id=table.id,
+        username=ai_username,
+        nickname=ai_name,
+        ready=True,
+        seat=player_count,
+        joined_at=datetime.now(),
+        status_changed_at=datetime.now(),
+        is_ai=True,
+    )
+    db.session.add(p)
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@app.route('/boka/start', methods=['POST'])
+@login_required
+def boka_start():
+    table = get_or_create_table()
+    if table.status != "waiting":
+        return jsonify({"error": "游戏已开始"}), 400
+
+    players = BokaPlayer.query.filter_by(room_id=table.id).order_by(BokaPlayer.seat).all()
     if len(players) < 2:
         return jsonify({"error": "至少需要 2 名玩家"}), 400
     if not all(p.ready for p in players):
@@ -1983,11 +2005,10 @@ def boka_start(room_code):
 
     class_records = ClassCollection.query.all()
     n_players = len(players)
-    # 实际发牌池封顶 42 张
     pool_capacity = min(len(class_records), 42)
-    min_cards = n_players * 3
-    if pool_capacity < min_cards:
-        return jsonify({"error": f"卡池只有 {pool_capacity} 张，{n_players} 人至少需要 {min_cards} 张"}), 400
+    if pool_capacity < n_players * 3:
+        return jsonify({"error": f"卡池只有 {pool_capacity} 张，{n_players} 人至少需要 {n_players * 3} 张"}), 400
+
     class_card_ids = [r.card_id for r in class_records]
 
     PRIORITY_EXTRA = ["扈三娘", "凌振", "陶宗旺", "樊瑞", "白胜", "孙二娘"]
@@ -2003,12 +2024,10 @@ def boka_start(room_code):
     if len(pool) < 42:
         need = 42 - len(pool)
         pool += available_rest[:need]
-    if len(pool) < len(players):
-        return jsonify({"error": f"卡池只有 {len(pool)} 张，不够 {len(players)} 人分"}), 400
 
     game = BokaGame(
-        room_id=room.id, round_no=0, phase="waiting",
-        card_pool=json_dumps_safe(pool),
+        room_id=table.id, round_no=0, phase="waiting",
+        card_pool=json_dumps_safe([]),
         history=json_dumps_safe([]),
         created_at=datetime.now(),
         beauty_left=3,
@@ -2032,64 +2051,23 @@ def boka_start(room_code):
         db.session.add(gp)
     remaining_pool = pool[cards_per_player * n:]
     game.card_pool = json_dumps_safe(remaining_pool)
-    room.status = "playing"
-    room.started_at = datetime.now()
+    table.status = "playing"
+    table.started_at = datetime.now()
     game.round_no = 1
     game.phase = "selecting"
     db.session.commit()
     return jsonify({"success": True})
 
-@app.route('/boka/room/<room_code>/dissolve', methods=['POST'])
-@login_required
-def boka_dissolve(room_code):
-    room = BokaRoom.query.filter_by(room_code=room_code).first()
-    if not room:
-        return jsonify({"error": "房间不存在"}), 404
-    if room.owner_username != current_user.username:
-        return jsonify({"error": "只有房主能解散"}), 403
-    players = BokaPlayer.query.filter_by(room_id=room.id).all()
-    for p in players:
-        u = User.query.filter_by(username=p.username).first()
-        if u:
-            u.boka_room_id = None
-    BokaPlayer.query.filter_by(room_id=room.id).delete()
-    db.session.delete(room)
-    db.session.commit()
-    return jsonify({"success": True})
 
-@app.route('/boka/room/<room_code>/leave', methods=['POST'])
-@login_required
-def boka_leave(room_code):
-    room = BokaRoom.query.filter_by(room_code=room_code).first()
-    if not room:
-        return jsonify({"error": "房间不存在"}), 404
-    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
-    if not me:
-        return jsonify({"error": "你不在房间"}), 400
-    me.is_temporary_away = True
-    me.ready = False
-    db.session.commit()
-    return jsonify({"success": True})
 
-@app.route('/boka/room/<room_code>/quit', methods=['POST'])
-@login_required
-def boka_quit(room_code):
-    room = BokaRoom.query.filter_by(room_code=room_code).first()
-    if not room:
-        return jsonify({"error": "房间不存在"}), 404
-    if room.owner_username == current_user.username:
-        players = BokaPlayer.query.filter_by(room_id=room.id).all()
-        for p in players:
-            u = User.query.filter_by(username=p.username).first()
-            if u:
-                u.boka_room_id = None
-        BokaPlayer.query.filter_by(room_id=room.id).delete()
-        db.session.delete(room)
-    else:
-        BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).delete()
-        current_user.boka_room_id = None
-    db.session.commit()
-    return jsonify({"success": True})
+
+
+
+
+
+
+
+
 
 @app.route('/boka/join/<room_code>', methods=['POST'])
 @login_required
@@ -3369,6 +3347,8 @@ with app.app_context():
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS beauty_left INTEGER DEFAULT 3',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS building_last_collect TEXT DEFAULT \'{}\'',
         'ALTER TABLE "mail" ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMP',
+        'ALTER TABLE "boka_player" ADD COLUMN IF NOT EXISTS status_changed_at TIMESTAMP',
+        'ALTER TABLE "boka_player" ADD COLUMN IF NOT EXISTS is_ai BOOLEAN DEFAULT FALSE',
     ]
     try:
         with db.engine.begin() as conn:
