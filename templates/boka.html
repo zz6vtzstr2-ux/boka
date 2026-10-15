@@ -486,11 +486,11 @@
       const canAddAi = !isPlaying && canJoin;
       html += `<button class="btn-add-ai" ${canAddAi ? '' : 'disabled'} onclick="addAi()">+ 添加 AI</button>`;
 
-      // 开始！
+      // 开始！（我也必须在卡桌里）
       if (!isPlaying) {
         const allReady = players.length >= 2 && players.every(p => p.ready);
         const poolOk = (state.pool_capacity || 0) >= players.length * 3;
-        const canStart = allReady && poolOk && players.length >= 2;
+        const canStart = myInTable && allReady && poolOk && players.length >= 2;
         html += `<button class="btn-start" ${canStart ? '' : 'disabled'} onclick="startGame()">开始！</button>`;
       }
 
