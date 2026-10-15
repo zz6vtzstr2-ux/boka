@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>搏卡 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background-color: #e8e0cc;
+      color: #333;
+      margin: 0;
+      padding: 16px 16px 40px 16px;
+      min-height: 100vh;
+    }
+    .container { max-width: 868px; margin: 0 auto; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .title-block .page-name {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 4px;
+      text-indent: 4px;
+    }
+    .title-block .en {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .back-btn {
+      background: #fce8ec;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid #e8c8d0;
+      font-size: 15px;
+      color: #b85a6a;
+      text-decoration: none;
+    }
+    .back-btn:hover { background: #f8d8de; }
+
+    .panel {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .panel-title {
+      display: inline-block;
+      background: #fdf6d8;
+      color: #8a6d1f;
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: 1px solid #f0e0a0;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-indent: 3px;
+      margin-bottom: 16px;
+    }
+
+    .user-block {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid #e8e0cc;
+    }
+    .user-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+      padding: 6px 10px;
+      border-radius: 12px;
+    }
+    .user-link:hover { background: #f9f5e8; }
+    .user-link img {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      border: 2px solid #d8d0bc;
+      background: #fff;
+    }
+    .user-link .nickname {
+      font-size: 20px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 1px;
+    }
+    .stats {
+      display: flex;
+      gap: 12px;
+    }
+    .stat-box {
+      flex: 1;
+      background: #f9f5e8;
+      border: 1px solid #e0d8c0;
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+    }
+    .stat-box .label {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 6px;
+      letter-spacing: 2px;
+    }
+    .stat-box .value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #b85a6a;
+      letter-spacing: 1px;
+    }
+
+    /* ===== 房间列表 ===== */
+    .room-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .room-card {
+      background: #f9f5e8;
+      border: 1px solid #e0d8c0;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .room-card.my-room {
+      border: 2px solid #5bb8e8;
+      box-shadow: 0 0 0 3px rgba(91,184,232,0.15);
+    }
+    .room-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .room-row + .room-row { margin-top: 10px; }
+
+    .room-name {
+      font-size: 18px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 2px;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .room-status {
+      font-size: 13px;
+      font-weight: bold;
+      color: #8a6d1f;
+      background: #fdf6d8;
+      border: 1px solid #f0e0a0;
+      border-radius: 10px;
+      padding: 4px 12px;
+      white-space: nowrap;
+    }
+    .room-status.playing {
+      background: #e8f0ec;
+      color: #2c6e5a;
+      border-color: #c8d8d0;
+    }
+
+    .invite-input {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #d8d0bc;
+      background: #fff;
+      font-size: 12px;
+      color: #666;
+      font-family: inherit;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .copy-btn {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .copy-btn:hover { background: #4aa8d8; }
+
+    .btn-action {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 1px;
+      transition: background 0.15s, transform 0.15s;
+      white-space: nowrap;
+    }
+    .btn-action:hover { transform: translateY(-1px); }
+    .btn-blue { background: #5bb8e8; color: #fff; }
+    .btn-blue:hover { background: #4aa8d8; }
+    .btn-green { background: #5cb85c; color: #fff; }
+    .btn-green:hover { background: #4ea84e; }
+    .btn-gray { background: #e8e0d8; color: #666; }
+    .btn-gray:hover { background: #d8d0c8; }
+    .btn-danger { background: #fce8ec; color: #b85a6a; border: 1px solid #e8c8d0; }
+    .btn-danger:hover { background: #f8d8de; }
+    .btn-watch { background: #f0e8d0; color: #8a6d1f; border: 1px solid #f0e0a0; }
+    .btn-watch:hover { background: #e8dcc0; }
+
+    .room-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .room-actions .btn-action { flex: 1; min-width: 0; }
+
+    /* 玩家行 */
+    .player-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: #fff;
+      border: 1px solid #e0d8c0;
+      border-radius: 10px;
+    }
+    .player-line + .player-line { margin-top: 8px; }
+    .player-line img {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 2px solid #d8d0bc;
+      flex-shrink: 0;
+    }
+    .player-line .nickname {
+      font-size: 14px;
+      font-weight: bold;
+      color: #2c3e50;
+      flex-shrink: 0;
+      max-width: 88px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .player-line .tags {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+    .player-line .tag {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 6px;
+      background: #fdf6d8;
+      color: #8a6d1f;
+      border: 1px solid #f0e0a0;
+      white-space: nowrap;
+      line-height: 1.4;
+    }
+    .player-line .tag.owner {
+      background: #fce8ec;
+      color: #b85a6a;
+      border-color: #e8c8d0;
+    }
+    .player-line .tag.ready {
+      background: #e8f5e8;
+      color: #4ea84e;
+      border-color: #c8e0c8;
+    }
+    .player-line .tag.not-ready {
+      background: #f0f0f0;
+      color: #999;
+      border-color: #ddd;
+    }
+    .player-line .tag.hand {
+      background: #e8f0ec;
+      color: #2c6e5a;
+      border-color: #c8d8d0;
+    }
+    .player-line .spacer { flex: 1; min-width: 0; }
+    .player-line .btn-action {
+      padding: 6px 12px;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .create-room-btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 17px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-indent: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+      transition: transform 0.15s;
+    }
+    .create-room-btn:hover { transform: translateY(-2px); background: #4aa8d8; }
+
+    .join-room-btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 15px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-indent: 2px;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+      transition: transform 0.15s;
+    }
+    .join-room-btn:hover { transform: translateY(-2px); background: #4aa8d8; }
+
+    .empty-hint {
+      color: #999;
+      font-size: 14px;
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 40px;
+      background: rgba(44,110,90,0.95);
+      color: #fff;
+      padding: 12px 22px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: bold;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title-block">
+        <div class="page-name">搏卡</div>
+        <div class="en">Boka</div>
+      </div>
+      <a href="/" class="back-btn">返回主页</a>
+    </div>
+
+    <div class="panel">
+      <div class="user-block">
+        <a href="/player_profile" class="user-link">
+          <img src="/static/avatars/{{ current_user.username }}.jpg" alt="">
+          <span class="nickname">{{ current_user.nickname or current_user.username }}</span>
+        </a>
+      </div>
+      <div class="stats">
+        <div class="stat-box">
+          <div class="label">场次</div>
+          <div class="value">{{ games }}</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">积分</div>
+          <div class="value">{{ score }}</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">排名</div>
+          <div class="value">{{ rank }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">房间列表</div>
+      <div class="room-list" id="roomList">
+        <div class="empty-hint">加载中...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const myUsername = "{{ current_user.username }}";
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function esc(str) {
+      return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    async function createRoom() {
+      const res = await fetch('/boka/create', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      refreshRooms();
+    }
+
+    async function joinRoom(code) {
+      const res = await fetch('/boka/join/' + code, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      refreshRooms();
+    }
+
+    async function leaveRoom(code) {
+      if (!confirm('确定退出该房间？')) return;
+      const res = await fetch('/boka/leave/' + code, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      refreshRooms();
+    }
+
+    async function toggleReady(code) {
+      const res = await fetch('/boka/room/' + code + '/ready', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      refreshRooms();
+    }
+
+    async function startGame(code) {
+      const res = await fetch('/boka/room/' + code + '/start', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      window.location.href = '/boka/room/' + code + '/battle';
+    }
+
+    async function kickPlayer(code, username) {
+      if (!confirm('确定踢出该玩家？')) return;
+      const res = await fetch('/boka/kick/' + code + '/' + username, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      refreshRooms();
+    }
+
+    function copyLink(url) {
+      try {
+        navigator.clipboard.writeText(url);
+        showToast('链接已复制');
+      } catch (e) {
+        showToast('复制失败，请手动复制');
+      }
+    }
+
+    function watchGame(roomCode, username) {
+      showToast('观战功能开发中');
+    }
+
+    function renderPlayerLine(p, room, isMyRoom, isMyCreated) {
+      const tags = [];
+      if (p.is_owner) tags.push('<span class="tag owner">房主</span>');
+      if (room.is_playing) {
+        tags.push(`<span class="tag hand">手牌 ${p.hand_count < 0 ? 0 : p.hand_count}</span>`);
+      } else {
+        tags.push(p.ready
+          ? '<span class="tag ready">已准备</span>'
+          : '<span class="tag not-ready">未准备</span>');
+      }
+
+      let btnHtml = '<span class="spacer"></span>';
+
+      if (isMyRoom && p.username === myUsername && !room.is_playing) {
+        btnHtml += `<button class="btn-action ${p.ready ? 'btn-gray' : 'btn-green'}"
+          onclick="toggleReady('${room.room_id}')">${p.ready ? '已准备' : '准备'}</button>`;
+      } else if (isMyCreated && p.username !== myUsername && !room.is_playing) {
+        btnHtml += `<button class="btn-action btn-danger" onclick="kickPlayer('${room.room_id}', '${p.username}')">踢出</button>`;
+      } else if (!isMyRoom && room.is_playing && p.hand_count > 0) {
+        btnHtml += `<button class="btn-action btn-watch" onclick="watchGame('${room.room_id}', '${p.username}')">观战</button>`;
+      }
+
+      return `
+        <div class="player-line">
+          <img src="${esc(p.avatar)}" alt="">
+          <span class="nickname">${esc(p.nickname)}${p.username === myUsername ? '（我）' : ''}</span>
+          <span class="tags">${tags.join('')}</span>
+          ${btnHtml}
+        </div>
+      `;
+    }
+
+    function renderRoom(room) {
+      const isMyRoom = room.is_my_room;
+      const isMyCreated = room.is_my_created;
+
+      const card = document.createElement('div');
+      card.className = 'room-card' + (isMyRoom ? ' my-room' : '');
+
+      const statusText = room.is_playing
+        ? '搏卡中'
+        : `已准备 ${room.ready_count}/${room.count}`;
+      const statusCls = room.is_playing ? 'room-status playing' : 'room-status';
+
+      let html = `
+        <div class="room-row">
+          <span class="room-name">房间 ${esc(room.room_id)}</span>
+          <span class="${statusCls}">${statusText}</span>
+        </div>
+      `;
+
+      html += `
+        <div class="room-row">
+          <input class="invite-input" value="${esc(room.invite_url)}" readonly>
+          <button class="copy-btn" onclick="copyLink('${esc(room.invite_url)}')">复制</button>
+        </div>
+      `;
+
+      // 第三行：按钮
+      if (isMyRoom) {
+        // 我在这个房间：退出/解散 按钮
+        let actionBtns = `<button class="btn-action btn-danger" onclick="leaveRoom('${room.room_id}')">退出房间</button>`;
+        if (isMyCreated) {
+          actionBtns += `<button class="btn-action btn-danger" onclick="leaveRoom('${room.room_id}')">解散房间</button>`;
+        }
+        if (isMyCreated && !room.is_playing && room.ready_count === room.count && room.count >= 2) {
+          actionBtns += `<button class="btn-action btn-green" onclick="startGame('${room.room_id}')">开始游戏</button>`;
+        }
+        html += `<div class="room-actions">${actionBtns}</div>`;
+      } else {
+        // 我不在这个房间：加入房间（长条）
+        html += `<button class="join-room-btn" onclick="joinRoom('${room.room_id}')">加入房间</button>`;
+      }
+
+      // 玩家列表
+      room.players.forEach(p => {
+        html += renderPlayerLine(p, room, isMyRoom, isMyCreated);
+      });
+
+      card.innerHTML = html;
+      return card;
+    }
+
+    let lastRoomsJson = '';
+
+    async function refreshRooms() {
+      const res = await fetch('/boka/rooms');
+      const data = await res.json();
+      const list = document.getElementById('roomList');
+      const rooms = data.rooms || [];
+
+      const nowJson = JSON.stringify(rooms);
+      if (nowJson === lastRoomsJson) return;
+      lastRoomsJson = nowJson;
+
+      list.innerHTML = '';
+
+      // 第一部分：我创建的房间（或 创建房间按钮）
+      const myCreatedRoom = rooms.find(r => r.is_my_created);
+      if (myCreatedRoom) {
+        list.appendChild(renderRoom(myCreatedRoom));
+      } else {
+        const btn = document.createElement('button');
+        btn.className = 'create-room-btn';
+        btn.textContent = '创建房间';
+        btn.onclick = createRoom;
+        list.appendChild(btn);
+      }
+
+      // 第二部分：其他房间
+      let othersCount = 0;
+      rooms.forEach(r => {
+        if (r.is_my_created) return;
+        list.appendChild(renderRoom(r));
+        othersCount++;
+      });
+
+      if (othersCount === 0 && !myCreatedRoom) {
+        const hint = document.createElement('div');
+        hint.className = 'empty-hint';
+        hint.textContent = '暂无房间，点上方按钮创建一个';
+        list.appendChild(hint);
+      }
+    }
+
+    refreshRooms();
+    setInterval(refreshRooms, 2500);
+  </script>
+</body>
+</html>
