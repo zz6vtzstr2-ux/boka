@@ -212,7 +212,8 @@ class BokaPlayer(db.Model):
     seat = db.Column(db.Integer, default=0)
     is_temporary_away = db.Column(db.Boolean, default=False)
     joined_at = db.Column(db.DateTime, nullable=True)
-
+    status_changed_at = db.Column(db.DateTime, nullable=True)   # ← 新增
+    is_ai = db.Column(db.Boolean, default=False)                # ← 新增
 
 class BokaGame(db.Model):
     __tablename__ = "boka_game"
