@@ -325,7 +325,10 @@
         <div class="page-name">搏卡</div>
         <div class="en">Boka</div>
       </div>
-      <a href="/" class="back-btn">返回主页</a>
+      <div style="display:flex;gap:8px;">
+        <button class="back-btn" style="cursor:pointer;font-family:inherit;background:#f0f0f0;color:#666;border-color:#ddd;" onclick="resetTable()">重置卡桌</button>
+        <a href="/" class="back-btn">返回主页</a>
+      </div>
     </div>
 
     <div class="panel">
@@ -365,6 +368,17 @@
   <div class="toast" id="toast"></div>
 
   <script>
+
+    async function resetTable() {
+      if (!confirm('强制重置卡桌？会中断当前对局。')) return;
+      const res = await fetch('/boka/reset_table', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      lastStateJson = '';
+      refreshState();
+      showToast('卡桌已重置');
+    }
+    
     const myUsername = "{{ current_user.username }}";
     let lastStateJson = '';
 
