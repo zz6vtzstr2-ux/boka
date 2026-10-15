@@ -2131,10 +2131,70 @@ def boka_play(room_code):
     me.ready_card = json_dumps_safe(card_ids)
     me.locked = True
     db.session.commit()
+
+    # 让所有 AI 玩家自动出牌
+    all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+    for gp in all_players:
+        if gp.locked:
+            continue
+        bp = BokaPlayer.query.filter_by(room_id=room.id, username=gp.username).first()
+        if bp and bp.is_ai:
+            ai_cards = _boka_ai_choose_cards(game, gp)
+            if ai_cards:
+                gp.ready_card = json_dumps_safe(ai_cards)
+                gp.locked = True
+    db.session.commit()
+
     all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     if all(p.locked for p in all_players):
         resolve_boka_round(game)
     return jsonify({"success": True})
+
+@app.route('/boka/room/<room_code>/songjiang_draw', methods=['POST'])
+@login_required
+def boka_songjiang_draw(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
+    if not game or game.phase not in ("selecting",):
+        return jsonify({"error": "当前不可操作"}), 400
+    me = BokaGamePlayer.query.filter_by(game_id=game.id, username=current_user.username).first()
+    if not me:
+        return jsonify({"error": "你不在本局"}), 403
+    if me.locked:
+        return jsonify({"error": "你已经锁定"}), 400
+
+    pool = json_loads_safe(game.card_pool)
+    if not pool:
+        return jsonify({"error": "卡袋为空"}), 400
+
+    my_hand = json_loads_safe(me.hand)
+    songjiang_id = None
+    for cid in my_hand:
+        base = CARD_BY_ID.get(cid)
+        if base and base["name"] == "宋江":
+            songjiang_id = cid
+            break
+    if songjiang_id is None:
+        return jsonify({"error": "手牌中没有宋江"}), 400
+
+    idx = random.randrange(len(pool))
+    picked = pool.pop(idx)
+    if isinstance(picked, dict):
+        picked_id = picked["id"]; picked_level = picked.get("level", 1)
+    else:
+        picked_id = picked; picked_level = 1
+
+    my_hand.append(picked_id)
+    # 宋江进卡袋
+    pool.append({"id": songjiang_id, "level": 1})
+    my_hand = [c for c in my_hand if c != songjiang_id]
+
+    me.hand = json_dumps_safe(my_hand)
+    game.card_pool = json_dumps_safe(pool)
+    db.session.commit()
+    return jsonify({"success": True, "picked_id": picked_id, "picked_level": picked_level})
 
 @app.route('/boka/room/<room_code>/battle_state')
 @login_required
@@ -2199,6 +2259,173 @@ def boka_battle_state(room_code):
     })
 
 # ========== 搏卡战斗核心 ==========
+def _boka_ai_choose_cards(game, gp):
+    """搏卡里给一个 AI 玩家选牌。返回 card_ids 列表。"""
+    hand_ids = json_loads_safe(gp.hand)
+    if not hand_ids:
+        return None
+
+    is_atk_round = (game.round_no % 2 == 1)
+    dim = "atk" if is_atk_round else "def"
+
+    hand = []
+    for cid in hand_ids:
+        base = CARD_BY_ID.get(cid)
+        if not base:
+            continue
+        hand.append({
+            "id": cid, "name": base["name"], "level": 1,
+            "atk": base["atk"], "def": base["def"],
+        })
+    if not hand:
+        return None
+
+    hand_by_name = {}
+    for c in hand:
+        hand_by_name.setdefault(c["name"], []).append(c)
+
+    # 宋江：卡袋平均战斗力 > 宋江战斗力 → 发动抽卡
+    songjiang = hand_by_name.get("宋江", [])
+    songjiang_card = songjiang[0] if songjiang else None
+    pool = json_loads_safe(game.card_pool)
+    if pool and songjiang_card:
+        pool_powers = []
+        for entry in pool:
+            if isinstance(entry, dict):
+                pid = entry.get("id"); plevel = entry.get("level", 1)
+            else:
+                pid = entry; plevel = 1
+            pbase = CARD_BY_ID.get(pid)
+            if not pbase:
+                continue
+            pbonus = plevel - 1
+            pool_powers.append(pbase["atk"] + pbonus + pbase["def"] + pbonus)
+        if pool_powers:
+            avg_power = sum(pool_powers) / len(pool_powers)
+            sj_power = songjiang_card["atk"] + songjiang_card["def"]
+            if avg_power > sj_power:
+                return [songjiang_card["id"]]
+
+    # 组合检测
+    used_ids = set()
+    packages = []
+
+    def try_combo(names):
+        if not all(n in hand_by_name for n in names):
+            return None
+        picked = []
+        for n in names:
+            for c in hand_by_name[n]:
+                if c["id"] not in used_ids:
+                    picked.append(c)
+                    break
+            else:
+                return None
+        return picked
+
+    def consume(cards):
+        for c in cards:
+            used_ids.add(c["id"])
+
+    for names in [
+        ["关胜", "林冲", "秦明", "呼延灼", "董平"],
+        ["阮小二", "阮小五", "阮小七"],
+        ["花荣", "徐宁"],
+        ["张顺", "李逵"],
+        ["解珍", "解宝"],
+    ]:
+        combo = try_combo(names)
+        if combo:
+            consume(combo)
+            packages.append({"type": "combo", "cards": combo})
+
+    # 八虎骑（必须 8 张）
+    bahu_members = ["花荣", "徐宁", "杨志", "索超", "张清", "朱仝", "史进", "穆弘"]
+    bahu_available = [hand_by_name[n][0] for n in bahu_members
+                      if n in hand_by_name and hand_by_name[n][0]["id"] not in used_ids]
+    if len(bahu_available) >= 8:
+        consume(bahu_available)
+        packages.append({"type": "combo", "cards": bahu_available})
+
+    # 水军兄弟（含阮小二）
+    for pair in [["阮小二", "阮小五"], ["阮小二", "阮小七"], ["阮小五", "阮小七"], ["张横", "张顺"]]:
+        combo = try_combo(pair)
+        if combo:
+            consume(combo)
+            packages.append({"type": "combo", "cards": combo})
+            break
+
+    # 智多星（最后）
+    wu = hand_by_name.get("吴用", [])
+    if wu and wu[0]["id"] not in used_ids:
+        wu_card = wu[0]
+        candidates = [c for c in hand
+                      if c["id"] not in used_ids
+                      and c["name"] != "吴用"
+                      and c["name"] != "宋江"
+                      and c["name"] not in ("扈三娘", "白胜", "孙二娘")]
+        if candidates:
+            lowest = min(candidates, key=lambda c: c["atk"] + c["def"])
+            combo = [wu_card, lowest]
+            consume(combo)
+            packages.append({"type": "combo", "cards": combo})
+
+    FUNCTIONAL_NAMES = {"白胜", "孙二娘", "扈三娘"}
+    for c in hand:
+        if c["id"] in used_ids:
+            continue
+        if c["name"] == "宋江":
+            continue
+        if c["name"] in FUNCTIONAL_NAMES:
+            packages.append({"type": "func", "cards": [c]})
+        else:
+            packages.append({"type": "single", "cards": [c]})
+
+    def package_stats(pkg):
+        cards = pkg["cards"]
+        if len(cards) == 1:
+            return cards[0]["atk"], cards[0]["def"]
+        combo_cards = []
+        for c in cards:
+            base = CARD_BY_ID.get(c["id"])
+            if base:
+                combo_cards.append({**base, "level": 1})
+        atk, dfn, _ = calc_combo_stats(combo_cards)
+        if atk is None or dfn is None:
+            atk = sum(c["atk"] for c in cards)
+            dfn = sum(c["def"] for c in cards)
+        return atk, dfn
+
+    for pkg in packages:
+        pkg["atk"], pkg["def"] = package_stats(pkg)
+
+    atk_pkgs, def_pkgs, func_pkgs = [], [], []
+    for pkg in packages:
+        if pkg["type"] == "func":
+            func_pkgs.append(pkg)
+        elif pkg["atk"] - pkg["def"] >= 35:
+            atk_pkgs.append(pkg)
+        else:
+            def_pkgs.append(pkg)
+
+    if is_atk_round:
+        candidates = atk_pkgs + func_pkgs
+        fallback_key = "def"
+    else:
+        candidates = def_pkgs + func_pkgs
+        fallback_key = "atk"
+
+    if candidates:
+        chosen = random.choice(candidates)
+    else:
+        all_pkgs = atk_pkgs + def_pkgs
+        if not all_pkgs:
+            return [hand[0]["id"]]
+        all_pkgs.sort(key=lambda p: p[fallback_key])
+        chosen = all_pkgs[0]
+
+    return [c["id"] for c in chosen["cards"]]
+
 HANDSOME_NAMES = {"林冲", "柴进", "燕青", "花荣", "徐宁"}
 BOMB_NAMES = {"白胜", "孙二娘"}
 BEAUTY_NAME = "扈三娘"
