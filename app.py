@@ -1829,7 +1829,7 @@ def boka_rooms():
 
     my_room_id = current_user.boka_room_id
     result = []
-
+    class_cards_count = ClassCollection.query.count()
     for r in rooms:
         players = BokaPlayer.query.filter_by(room_id=r.id).order_by(BokaPlayer.seat).all()
 
@@ -1869,6 +1869,7 @@ def boka_rooms():
             "is_my_room": r.id == my_room_id,
             "is_my_created": r.owner_username == current_user.username,
             "invite_url": f"{request.host_url.rstrip('/')}/boka?join={r.room_code}",
+            "class_cards_count": class_cards_count,
         })
 
     return jsonify({"rooms": result, "my_room_id": my_room_id})
@@ -1982,9 +1983,11 @@ def boka_start(room_code):
 
     class_records = ClassCollection.query.all()
     n_players = len(players)
+    # 实际发牌池封顶 42 张
+    pool_capacity = min(len(class_records), 42)
     min_cards = n_players * 3
-    if len(class_records) < min_cards:
-        return jsonify({"error": f"班级收藏册只有 {len(class_records)} 张，{n_players} 人至少需要 {min_cards} 张"}), 400
+    if pool_capacity < min_cards:
+        return jsonify({"error": f"卡池只有 {pool_capacity} 张，{n_players} 人至少需要 {min_cards} 张"}), 400
     class_card_ids = [r.card_id for r in class_records]
 
     PRIORITY_EXTRA = ["扈三娘", "凌振", "陶宗旺", "樊瑞", "白胜", "孙二娘"]
