@@ -2124,18 +2124,24 @@ def boka_leave_room(room_code):
     me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
     if not me:
         return jsonify({"success": True})
-    # 房主离开 = 解散
-    if room.owner_username == current_user.username:
-        players = BokaPlayer.query.filter_by(room_id=room.id).all()
-        for p in players:
-            u = User.query.filter_by(username=p.username).first()
-            if u:
-                u.boka_room_id = None
-        BokaPlayer.query.filter_by(room_id=room.id).delete()
+
+    is_owner = (room.owner_username == current_user.username)
+
+    # 删除自己
+    db.session.delete(me)
+    current_user.boka_room_id = None
+
+    # 剩余玩家
+    remaining = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+
+    if len(remaining) == 0:
+        # 房间空了，解散
         db.session.delete(room)
-    else:
-        BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).delete()
-        current_user.boka_room_id = None
+    elif is_owner:
+        # 房主退出，房主换人（下一位 seat 最小的）
+        new_owner = remaining[0]
+        room.owner_username = new_owner.username
+
     db.session.commit()
     return jsonify({"success": True})
 
