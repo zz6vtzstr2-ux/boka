@@ -1861,22 +1861,10 @@ def boka():
                            score=current_user.score,
                            rank=my_rank)
 
-
-@app.route('/boka/table_state')
-@login_required
-def boka_table_state():
-    table = get_or_create_table()
-    cleanup_expired_players(table)
-
-    # 同步当前用户的 boka_room_id
-    me_player = BokaPlayer.query.filter_by(room_id=table.id, username=current_user.username).first()
-    if current_user.boka_room_id == table.id and me_player is None:
-        current_user.boka_room_id = None
-        db.session.commit()
-
+def _build_table_state(table):
+    """把卡桌状态打包成 dict（给前端用）"""
     players = BokaPlayer.query.filter_by(room_id=table.id).order_by(BokaPlayer.seat).all()
 
-    # 查游戏状态
     game = BokaGame.query.filter_by(room_id=table.id).order_by(BokaGame.id.desc()).first()
     hand_counts = {}
     is_playing = False
@@ -1908,7 +1896,7 @@ def boka_table_state():
         and (len(players) + 1) * 3 <= pool_capacity
     )
 
-    return jsonify({
+    return {
         "status": table.status,
         "is_playing": is_playing,
         "max_players": table.max_players,
@@ -1919,7 +1907,21 @@ def boka_table_state():
         "max_supported_players": max_players,
         "my_in_table": current_user.boka_room_id == table.id,
         "can_join": can_join,
-    })
+    }
+        
+@app.route('/boka/table_state')
+@login_required
+def boka_table_state():
+    table = get_or_create_table()
+    cleanup_expired_players(table)
+
+    # 同步当前用户的 boka_room_id
+    me_player = BokaPlayer.query.filter_by(room_id=table.id, username=current_user.username).first()
+    if current_user.boka_room_id == table.id and me_player is None:
+        current_user.boka_room_id = None
+        db.session.commit()
+
+    return jsonify(_build_table_state(table))
 
 
 @app.route('/boka/join', methods=['POST'])
@@ -1929,7 +1931,7 @@ def boka_join():
     ok, err = _try_join_table(table, current_user)
     if not ok:
         return jsonify({"error": err}), 400
-    return jsonify({"success": True})
+    return jsonify({"success": True, "state": _build_table_state(table)})
 
 
 @app.route('/boka/leave', methods=['POST'])
@@ -1941,7 +1943,7 @@ def boka_leave():
         db.session.delete(me)
         current_user.boka_room_id = None
         db.session.commit()
-    return jsonify({"success": True})
+    return jsonify({"success": True, "state": _build_table_state(table)})
 
 @app.route('/boka/reset_table', methods=['POST'])
 @login_required
@@ -1959,7 +1961,7 @@ def boka_reset_table():
     # 重置卡桌状态
     table.status = "waiting"
     db.session.commit()
-    return jsonify({"success": True})
+    return jsonify({"success": True, "state": _build_table_state(table)})
     
 @app.route('/boka/ready', methods=['POST'])
 @login_required
@@ -1973,7 +1975,7 @@ def boka_ready():
     me.ready = not me.ready
     me.status_changed_at = datetime.now()
     db.session.commit()
-    return jsonify({"success": True, "ready": me.ready})
+    return jsonify({"success": True, "ready": me.ready, "state": _build_table_state(table)})
 
 
 @app.route('/boka/add_ai', methods=['POST'])
@@ -2018,7 +2020,7 @@ def boka_add_ai():
     )
     db.session.add(p)
     db.session.commit()
-    return jsonify({"success": True})
+    return jsonify({"success": True, "state": _build_table_state(table)})
 
 @app.route('/boka/start', methods=['POST'])
 @login_required
