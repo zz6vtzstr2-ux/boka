@@ -414,38 +414,11 @@
       refreshRooms();
     }
 
-    async function toggleReady(code, btnEl) {
-      // 乐观更新：先改按钮视觉
-      const wasReady = btnEl.textContent.trim() === '取消准备';
-      const newReady = !wasReady;
-      btnEl.textContent = newReady ? '取消准备' : '准备';
-      btnEl.classList.toggle('btn-green', !newReady);
-      btnEl.classList.toggle('btn-gray', newReady);
-      btnEl.disabled = true;
-
-      try {
-        const res = await fetch('/boka/room/' + code + '/ready', { method: 'POST' });
-        const data = await res.json();
-        if (data.error) {
-          // 回滚
-          btnEl.textContent = wasReady ? '取消准备' : '准备';
-          btnEl.classList.toggle('btn-green', wasReady);
-          btnEl.classList.toggle('btn-gray', !wasReady);
-          showToast(data.error);
-          return;
-        }
-        // 成功：不刷列表（等下一次轮询同步）
-        // 但为了其他玩家的准备状态及时更新，2.5 秒后还是刷一次
-        lastRoomsJson = ''; // 强制下次 refreshRooms 重绘
-      } catch (e) {
-        // 网络错误：回滚
-        btnEl.textContent = wasReady ? '取消准备' : '准备';
-        btnEl.classList.toggle('btn-green', wasReady);
-        btnEl.classList.toggle('btn-gray', !wasReady);
-        showToast('网络错误');
-      } finally {
-        btnEl.disabled = false;
-      }
+    async function toggleReady(code) {
+      const res = await fetch('/boka/room/' + code + '/ready', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      refreshRooms();
     }
 
     async function startGame(code) {
@@ -493,8 +466,7 @@
       // 我的准备按钮（我在这个房间 且 是我自己那一行 且 未开局）
       if (isMyRoom && p.username === myUsername && !room.is_playing) {
         btnHtml += `<button class="btn-action ${p.ready ? 'btn-gray' : 'btn-green'}"
-          onclick="toggleReady('${room.room_id}', this)">${p.ready ? '取消准备' : '准备'}</button>`;
-      }
+          onclick="toggleReady('${room.room_id}')">${p.ready ? '取消准备' : '准备'}</button>`;
       // 房主踢人（我创建的房间 且 不是我 且 未开局）
       else if (isMyCreated && p.username !== myUsername && !room.is_playing) {
         btnHtml += `<button class="btn-action btn-danger" onclick="kickPlayer('${room.room_id}', '${p.username}')">踢出</button>`;
