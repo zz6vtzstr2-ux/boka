@@ -1931,7 +1931,22 @@ def boka_leave():
         db.session.commit()
     return jsonify({"success": True})
 
-
+@app.route('/boka/reset_table', methods=['POST'])
+@login_required
+def boka_reset_table():
+    table = get_or_create_table()
+    # 把所有未结束的 BokaGame 标记 finished
+    games = BokaGame.query.filter_by(room_id=table.id).all()
+    for g in games:
+        if g.phase != "finished":
+            g.phase = "finished"
+    # 清空所有 BokaPlayer 的准备/锁定
+    BokaPlayer.query.filter_by(room_id=table.id).update({"ready": False})
+    # 重置卡桌状态
+    table.status = "waiting"
+    db.session.commit()
+    return jsonify({"success": True})
+    
 @app.route('/boka/ready', methods=['POST'])
 @login_required
 def boka_ready():
