@@ -2023,6 +2023,11 @@ def boka_add_ai():
 @app.route('/boka/start', methods=['POST'])
 @login_required
 def boka_start():
+    
+    # 发起者必须在本卡桌内
+    me = BokaPlayer.query.filter_by(room_id=table.id, username=current_user.username).first()
+    if not me:
+        return jsonify({"error": "你不在卡桌，无法开始"}), 400
     table = get_or_create_table()
     if table.status != "waiting":
         return jsonify({"error": "游戏已开始"}), 400
