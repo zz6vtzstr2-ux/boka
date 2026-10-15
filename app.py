@@ -1801,18 +1801,23 @@ def cleanup_expired_players(table):
     if changed:
         db.session.commit()
 
-
 def _try_join_table(table, user):
     """尝试加入卡桌，返回 (success, error_msg)"""
     if user.boka_room_id == table.id:
-        return True, None  # 已在
-    
+        return True, None
+
     if table.status != "waiting":
         return False, "卡桌正在搏卡中"
 
     player_count = BokaPlayer.query.filter_by(room_id=table.id).count()
     if player_count >= table.max_players:
         return False, "卡桌已满"
+
+    # 卡池校验：加入后总人数 * 3 不能超过卡池
+    class_count = ClassCollection.query.count()
+    pool_capacity = min(class_count, 42)
+    if (player_count + 1) * 3 > pool_capacity:
+        return False, f"卡池不足（{pool_capacity} 张）"
 
     p = BokaPlayer(
         room_id=table.id,
@@ -1897,6 +1902,12 @@ def boka_table_state():
     pool_capacity = min(class_count, 42)
     max_players = pool_capacity // 3
 
+    can_join = (
+        table.status == "waiting"
+        and len(players) < table.max_players
+        and (len(players) + 1) * 3 <= pool_capacity
+    )
+
     return jsonify({
         "status": table.status,
         "is_playing": is_playing,
@@ -1907,6 +1918,7 @@ def boka_table_state():
         "pool_capacity": pool_capacity,
         "max_supported_players": max_players,
         "my_in_table": current_user.boka_room_id == table.id,
+        "can_join": can_join,
     })
 
 
@@ -1940,8 +1952,10 @@ def boka_reset_table():
     for g in games:
         if g.phase != "finished":
             g.phase = "finished"
-    # 清空所有 BokaPlayer 的准备/锁定
-    BokaPlayer.query.filter_by(room_id=table.id).update({"ready": False})
+    # 删除所有 AI 玩家
+    BokaPlayer.query.filter_by(room_id=table.id, is_ai=True).delete()
+    # 真人清空准备状态
+    BokaPlayer.query.filter_by(room_id=table.id, is_ai=False).update({"ready": False})
     # 重置卡桌状态
     table.status = "waiting"
     db.session.commit()
@@ -1973,7 +1987,12 @@ def boka_add_ai():
     if player_count >= table.max_players:
         return jsonify({"error": "卡桌已满"}), 400
 
-    # 随机选一个水浒角色名
+    # 卡池校验
+    class_count = ClassCollection.query.count()
+    pool_capacity = min(class_count, 42)
+    if (player_count + 1) * 3 > pool_capacity:
+        return jsonify({"error": f"卡池不足（{pool_capacity} 张）"}), 400
+
     import random as _random
     existing_names = {p.nickname for p in BokaPlayer.query.filter_by(room_id=table.id).all()}
     candidates = [c["name"] for c in CARDS if c["name"] not in existing_names]
@@ -1982,7 +2001,6 @@ def boka_add_ai():
     ai_name = _random.choice(candidates)
 
     ai_username = f"ai_{ai_name}"
-    # 防重名（可能已有同名 AI）
     suffix = 1
     while BokaPlayer.query.filter_by(room_id=table.id, username=ai_username).first():
         ai_username = f"ai_{ai_name}_{suffix}"
@@ -2001,7 +2019,6 @@ def boka_add_ai():
     db.session.add(p)
     db.session.commit()
     return jsonify({"success": True})
-
 
 @app.route('/boka/start', methods=['POST'])
 @login_required
