@@ -2243,6 +2243,657 @@ def boka_quit(room_code):
     return jsonify({"success": True})
 
 # ========== 战斗页 ==========
+# ========== 搏卡战斗核心 ==========
+HANDSOME_NAMES = {"林冲", "柴进", "燕青", "花荣", "徐宁"}
+BOMB_NAMES = {"白胜", "孙二娘"}
+BEAUTY_NAME = "扈三娘"
+SONGJIANG_NAME = "宋江"
+
+
+def _is_combo_with_special(cards, special_tag):
+    if len(cards) < 2:
+        return False
+    atk, dfn, combo_name = calc_combo_stats(cards)
+    if combo_name is None:
+        return False
+    for combo in COMBOS:
+        if combo["name"] == combo_name and combo.get("special") == special_tag:
+            return True
+    return False
+
+
+def _boka_ai_choose_cards(game, gp):
+    """搏卡里给一个 AI 玩家选牌。返回 card_ids 列表。"""
+    hand_ids = json_loads_safe(gp.hand)
+    if not hand_ids:
+        return None
+
+    is_atk_round = (game.round_no % 2 == 1)
+
+    hand = []
+    for cid in hand_ids:
+        base = CARD_BY_ID.get(cid)
+        if not base:
+            continue
+        hand.append({
+            "id": cid, "name": base["name"], "level": 1,
+            "atk": base["atk"], "def": base["def"],
+        })
+    if not hand:
+        return None
+
+    hand_by_name = {}
+    for c in hand:
+        hand_by_name.setdefault(c["name"], []).append(c)
+
+    # 宋江
+    songjiang = hand_by_name.get("宋江", [])
+    songjiang_card = songjiang[0] if songjiang else None
+    pool = json_loads_safe(game.card_pool)
+    if pool and songjiang_card:
+        pool_powers = []
+        for entry in pool:
+            if isinstance(entry, dict):
+                pid = entry.get("id"); plevel = entry.get("level", 1)
+            else:
+                pid = entry; plevel = 1
+            pbase = CARD_BY_ID.get(pid)
+            if not pbase:
+                continue
+            pbonus = plevel - 1
+            pool_powers.append(pbase["atk"] + pbonus + pbase["def"] + pbonus)
+        if pool_powers:
+            avg_power = sum(pool_powers) / len(pool_powers)
+            sj_power = songjiang_card["atk"] + songjiang_card["def"]
+            if avg_power > sj_power:
+                return [songjiang_card["id"]]
+
+    used_ids = set()
+    packages = []
+
+    def try_combo(names):
+        if not all(n in hand_by_name for n in names):
+            return None
+        picked = []
+        for n in names:
+            for c in hand_by_name[n]:
+                if c["id"] not in used_ids:
+                    picked.append(c)
+                    break
+            else:
+                return None
+        return picked
+
+    def consume(cards):
+        for c in cards:
+            used_ids.add(c["id"])
+
+    for names in [
+        ["关胜", "林冲", "秦明", "呼延灼", "董平"],
+        ["阮小二", "阮小五", "阮小七"],
+        ["花荣", "徐宁"],
+        ["张顺", "李逵"],
+        ["解珍", "解宝"],
+    ]:
+        combo = try_combo(names)
+        if combo:
+            consume(combo)
+            packages.append({"type": "combo", "cards": combo})
+
+    bahu_members = ["花荣", "徐宁", "杨志", "索超", "张清", "朱仝", "史进", "穆弘"]
+    bahu_available = [hand_by_name[n][0] for n in bahu_members
+                      if n in hand_by_name and hand_by_name[n][0]["id"] not in used_ids]
+    if len(bahu_available) >= 8:
+        consume(bahu_available)
+        packages.append({"type": "combo", "cards": bahu_available})
+
+    for pair in [["阮小二", "阮小五"], ["阮小二", "阮小七"], ["阮小五", "阮小七"], ["张横", "张顺"]]:
+        combo = try_combo(pair)
+        if combo:
+            consume(combo)
+            packages.append({"type": "combo", "cards": combo})
+            break
+
+    wu = hand_by_name.get("吴用", [])
+    if wu and wu[0]["id"] not in used_ids:
+        wu_card = wu[0]
+        candidates = [c for c in hand
+                      if c["id"] not in used_ids
+                      and c["name"] != "吴用"
+                      and c["name"] != "宋江"
+                      and c["name"] not in ("扈三娘", "白胜", "孙二娘")]
+        if candidates:
+            lowest = min(candidates, key=lambda c: c["atk"] + c["def"])
+            combo = [wu_card, lowest]
+            consume(combo)
+            packages.append({"type": "combo", "cards": combo})
+
+    FUNCTIONAL_NAMES = {"白胜", "孙二娘", "扈三娘"}
+    for c in hand:
+        if c["id"] in used_ids:
+            continue
+        if c["name"] == "宋江":
+            continue
+        if c["name"] in FUNCTIONAL_NAMES:
+            packages.append({"type": "func", "cards": [c]})
+        else:
+            packages.append({"type": "single", "cards": [c]})
+
+    def package_stats(pkg):
+        cards = pkg["cards"]
+        if len(cards) == 1:
+            return cards[0]["atk"], cards[0]["def"]
+        combo_cards = []
+        for c in cards:
+            base = CARD_BY_ID.get(c["id"])
+            if base:
+                combo_cards.append({**base, "level": 1})
+        atk, dfn, _ = calc_combo_stats(combo_cards)
+        if atk is None or dfn is None:
+            atk = sum(c["atk"] for c in cards)
+            dfn = sum(c["def"] for c in cards)
+        return atk, dfn
+
+    for pkg in packages:
+        pkg["atk"], pkg["def"] = package_stats(pkg)
+
+    atk_pkgs, def_pkgs, func_pkgs = [], [], []
+    for pkg in packages:
+        if pkg["type"] == "func":
+            func_pkgs.append(pkg)
+        elif pkg["atk"] - pkg["def"] >= 35:
+            atk_pkgs.append(pkg)
+        else:
+            def_pkgs.append(pkg)
+
+    if is_atk_round:
+        candidates = atk_pkgs + func_pkgs
+        fallback_key = "def"
+    else:
+        candidates = def_pkgs + func_pkgs
+        fallback_key = "atk"
+
+    if candidates:
+        chosen = random.choice(candidates)
+    else:
+        all_pkgs = atk_pkgs + def_pkgs
+        if not all_pkgs:
+            return [hand[0]["id"]]
+        all_pkgs.sort(key=lambda p: p[fallback_key])
+        chosen = all_pkgs[0]
+
+    return [c["id"] for c in chosen["cards"]]
+
+
+def _classify_play(cards):
+    names = [c["name"] for c in cards]
+    if not names:
+        return {"kind": "empty"}
+
+    if len(cards) >= 2:
+        _, _, combo_name = calc_combo_stats(cards)
+        if combo_name in ("五虎将", "八虎骑"):
+            return {"kind": "top_combo", "combo_name": combo_name, "cards": cards}
+        if combo_name == "双炸":
+            return {"kind": "double_bomb", "cards": cards}
+        if combo_name in ("风流威猛", "水军三兄弟"):
+            return {"kind": "eat_combo", "combo_name": combo_name, "cards": cards}
+
+    if any(n in ("白胜", "孙二娘") for n in names):
+        return {"kind": "single_bomb", "cards": cards}
+
+    if "扈三娘" in names:
+        return {"kind": "beauty", "cards": cards}
+
+    if len(cards) >= 2:
+        _, _, combo_name = calc_combo_stats(cards)
+        if combo_name:
+            return {"kind": "combo", "combo_name": combo_name, "cards": cards}
+
+    return {"kind": "single", "cards": cards}
+
+
+def resolve_boka_round(game):
+    """多人一轮结算"""
+    gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+    is_atk_round = (game.round_no % 2 == 1)
+    dim = "atk" if is_atk_round else "def"
+    other_dim = "def" if is_atk_round else "atk"
+
+    played = []
+    for g in gps:
+        card_ids = json_loads_safe(g.ready_card)
+        if not card_ids:
+            continue
+        cards_raw = []
+        for cid in card_ids:
+            base = CARD_BY_ID.get(cid)
+            if not base:
+                continue
+            level = 1
+            coll = User.query.filter_by(username=g.username).first()
+            if coll:
+                user_coll = coll.get_collection() if hasattr(coll, "get_collection") else {}
+                entry = user_coll.get(str(cid))
+                if entry:
+                    level = entry.get("level", 1)
+            card = dict(base)
+            card["level"] = level
+            cards_raw.append(card)
+        if not cards_raw:
+            continue
+        atk, dfn, combo_name = calc_combo_stats(cards_raw) if len(cards_raw) > 1 else (None, None, None)
+        if len(cards_raw) == 1:
+            a, d = card_with_level(cards_raw[0], cards_raw[0]["level"])
+            value = a if is_atk_round else d
+            other = d if is_atk_round else a
+            is_combo = False
+        else:
+            if atk is None:
+                continue
+            value = atk if is_atk_round else dfn
+            other = dfn if is_atk_round else atk
+            is_combo = True
+        played.append({
+            "username": g.username,
+            "cards": cards_raw,
+            "card_ids": card_ids,
+            "value": value,
+            "other": other,
+            "is_combo": is_combo,
+            "combo_name": combo_name,
+        })
+
+    if not played:
+        game.revealed_at = datetime.now()
+        game.phase = "revealing"
+        db.session.commit()
+        return
+
+    pool = json_loads_safe(game.card_pool)
+    round_record = {"round": game.round_no, "dim": dim, "played": []}
+
+    def has_combo_tag(tag):
+        for p in played:
+            if not p["is_combo"]:
+                continue
+            for combo in COMBOS:
+                if combo["name"] == p["combo_name"] and combo.get("special") == tag:
+                    return p
+        return None
+
+    top_combo = has_combo_tag("bomb_eater_steal1")
+    if top_combo:
+        _resolve_top_combo(game, gps, played, top_combo, pool, round_record, dim, other_dim)
+        _finalize_round(game, gps, pool, round_record)
+        return
+
+    eat_combo = has_combo_tag("bomb_eater")
+    if eat_combo:
+        _resolve_eat_combo(game, gps, played, eat_combo, pool, round_record, dim, other_dim)
+        _finalize_round(game, gps, pool, round_record)
+        return
+
+    has_bomb = any(c["name"] in BOMB_NAMES for p in played for c in p["cards"])
+    if has_bomb:
+        for p in played:
+            pool.extend(p["card_ids"])
+            g = next(x for x in gps if x.username == p["username"])
+            hand = json_loads_safe(g.hand)
+            hand = [cid for cid in hand if cid not in p["card_ids"]]
+            g.hand = json_dumps_safe(hand)
+            g.ready_card = json_dumps_safe([])
+            g.locked = False
+            round_record["played"].append({
+                "username": p["username"],
+                "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in p["cards"]],
+                "value": p["value"], "result": "bombed",
+            })
+        game.round_winner_card_id = None
+        game.winner_username = None
+        _finalize_round(game, gps, pool, round_record)
+        return
+
+    beauty_p = None
+    for p in played:
+        for c in p["cards"]:
+            if c["name"] == BEAUTY_NAME:
+                beauty_p = p
+                break
+        if beauty_p:
+            break
+
+    if beauty_p:
+        beauty_left = game.beauty_left if game.beauty_left is not None else 3
+        handsome_players = []
+        for p in played:
+            for c in p["cards"]:
+                if c["name"] in HANDSOME_NAMES:
+                    handsome_players.append(p)
+                    break
+
+        handsome_card_ids = set()
+        for hp in handsome_players:
+            for c in hp["cards"]:
+                if c["name"] in HANDSOME_NAMES:
+                    handsome_card_ids.add(c["id"])
+        beauty_card_ids = {c["id"] for c in beauty_p["cards"] if c["name"] == BEAUTY_NAME}
+
+        remaining_card_ids = []
+        for p in played:
+            for c in p["cards"]:
+                if c["id"] in beauty_card_ids:
+                    continue
+                if c["id"] in handsome_card_ids:
+                    continue
+                remaining_card_ids.append(c["id"])
+
+        beauty_owner_name = beauty_p["username"]
+        beauty_owner_g = next(x for x in gps if x.username == beauty_owner_name)
+
+        for p in played:
+            g = next(x for x in gps if x.username == p["username"])
+            hand = json_loads_safe(g.hand)
+            hand = [cid for cid in hand if cid not in p["card_ids"]]
+            g.hand = json_dumps_safe(hand)
+
+        if beauty_left >= 2:
+            if handsome_players:
+                best_hp = max(handsome_players, key=lambda x: (x["value"], x["other"]))
+                best_hp_g = next(x for x in gps if x.username == best_hp["username"])
+                beauty_id = list(beauty_card_ids)[0] if beauty_card_ids else None
+                if beauty_id is not None:
+                    best_hand2 = json_loads_safe(best_hp_g.hand)
+                    if beauty_id not in best_hand2:
+                        best_hand2.append(beauty_id)
+                    best_hp_g.hand = json_dumps_safe(best_hand2)
+                for hp in handsome_players:
+                    for c in hp["cards"]:
+                        if c["name"] in HANDSOME_NAMES:
+                            pool.append(c["id"])
+            else:
+                best = max(played, key=lambda x: (x["value"], x["other"]))
+                best_g = next(x for x in gps if x.username == best["username"])
+                best_hand = json_loads_safe(best_g.hand)
+                for c in beauty_p["cards"]:
+                    if c["name"] == BEAUTY_NAME and c["id"] not in best_hand:
+                        best_hand.append(c["id"])
+                best_g.hand = json_dumps_safe(best_hand)
+                for c in beauty_p["cards"]:
+                    if c["name"] == "吴用":
+                        pool.append(c["id"])
+            game.beauty_left = beauty_left - 1
+        else:
+            for c in beauty_p["cards"]:
+                pool.append(c["id"])
+            if handsome_players:
+                for hp in handsome_players:
+                    for c in hp["cards"]:
+                        if c["name"] in HANDSOME_NAMES:
+                            pool.append(c["id"])
+            game.beauty_left = 0
+
+        beauty_owner_hand2 = json_loads_safe(beauty_owner_g.hand)
+        beauty_owner_hand2.extend(remaining_card_ids)
+        beauty_owner_g.hand = json_dumps_safe(beauty_owner_hand2)
+
+        for p in played:
+            g = next(x for x in gps if x.username == p["username"])
+            if g.username == beauty_owner_name:
+                continue
+            g.ready_card = json_dumps_safe([])
+            g.locked = False
+
+        beauty_owner_g.ready_card = json_dumps_safe([])
+        beauty_owner_g.locked = False
+
+        game.round_winner_card_id = list(beauty_card_ids)[0] if beauty_card_ids else None
+        game.winner_username = beauty_owner_name
+
+        for p in played:
+            round_record["played"].append({
+                "username": p["username"],
+                "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in p["cards"]],
+                "value": p["value"], "result": "beauty",
+            })
+
+        _finalize_round(game, gps, pool, round_record)
+        return
+
+    best = max(played, key=lambda x: (x["value"], x["other"]))
+    winners = [p for p in played if p["value"] == best["value"] and p["other"] == best["other"]]
+    winner = random.choice(winners) if len(winners) > 1 else winners[0]
+    winner_name = winner["username"]
+
+    for p in played:
+        g = next(x for x in gps if x.username == p["username"])
+        hand = json_loads_safe(g.hand)
+        hand = [cid for cid in hand if cid not in p["card_ids"]]
+        g.hand = json_dumps_safe(hand)
+
+    for cid in winner["card_ids"]:
+        pool.append(cid)
+
+    winner_g = next(x for x in gps if x.username == winner_name)
+    winner_hand = json_loads_safe(winner_g.hand)
+    for p in played:
+        if p["username"] == winner_name:
+            continue
+        winner_hand.extend(p["card_ids"])
+
+    if winner["is_combo"] and winner["combo_name"]:
+        for combo in COMBOS:
+            if combo["name"] == winner["combo_name"] and combo.get("special") == "bomb_eater_steal1":
+                for p in played:
+                    if p["username"] == winner_name:
+                        continue
+                    loser_g = next(x for x in gps if x.username == p["username"])
+                    loser_hand = json_loads_safe(loser_g.hand)
+                    if loser_hand:
+                        stolen = random.choice(loser_hand)
+                        loser_hand.remove(stolen)
+                        winner_hand.append(stolen)
+                        loser_g.hand = json_dumps_safe(loser_hand)
+                break
+
+    winner_g.hand = json_dumps_safe(winner_hand)
+
+    for p in played:
+        g = next(x for x in gps if x.username == p["username"])
+        g.ready_card = json_dumps_safe([])
+        g.locked = False
+        round_record["played"].append({
+            "username": p["username"],
+            "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in p["cards"]],
+            "value": p["value"],
+            "result": "win" if p["username"] == winner_name else "lose",
+        })
+
+    max_card_id = max(
+        winner["card_ids"],
+        key=lambda cid: (CARD_BY_ID.get(cid, {}).get(dim, 0), CARD_BY_ID.get(cid, {}).get(other_dim, 0))
+    )
+    game.round_winner_card_id = max_card_id
+    game.winner_username = winner_name
+
+    _finalize_round(game, gps, pool, round_record)
+
+
+def _resolve_top_combo(game, gps, played, combo_p, pool, round_record, dim, other_dim):
+    winner_name = combo_p["username"]
+    for p in played:
+        g = next(x for x in gps if x.username == p["username"])
+        hand = json_loads_safe(g.hand)
+        hand = [cid for cid in hand if cid not in p["card_ids"]]
+        g.hand = json_dumps_safe(hand)
+    for cid in combo_p["card_ids"]:
+        pool.append(cid)
+    winner_g = next(x for x in gps if x.username == winner_name)
+    winner_hand = json_loads_safe(winner_g.hand)
+    for p in played:
+        if p["username"] == winner_name:
+            continue
+        winner_hand.extend(p["card_ids"])
+        loser_g = next(x for x in gps if x.username == p["username"])
+        loser_hand = json_loads_safe(loser_g.hand)
+        if loser_hand:
+            stolen = random.choice(loser_hand)
+            loser_hand.remove(stolen)
+            winner_hand.append(stolen)
+            loser_g.hand = json_dumps_safe(loser_hand)
+    winner_g.hand = json_dumps_safe(winner_hand)
+
+    for p in played:
+        g = next(x for x in gps if x.username == p["username"])
+        g.ready_card = json_dumps_safe([])
+        g.locked = False
+        round_record["played"].append({
+            "username": p["username"],
+            "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in p["cards"]],
+            "value": p["value"],
+            "result": "win" if p["username"] == winner_name else "lose",
+        })
+    max_card_id = combo_p["card_ids"][0] if combo_p["card_ids"] else None
+    game.round_winner_card_id = max_card_id
+    game.winner_username = winner_name
+
+
+def _resolve_eat_combo(game, gps, played, combo_p, pool, round_record, dim, other_dim):
+    winner_name = combo_p["username"]
+    for p in played:
+        g = next(x for x in gps if x.username == p["username"])
+        hand = json_loads_safe(g.hand)
+        hand = [cid for cid in hand if cid not in p["card_ids"]]
+        g.hand = json_dumps_safe(hand)
+    for cid in combo_p["card_ids"]:
+        pool.append(cid)
+    winner_g = next(x for x in gps if x.username == winner_name)
+    winner_hand = json_loads_safe(winner_g.hand)
+    for p in played:
+        if p["username"] == winner_name:
+            continue
+        winner_hand.extend(p["card_ids"])
+    winner_g.hand = json_dumps_safe(winner_hand)
+
+    for p in played:
+        g = next(x for x in gps if x.username == p["username"])
+        g.ready_card = json_dumps_safe([])
+        g.locked = False
+        round_record["played"].append({
+            "username": p["username"],
+            "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in p["cards"]],
+            "value": p["value"],
+            "result": "win" if p["username"] == winner_name else "lose",
+        })
+    max_card_id = combo_p["card_ids"][0] if combo_p["card_ids"] else None
+    game.round_winner_card_id = max_card_id
+    game.winner_username = winner_name
+
+
+def _finalize_round(game, gps, pool, round_record):
+    for g in gps:
+        hand = json_loads_safe(g.hand)
+        if len(hand) == 0 and g.finished_order is None and not g.surrendered:
+            max_order = db.session.query(db.func.max(BokaGamePlayer.finished_order)).filter_by(game_id=game.id).scalar() or 0
+            g.finished_order = max_order + 1
+
+    alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
+    game.card_pool = json_dumps_safe(pool)
+    history = json_loads_safe(game.history)
+    history.append(round_record)
+    game.history = json_dumps_safe(history)
+
+    if len(alive) <= 1:
+        finish_boka_game(game, alive)
+    else:
+        game.phase = "revealing"
+        game.revealed_at = datetime.now()
+    db.session.commit()
+
+
+def finish_boka_game(game, alive):
+    gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+    survivors = [g for g in gps if g.username in [a.username for a in alive]]
+    finished = [g for g in gps if g.finished_order is not None]
+    surrendered = [g for g in gps if g.surrendered]
+    finished.sort(key=lambda g: g.finished_order, reverse=True)
+    rank_order = []
+    for s in survivors:
+        rank_order.append(s)
+    for f in finished:
+        rank_order.append(f)
+    for s in surrendered:
+        if s not in rank_order:
+            rank_order.append(s)
+    n = len(rank_order)
+    all_scores = [User.query.filter_by(username=g.username).first().score or 0 for g in rank_order]
+    avg_score = sum(all_scores) / n if n else 0
+    for idx, g in enumerate(rank_order, start=1):
+        g.rank = idx
+    for g in rank_order:
+        u = User.query.filter_by(username=g.username).first()
+        if not u:
+            continue
+        old_score = u.score or 0
+        change = calc_boka_score_change(old_score, g.rank, n, avg_score)
+        new_score = old_score + change
+        if u.max_score is None:
+            u.max_score = 0
+        floor = (u.max_score // 1000) * 1000
+        if new_score < floor:
+            new_score = floor
+        if new_score < 0:
+            new_score = 0
+        if new_score > u.max_score:
+            u.max_score = new_score
+        g.score_change = new_score - old_score
+        u.score = new_score
+        rec = BokaGameRecord(
+            username=g.username, game_id=game.id, room_code=None,
+            rank=g.rank, player_count=n,
+            score_before=old_score, score_change=g.score_change,
+            score_after=new_score, played_at=datetime.now(),
+        )
+        db.session.add(rec)
+    game.phase = "finished"
+    game.finished_at = datetime.now()
+    room = BokaRoom.query.get(game.room_id)
+    if room:
+        room.status = "waiting"
+        BokaPlayer.query.filter_by(room_id=room.id).update({"ready": False})
+    db.session.commit()
+
+
+def calc_boka_score_change(my_score, rank, total_players, avg_score):
+    base_table = {
+        2:  [25, -25],
+        3:  [45, 0, -45],
+        4:  [60, 15, -15, -60],
+        5:  [75, 30, 0, -30, -75],
+        6:  [85, 40, 10, -10, -40, -85],
+        7:  [95, 50, 20, 0, -20, -50, -95],
+        8:  [100, 60, 30, 10, -10, -30, -60, -100],
+        9:  [105, 65, 35, 15, 0, -15, -35, -65, -105],
+        10: [110, 70, 40, 20, 5, -5, -20, -40, -70, -110],
+        11: [115, 75, 45, 25, 10, 0, -10, -25, -45, -75, -115],
+        12: [120, 80, 50, 30, 15, 5, -5, -15, -30, -50, -80, -120],
+        13: [125, 85, 55, 35, 20, 10, 0, -10, -20, -35, -55, -85, -125],
+        14: [130, 90, 60, 40, 25, 15, 5, -5, -15, -25, -40, -60, -90, -130],
+    }
+    n = max(2, min(14, total_players))
+    row = base_table.get(n, base_table[14])
+    if rank < 1:
+        rank = 1
+    if rank > n:
+        rank = n
+    base = row[rank - 1]
+    coef = 1 + 0.5 * math.log((avg_score + 1000) / (my_score + 1000))
+    coef = max(0.5, min(3.0, coef))
+    if base >= 0:
+        return int(base * coef)
+    else:
+        return -int(-base / coef)
+        
 def calc_boka_layout(n, my_username, players):
     if n == 1:
         areas = {"bottom": 1}
