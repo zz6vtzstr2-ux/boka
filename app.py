@@ -2041,6 +2041,68 @@ def boka_ready(room_code):
     db.session.commit()
     return jsonify({"success": True, "ready": me.ready})
 
+@app.route('/boka/room/<room_code>/add_bot', methods=['POST'])
+@login_required
+def boka_add_bot(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    if room.owner_username != current_user.username:
+        return jsonify({"error": "只有房主能添加机器人"}), 403
+    if room.status != "waiting":
+        return jsonify({"error": "游戏已开始"}), 400
+
+    player_count = BokaPlayer.query.filter_by(room_id=room.id).count()
+    max_players = min(room.max_players, (room.pool_capacity // 3) if room.pool_capacity else 14)
+    if player_count >= max_players:
+        return jsonify({"error": "房间已满"}), 400
+
+    # 随机选一个水浒角色名
+    existing_names = {p.nickname for p in BokaPlayer.query.filter_by(room_id=room.id).all()}
+    candidates = [c["name"] for c in CARDS if c["name"] not in existing_names]
+    if not candidates:
+        candidates = [c["name"] for c in CARDS]
+    ai_name = random.choice(candidates)
+
+    ai_username = f"ai_{ai_name}"
+    suffix = 1
+    while BokaPlayer.query.filter_by(room_id=room.id, username=ai_username).first():
+        ai_username = f"ai_{ai_name}_{suffix}"
+        suffix += 1
+
+    p = BokaPlayer(
+        room_id=room.id,
+        username=ai_username,
+        nickname=ai_name,
+        ready=True,
+        seat=player_count,
+        joined_at=datetime.now(),
+        status_changed_at=datetime.now(),
+        is_ai=True,
+    )
+    db.session.add(p)
+    db.session.commit()
+    return jsonify({"success": True})
+
+@app.route('/boka/room/<room_code>/kick/<target_username>', methods=['POST'])
+@login_required
+def boka_kick(room_code, target_username):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    if room.owner_username != current_user.username:
+        return jsonify({"error": "只有房主能踢人"}), 403
+    if target_username == current_user.username:
+        return jsonify({"error": "不能踢自己"}), 400
+    target = BokaPlayer.query.filter_by(room_id=room.id, username=target_username).first()
+    if not target:
+        return jsonify({"error": "该玩家不在房间"}), 404
+    u = User.query.filter_by(username=target_username).first()
+    if u:
+        u.boka_room_id = None
+    db.session.delete(target)
+    db.session.commit()
+    return jsonify({"success": True})
 
 @app.route('/boka/room/<room_code>/start', methods=['POST'])
 @login_required
