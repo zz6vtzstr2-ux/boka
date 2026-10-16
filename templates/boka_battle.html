@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>搏卡战斗 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; min-height: 100vh;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: radial-gradient(ellipse at center, #f5edda 0%, #d8ccb0 100%) fixed;
+      color: #333;
+      position: relative;
+    }
+
+    .combo-info {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 40px;
+      font-size: 14px;
+      color: #666;
+      padding: 0 8px;
+      text-align: center;
+    }
+    .combo-info .combo-name { font-weight: bold; color: #8a6d1f; letter-spacing: 1px; }
+    .combo-info .info-pill {
+      font-size: 13px; font-weight: bold;
+      padding: 2px 8px; border-radius: 8px;
+      line-height: 1.4; white-space: nowrap;
+    }
+    .combo-info .atk-pill { background: #d89050; color: #fff; box-shadow: 0 1px 3px rgba(138,74,31,0.4); }
+    .combo-info .def-pill { background: #6ba0d0; color: #fff; box-shadow: 0 1px 3px rgba(42,74,122,0.4); }
+    .combo-info .combo-error { color: #b85a6a; font-weight: bold; letter-spacing: 1px; }
+
+    .top-bar {
+      position: sticky; top: 0;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 6px; padding: 6px 12px;
+      background: rgba(245,237,218,0.92);
+      backdrop-filter: blur(6px);
+      z-index: 30;
+      flex-wrap: wrap;
+    }
+    .top-left { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+    .top-right { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+    .top-btn, .top-info {
+      background: rgba(255,255,255,0.95);
+      border: 1px solid #d8d0bc;
+      border-radius: 10px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #4a4a4a;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      white-space: nowrap;
+    }
+    .top-info { color: #8a6d1f; cursor: default; }
+    .top-btn.danger { background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; }
+
+    .arena {
+      padding: 6px 12px 16px 12px;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 8px;
+    }
+
+    /* ===== 2 人局 ===== */
+    .side {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 24px;
+      width: 100%;
+    }
+    .side .player-head {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .side .player-head img {
+      width: 48px; height: 48px;
+      border-radius: 10px;
+      border: 2px solid #5bb8e8;
+      box-shadow: 0 0 0 3px rgba(91,184,232,0.4);
+      background: #fff; object-fit: cover;
+    }
+    .ai-avatar-placeholder {
+      height: 48px; min-width: 48px;
+      border-radius: 10px;
+      border: 2px solid #e8c8d0;
+      box-shadow: 0 0 0 3px rgba(232,200,208,0.5);
+      background: #fce8ec;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: bold; color: #b85a6a;
+      letter-spacing: 1px; white-space: nowrap; padding: 2px 10px;
+    }
+    .side .pname { font-size: 15px; font-weight: bold; color: #4a4a4a; letter-spacing: 1px; }
+    .side .hand-count { font-size: 12px; color: #888; }
+
+    .played-area {
+      display: flex; flex-wrap: wrap;
+      gap: 8px; justify-content: center;
+      min-height: 180px; align-items: center;
+      padding-top: 20px;
+    }
+
+    .center-banner {
+      font-size: 22px; font-weight: bold; color: #fff;
+      letter-spacing: 6px; text-indent: 6px;
+      padding: 10px 28px; border-radius: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      white-space: nowrap; margin: 20px 0;
+    }
+    .center-banner.atk {
+      background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b);
+      border: 2px solid #8a4a1f;
+    }
+    .center-banner.def {
+      background: radial-gradient(circle at 30% 30%, #8bc0e8, #4a7db8);
+      border: 2px solid #2a4a7a;
+    }
+
+    /* ===== 多人局（电脑） ===== */
+    .multi-arena {
+      display: none;
+      width: 100%;
+      min-height: 400px;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .multi-arena.show { display: flex; }
+    .multi-top-area {
+      display: flex; justify-content: center;
+      gap: 24px; flex-wrap: wrap;
+      padding: 4px;
+    }
+    .multi-middle {
+      display: flex; justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 4px;
+    }
+    .multi-left-col, .multi-right-col {
+      display: flex; flex-direction: column;
+      gap: 12px;
+    }
+    .multi-right-col { align-items: flex-end; }
+    .multi-slot {
+      display: flex; gap: 8px;
+      align-items: flex-start;
+    }
+    .multi-top-area .multi-slot {
+      flex-direction: column; gap: 6px;
+      align-items: center;
+    }
+    .multi-left-col .multi-slot {
+      flex-direction: row; gap: 8px;
+      align-items: flex-start;
+    }
+    .multi-right-col .multi-slot {
+      flex-direction: row-reverse; gap: 8px;
+      align-items: flex-start;
+    }
+    .multi-slot .player-head {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 4px;
+      flex-shrink: 0;
+    }
+    .multi-slot .player-head img {
+      width: 48px; height: 48px;
+      border-radius: 10px;
+      border: 2px solid #5bb8e8;
+      box-shadow: 0 0 0 3px rgba(91,184,232,0.4);
+      background: #fff; object-fit: cover;
+    }
+    .multi-slot .player-head .pname {
+      font-size: 13px; font-weight: bold; color: #4a4a4a;
+      max-width: 80px; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+      text-align: center;
+    }
+    .multi-slot .player-head .hand-count { font-size: 11px; color: #888; }
+    .multi-slot .played-area {
+      display: flex; flex-wrap: wrap;
+      gap: 6px; align-items: flex-start;
+      padding-top: 4px; min-height: 140px;
+      justify-content: flex-start;
+    }
+
+    /* ===== 多人局（手机） ===== */
+    .mobile-arena {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+    }
+    .mobile-arena.show { display: flex; }
+    .mobile-row {
+      display: flex; align-items: flex-start;
+      gap: 10px; padding: 8px;
+      background: rgba(255,255,255,0.6);
+      border-radius: 12px;
+      border: 1px solid #e0d8c0;
+    }
+    .mobile-row .player-head {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 4px;
+      flex-shrink: 0; width: 70px;
+    }
+    .mobile-row .player-head img {
+      width: 48px; height: 48px;
+      border-radius: 10px;
+      border: 2px solid #5bb8e8;
+      background: #fff; object-fit: cover;
+    }
+    .mobile-row .player-head .pname {
+      font-size: 12px; font-weight: bold; color: #4a4a4a;
+      max-width: 70px; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+      text-align: center;
+    }
+    .mobile-row .player-head .hand-count { font-size: 10px; color: #888; }
+    .mobile-row .played-area {
+      display: flex; flex-wrap: wrap;
+      gap: 6px; flex: 1;
+      align-items: flex-start;
+      padding-top: 2px;
+      min-height: 90px;
+    }
+
+    .hero-card {
+      position: relative;
+      width: 100px; height: 140px;
+      flex-shrink: 0;
+      transition: box-shadow 0.15s;
+    }
+    .hero-card .oval-wrap {
+      width: 100%; height: calc(100% - 22px);
+      border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+      overflow: hidden;
+      background: #fffdf5;
+      border: 4px solid #f0e0a0;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+      position: relative;
+      transition: box-shadow 0.3s, border-color 0.3s, opacity 0.3s;
+    }
+    .hero-card .oval-wrap img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .hero-card .atk-orb,
+    .hero-card .def-orb {
+      position: absolute; bottom: 20px;
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: bold; color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6); z-index: 2;
+    }
+    .hero-card .atk-orb {
+      left: -4px;
+      background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b);
+      border: 2px solid #8a4a1f;
+    }
+    .hero-card .def-orb {
+      right: -4px;
+      background: radial-gradient(circle at 30% 30%, #8bc0e8, #4a7db8);
+      border: 2px solid #2a4a7a;
+    }
+    .hero-card .card-name {
+      position: absolute; bottom: 10px; left: 0; right: 0;
+      text-align: center; font-size: 12px; font-weight: bold;
+      color: #4a4a4a; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .hero-card.selected .oval-wrap {
+      outline: 4px solid #5bb8e8;
+      outline-offset: -4px;
+      box-shadow: 0 0 0 4px rgba(91,184,232,0.35), 0 3px 8px rgba(0,0,0,0.2);
+    }
+    .hero-card.winner .oval-wrap {
+      border-color: #f5c542;
+      box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6);
+      animation: winnerBlink 1s ease-in-out 3;
+    }
+    @keyframes winnerBlink {
+      0%, 100% { box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6); }
+      50% { box-shadow: 0 0 24px #f5c542, 0 0 48px rgba(245,197,66,0.9); }
+    }
+    .hero-card.loser .oval-wrap {
+      opacity: 0.5;
+      filter: grayscale(0.5);
+    }
+
+    .qmark-card {
+      position: relative;
+      width: 100px; height: 140px;
+      flex-shrink: 0;
+    }
+    .qmark-card .qmark-wrap {
+      width: 100%; height: calc(100% - 22px);
+      border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+      overflow: hidden;
+      background: radial-gradient(circle at 30% 30%, #3a4a5a, #1a2a3a);
+      border: 4px solid #c8b878;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .qmark-card .qmark-wrap::before {
+      content: "?";
+      font-size: 56px; font-weight: bold;
+      color: #e8d8a0;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+      font-family: "LXGW WenKai", serif;
+    }
+
+    /* ===== 我的区域（不钉底） ===== */
+    .bottom-area {
+      margin-top: 12px;
+      display: flex; flex-direction: column;
+    }
+    .my-hand-area {
+      padding: 6px 16px;
+      display: flex; flex-direction: column;
+      background: rgba(255,255,255,0.94);
+    }
+    .hand-label {
+      font-size: 11px; color: #999;
+      letter-spacing: 2px;
+      padding-left: 4px; margin-bottom: 4px;
+    }
+    .hand-scroll {
+      display: flex; flex-wrap: wrap;
+      gap: 12px;
+      align-content: flex-start;
+      justify-content: center;
+      padding: 4px 0;
+    }
+    .ready-row {
+      display: flex; align-items: stretch;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      min-height: 80px;
+    }
+    .my-avatar-block {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 2px; flex-shrink: 0; width: 64px;
+    }
+    .my-avatar-block img {
+      width: 48px; height: 48px;
+      border-radius: 10px;
+      border: 2px solid #5bb8e8;
+      box-shadow: 0 0 0 3px rgba(91,184,232,0.4);
+      background: #fff; object-fit: cover;
+    }
+    .my-avatar-block .pname {
+      font-size: 11px; font-weight: bold; color: #4a4a4a;
+      text-align: center; max-width: 64px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .my-avatar-block .hand-count { font-size: 10px; color: #888; white-space: nowrap; }
+    .play-square-btn {
+      flex-shrink: 0;
+      width: 64px;
+      border: none;
+      border-radius: 12px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 15px;
+      font-weight: bold;
+      font-family: inherit;
+      letter-spacing: 2px;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+      transition: background 0.15s;
+      transform: translateZ(0);
+    }
+    .play-square-btn:hover:not(:disabled) { background: #4aa8d8; }
+    .play-square-btn:disabled {
+      background: #cccccc !important;
+      color: #fff !important;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: translateZ(0);
+    }
+
+    @media (max-width: 768px) {
+      .played-area { min-height: 130px; }
+      .my-avatar-block { width: 56px; }
+      .my-avatar-block img { width: 40px; height: 40px; }
+      .my-avatar-block .pname { font-size: 10px; max-width: 56px; }
+      .my-avatar-block .hand-count { font-size: 9px; }
+      .play-square-btn { width: 56px; height: 56px; font-size: 13px; }
+      .multi-arena { display: none !important; }
+      .duel-layout { display: none !important; }
+      .mobile-arena.show { display: flex !important; }
+      .hero-card, .qmark-card { width: 70px; height: 98px; }
+      .hero-card .oval-wrap, .qmark-card .qmark-wrap {
+        height: calc(100% - 16px); border-width: 2px;
+      }
+      .hero-card .atk-orb, .hero-card .def-orb {
+        bottom: 12px; width: 20px; height: 20px; font-size: 11px;
+      }
+      .hero-card .card-name { font-size: 10px; }
+      .qmark-card .qmark-wrap::before { font-size: 36px; }
+    }
+
+    .result-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 300;
+      justify-content: center; align-items: center;
+      padding: 16px;
+    }
+    .result-modal.active { display: flex; }
+    .result-inner {
+      background: #fffdf5;
+      border-radius: 20px;
+      padding: 24px;
+      max-width: 400px;
+      width: 100%;
+      border: 4px double #f0e0a0;
+      text-align: center;
+    }
+    .result-inner h2 {
+      margin: 0 0 16px 0; color: #8a6d1f; letter-spacing: 3px;
+    }
+    .result-inner .rl { font-size: 15px; color: #555; margin-bottom: 10px; }
+    .result-inner .rm { font-size: 22px; font-weight: bold; color: #b85a6a; margin-bottom: 18px; }
+    .result-ok {
+      width: 100%; padding: 14px; border: none;
+      border-radius: 12px; background: #5bb8e8;
+      color: #fff; font-size: 16px; font-weight: bold;
+      cursor: pointer; font-family: inherit; letter-spacing: 3px;
+    }
+
+    .record-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 400;
+      justify-content: center; align-items: center;
+      padding: 16px;
+    }
+    .record-modal.active { display: flex; }
+    .record-inner {
+      background: #fffdf5; border-radius: 16px;
+      padding: 18px; max-width: 520px; width: 100%;
+      max-height: 80vh; overflow-y: auto;
+      border: 4px double #f0e0a0;
+    }
+    .record-inner h3 { margin: 0 0 12px 0; color: #8a6d1f; letter-spacing: 2px; }
+    .record-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .record-table th, .record-table td {
+      padding: 8px 6px; text-align: center;
+      border-bottom: 1px solid #e8e0cc;
+    }
+    .record-table th { color: #8a6d1f; font-weight: bold; background: #fdf6d8; }
+    .record-table .r-win { color: #5cb85c; font-weight: bold; }
+    .record-table .r-lose { color: #d9534f; font-weight: bold; }
+    .record-table .r-draw { color: #999; font-weight: bold; }
+    .record-close {
+      width: 100%; padding: 12px; border: none;
+      border-radius: 10px; background: #5bb8e8;
+      color: #fff; font-size: 15px; font-weight: bold;
+      cursor: pointer; font-family: inherit; margin-top: 14px;
+    }
+
+    .toast {
+      position: fixed; top: 88%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: rgba(44,110,90,0.95); color: #fff;
+      padding: 14px 24px; border-radius: 14px; font-size: 15px;
+      font-weight: bold; opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none; z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+    .result-title-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px;
+    }
+    .result-title-row h2 { margin: 0; }
+    .result-record-btn {
+      background: #f9f5e8; border: 1px solid #d8d0bc;
+      border-radius: 8px; padding: 6px 14px;
+      font-size: 14px; font-weight: bold; color: #8a6d1f;
+      cursor: pointer; font-family: inherit; letter-spacing: 1px;
+    }
+    .result-record-btn:hover { background: #f0e8d0; }
+
+    .confirm-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 400;
+      justify-content: center; align-items: center;
+      padding: 16px;
+    }
+    .confirm-modal.active { display: flex; }
+    .confirm-inner {
+      background: #fffdf5; border-radius: 16px;
+      padding: 24px; max-width: 400px; width: 100%;
+      border: 4px double #f0e0a0;
+      text-align: center;
+      animation: confirmPop 0.18s ease-out;
+    }
+    @keyframes confirmPop {
+      from { transform: scale(0.92); opacity: 0; }
+      to   { transform: scale(1);    opacity: 1; }
+    }
+    .confirm-inner h3 {
+      margin: 0 0 14px 0; color: #8a6d1f;
+      font-size: 18px; font-weight: bold; letter-spacing: 3px;
+    }
+    .confirm-inner .confirm-msg {
+      font-size: 15px; color: #555; line-height: 1.7;
+      margin-bottom: 20px; white-space: pre-wrap;
+    }
+    .confirm-btns { display: flex; gap: 10px; }
+    .confirm-btn {
+      flex: 1; padding: 12px; border: none;
+      border-radius: 12px; font-size: 15px; font-weight: bold;
+      cursor: pointer; font-family: inherit; letter-spacing: 2px;
+      transition: background 0.15s;
+    }
+    .confirm-btn.confirm-primary {
+      background: #5bb8e8; color: #fff;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+    }
+    .confirm-btn.confirm-primary:hover { background: #4aa8d8; }
+    .confirm-btn.confirm-secondary {
+      background: #fce8ec; color: #b85a6a;
+      border: 1px solid #e8c8d0;
+    }
+    .confirm-btn.confirm-secondary:hover { background: #f8d8de; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <div class="top-left">
+      <div class="top-info" id="roundInfo">第 1 轮</div>
+      <div class="top-info" id="poolInfo">卡袋 0</div>
+      <button class="top-btn" onclick="showRecord()">记录</button>
+      <button class="top-btn" onclick="temporaryLeave()">暂离房间</button>
+    </div>
+    <div class="top-right">
+      <button class="top-btn danger" onclick="surrender()">弃卡</button>
+    </div>
+  </div>
+
+  <div class="arena" id="arena">
+    <!-- 2 人局（上下布局） -->
+    <div class="duel-layout" id="duelLayout">
+      <div class="side ai" id="duelTopSide">
+        <div class="player-head" id="duelTopHead"></div>
+        <div class="played-area empty" id="duelTopPlayed"></div>
+      </div>
+    </div>
+
+    <!-- 多人局（电脑环绕） -->
+    <div class="multi-arena" id="multiArena">
+      <div class="multi-top-area" id="multiTopArea"></div>
+      <div class="multi-middle">
+        <div class="multi-left-col" id="multiLeftCol"></div>
+        <div class="multi-right-col" id="multiRightCol"></div>
+      </div>
+    </div>
+
+    <!-- 多人局（手机列表） -->
+    <div class="mobile-arena" id="mobileArena"></div>
+
+    <div class="center-banner atk" id="centerBanner">本轮比攻</div>
+
+    <!-- 我（多人/2人都在下方） -->
+    <div class="side me" id="mySide">
+      <div class="played-area empty" id="myPlayed"></div>
+    </div>
+  </div>
+
+  <div class="bottom-area">
+    <div class="ready-row">
+      <div class="my-avatar-block">
+        <img src="/static/avatars/{{ current_user.username }}.jpg" alt="">
+        <div class="pname">{{ current_user.nickname or current_user.username }}</div>
+        <div class="hand-count">手牌 <span id="myHandCount">6</span></div>
+      </div>
+      <div class="combo-info" id="comboInfo"></div>
+      <button class="play-square-btn" id="playBtn" onclick="submitPlay()" disabled>出战</button>
+    </div>
+    <div class="my-hand-area">
+      <div class="hand-label">手牌</div>
+      <div class="hand-scroll" id="myHandArea"></div>
+    </div>
+  </div>
+
+  <div class="result-modal" id="resultModal">
+    <div class="result-inner">
+      <div class="result-title-row">
+        <h2 id="resultTitle">本局结算</h2>
+        <button class="result-record-btn" onclick="showRecord()">记录</button>
+      </div>
+      <div class="rl" id="resultLine"></div>
+      <div class="rm" id="resultMaterials"></div>
+      <button class="result-ok" onclick="confirmResult()">确认返回卡桌</button>
+    </div>
+  </div>
+
+  <div class="record-modal" id="recordModal" onclick="if(event.target===this)closeRecord()">
+    <div class="record-inner">
+      <h3>对局记录</h3>
+      <div id="recordContent">暂无对局记录</div>
+      <button class="record-close" onclick="closeRecord()">关闭</button>
+    </div>
+  </div>
+
+  <div class="confirm-modal" id="songjiangModal">
+    <div class="confirm-inner">
+      <h3>智多星 · 宋江</h3>
+      <div class="confirm-msg">是否抽卡？</div>
+      <div class="confirm-btns">
+        <button class="confirm-btn confirm-secondary" onclick="songjiangChoose(false)">取消</button>
+        <button class="confirm-btn confirm-primary" onclick="songjiangChoose(true)">抽卡</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="confirm-modal" id="confirmModal">
+    <div class="confirm-inner">
+      <h3 id="confirmTitle">提示</h3>
+      <div class="confirm-msg" id="confirmMsg"></div>
+      <div class="confirm-btns">
+        <button class="confirm-btn confirm-secondary" onclick="confirmChoose(true)">确定</button>
+        <button class="confirm-btn confirm-primary" onclick="confirmChoose(false)">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const roomCode = "{{ room_code }}";
+    const myUsername = "{{ current_user.username }}";
+    const myNickname = "{{ current_user.nickname or current_user.username }}";
+    let myHand = {{ hand | tojson }};
+    let myReady = [];
+    let locked = false;
+    let roundNo = 1;
+    let pollTimer = null;
+    let shownRound = 0;
+    let lastHistory = [];
+    let poolCount = 0;
+    let songjiangShownForCurrentSelection = false;
+    let songjiangResolver = null;
+    let songjiangShowTimer = null;
+    let lastStateCache = null;
+    let lastComboValid = true;
+
+    // 时间轴
+    let revealStartedAt = null;    // ms
+    let animTimer = null;
+    let lastRenderedStep = null;
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1600);
+    }
+
+    let confirmResolver = null;
+    function showConfirm(message, title) {
+      document.getElementById('confirmMsg').textContent = message;
+      document.getElementById('confirmTitle').textContent = title || '提示';
+      document.getElementById('confirmModal').classList.add('active');
+      return new Promise(resolve => { confirmResolver = resolve; });
+    }
+    function confirmChoose(ok) {
+      document.getElementById('confirmModal').classList.remove('active');
+      if (confirmResolver) {
+        confirmResolver(ok);
+        confirmResolver = null;
+      }
+    }
+
+    function makeHeroCard(c, extraCls) {
+      const div = document.createElement('div');
+      div.className = 'hero-card ' + (extraCls || '');
+      div.innerHTML = `
+        <div class="oval-wrap">
+          <img src="/static/cards/${c.name}.PNG" alt="${c.name}">
+        </div>
+        <div class="atk-orb">${c.atk}</div>
+        <div class="def-orb">${c.def}</div>
+        <div class="card-name">${c.name}</div>
+      `;
+      return div;
+    }
+
+    function makeQmarkCard() {
+      const div = document.createElement('div');
+      div.className = 'qmark-card';
+      div.innerHTML = `<div class="qmark-wrap"></div>`;
+      return div;
+    }
+
+    // ===== 我的手牌 =====
+    function renderHand() {
+      const handEl = document.getElementById('myHandArea');
+      handEl.innerHTML = '';
+      myHand.forEach(c => {
+        const isSelected = myReady.find(x => x.id === c.id);
+        const d = makeHeroCard(c, isSelected ? 'selected' : '');
+        if (!locked) {
+          d.onclick = async () => {
+            if (locked) return;
+            const idx = myReady.findIndex(x => x.id === c.id);
+            if (idx >= 0) myReady.splice(idx, 1);
+            else myReady.push(c);
+            songjiangShownForCurrentSelection = false;
+            renderHand();
+            await updateComboInfo();
+            updatePlayBtn();
+            checkSongjiangTrigger();
+          };
+        }
+        handEl.appendChild(d);
+      });
+      document.getElementById('myHandCount').textContent = myHand.length;
+    }
+
+    function updatePlayBtn() {
+      const btn = document.getElementById('playBtn');
+      btn.disabled = locked || myReady.length === 0 || !lastComboValid;
+      btn.textContent = locked ? '锁定' : '出战';
+    }
+
+    // ===== 宋江 =====
+    function checkSongjiangTrigger() {
+      if (myReady.length !== 1) return;
+      if (myReady[0].name !== '宋江') return;
+      if (songjiangShownForCurrentSelection) return;
+      if (poolCount <= 0) return;
+      songjiangShownForCurrentSelection = true;
+      document.getElementById('songjiangModal').classList.add('active');
+    }
+
+    async function songjiangChoose(ok) {
+      document.getElementById('songjiangModal').classList.remove('active');
+      if (!ok) return;
+      const res = await fetch('/boka/room/' + roomCode + '/songjiang_draw', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      // 用返回的 state 更新
+      if (data.state) applyState(data.state);
+    }
+
+    // ===== 记录 =====
+    function renderRecord() {
+      const el = document.getElementById('recordContent');
+      if (!lastHistory || lastHistory.length === 0) {
+        el.innerHTML = '暂无对局记录';
+        return;
+      }
+      let html = `<table class="record-table"><thead><tr>
+        <th>轮次</th><th>玩家</th><th>出牌</th><th>结果</th>
+      </tr></thead><tbody>`;
+      lastHistory.forEach(r => {
+        (r.played || []).forEach(p => {
+          const dimKey = r.dim === 'atk' ? 'atk' : 'def';
+          let cardsText = '';
+          if (p.cards && p.cards.length === 1) {
+            const c = p.cards[0];
+            const specialName = { "扈三娘": "美女", "白胜": "炸弹", "孙二娘": "炸弹" }[c.name] || c.name;
+            cardsText = `${specialName} ${c[dimKey] ?? '-'}`;
+          } else if (p.cards && p.cards.length > 1) {
+            const names = p.cards.map(c => c.name).join('+');
+            cardsText = `${names} ${p.value ?? '-'}`;
+          } else {
+            cardsText = '-';
+          }
+          let resultText = '/';
+          let cls = 'r-draw';
+          if (p.result === 'win') { resultText = '胜'; cls = 'r-win'; }
+          else if (p.result === 'lose') { resultText = '负'; cls = 'r-lose'; }
+          else if (p.result === 'bombed') { resultText = '被炸'; cls = 'r-draw'; }
+          else if (p.result === 'beauty') { resultText = '美女'; cls = 'r-win'; }
+          html += `<tr>
+            <td>第 ${r.round} 轮</td>
+            <td>${p.username}</td>
+            <td>${cardsText}</td>
+            <td class="${cls}">${resultText}</td>
+          </tr>`;
+        });
+      });
+      html += `</tbody></table>`;
+      el.innerHTML = html;
+    }
+
+    function showRecord() {
+      renderRecord();
+      document.getElementById('recordModal').classList.add('active');
+    }
+    function closeRecord() {
+      document.getElementById('recordModal').classList.remove('active');
+    }
+
+    // ===== 出战 =====
+    async function submitPlay() {
+      if (myReady.length === 0) { showToast('请选择卡牌'); return; }
+      if (!lastComboValid) { showToast('组合无效'); return; }
+      if (songjiangShowTimer) { clearTimeout(songjiangShowTimer); songjiangShowTimer = null; }
+
+      locked = true;
+      renderHand();
+      updatePlayBtn();
+      // 立刻显示问号
+      showMyQmark();
+
+      const res = await fetch('/boka/room/' + roomCode + '/play', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({card_ids: myReady.map(c => c.id)})
+      });
+      const data = await res.json();
+      if (data.error) {
+        showToast(data.error);
+        locked = false;
+        updatePlayBtn();
+        return;
+      }
+      // 用返回的 state 更新
+      if (data.state) applyState(data.state);
+    }
+
+    // 显示"我"的亮卡区问号（本地乐观）
+    function showMyQmark() {
+      const myPlayed = document.getElementById('myPlayed');
+      myPlayed.classList.remove('empty');
+      myPlayed.innerHTML = '';
+      myPlayed.appendChild(makeQmarkCard());
+    }
+
+    // ===== 弃卡 =====
+    async function surrender() {
+      const ok = await showConfirm('确定弃卡投降？将清空你的手牌，并按照当前剩余人数排定名次', '弃卡');
+      if (!ok) return;
+      const res = await fetch('/boka/room/' + roomCode + '/surrender', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      showToast('已弃卡，名次第 ' + data.rank);
+      if (data.state) applyState(data.state);
+    }
+
+    function temporaryLeave() {
+      fetch('/boka/room/' + roomCode + '/leave', { method: 'POST' }).then(() => {
+        window.location.href = '/boka';
+      });
+    }
+
+    // ===== 应用服务器返回的 state =====
+    function applyState(state) {
+      lastStateCache = state;
+
+      roundNo = state.round_no;
+      document.getElementById('roundInfo').textContent = '第 ' + roundNo + ' 轮';
+      poolCount = state.pool_count || 0;
+      document.getElementById('poolInfo').textContent = '卡袋 ' + poolCount;
+
+      const banner = document.getElementById('centerBanner');
+      banner.textContent = '本轮' + state.round_phase;
+      banner.classList.remove('atk', 'def');
+      banner.classList.add(state.round_phase === '比攻' ? 'atk' : 'def');
+
+      // 我的信息
+      const me = (state.players || []).find(p => p.username === myUsername);
+      if (me) {
+        locked = me.locked;
+        myHand = state.my_hand || [];
+        myReady = state.my_ready || [];
+        if (locked) {
+          // 已锁定：手牌和出战卡以服务器为准
+        }
+      }
+      document.getElementById('myHandCount').textContent = myHand.length;
+      renderHand();
+      updatePlayBtn();
+
+      // 历史记录
+      if (state.history) lastHistory = state.history;
+
+      // 渲染所有玩家
+      renderAllPlayers(state);
+
+      if (state.finished) {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        setTimeout(() => showResult(state), 500);
+      }
+    }
+
+    // ===== 主渲染：所有玩家 =====
+    function renderAllPlayers(state) {
+      const players = state.players || [];
+      const others = players.filter(p => p.username !== myUsername);
+      const total = players.length;
+
+      // 隐藏所有布局
+      document.getElementById('duelLayout').style.display = 'none';
+      document.getElementById('multiArena').classList.remove('show');
+      document.getElementById('mobileArena').classList.remove('show');
+
+      if (total === 2) {
+        // 2 人：上方 1 人，下方我
+        renderDuel(others, state);
+      } else {
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile) {
+          renderMobile(others, state);
+        } else {
+          renderMulti(others, state);
+        }
+      }
+
+      // 我的亮卡区
+      renderMyPlayed(state);
+    }
+
+    // ===== 时间轴：计算 step =====
+    function computeStep() {
+      if (!lastStateCache) return 'idle';
+      if (lastStateCache.phase !== 'revealing') return 'idle';
+      if (!revealStartedAt) return 'idle';
+      const elapsed = (Date.now() - revealStartedAt) / 1000;
+      if (elapsed < 1) return 'my_qmark';        // 真人问号
+      if (elapsed < 3) return 'both_qmark';      // 所有人问号（含 AI）
+      if (elapsed < 6) return 'face';            // 亮牌
+      if (elapsed < 8) return 'result';          // 高亮
+      return 'idle';                              // 清空
+    }
+
+    // 渲染某人的亮卡区（根据 step）
+    function renderPlayerPlayed(container, p, step) {
+      container.innerHTML = '';
+      if (step === 'idle') {
+        container.classList.add('empty');
+        return;
+      }
+      container.classList.remove('empty');
+
+      if (step === 'my_qmark') {
+        // 真人问号
+        if (p.locked && !p.is_ai) container.appendChild(makeQmarkCard());
+        return;
+      }
+      if (step === 'both_qmark') {
+        if (p.locked) container.appendChild(makeQmarkCard());
+        return;
+      }
+      // face / result
+      (p.ready_cards || []).forEach(c => {
+        let cls = '';
+        if (step === 'result') {
+          cls = (p.username === lastStateCache.winner_username) ? 'winner' : 'loser';
+        }
+        container.appendChild(makeHeroCard(c, cls));
+      });
+    }
+
+    // ===== 2 人 =====
+    function renderDuel(others, state) {
+      document.getElementById('duelLayout').style.display = 'block';
+      const topHead = document.getElementById('duelTopHead');
+      const topPlayed = document.getElementById('duelTopPlayed');
+      if (others.length === 0) return;
+      const p = others[0];
+      const step = computeStep();
+      topHead.innerHTML = `
+        <img src="/static/avatars/${p.username}.jpg" alt="">
+        <div>
+          <div class="pname">${p.nickname}</div>
+          <div class="hand-count">手牌 ${p.hand_count}</div>
+        </div>
+      `;
+      renderPlayerPlayed(topPlayed, p, step);
+    }
+
+    // ===== 多人电脑 =====
+    function renderMulti(others, state) {
+      document.getElementById('multiArena').classList.add('show');
+      const n = others.length + 1;
+      let rest = n - 1;
+      let topCount = 1;
+      rest -= 1;
+      if (rest % 2 === 1) { topCount += 1; rest -= 1; }
+      const leftCount = Math.floor(rest / 2);
+      const rightCount = Math.floor(rest / 2);
+
+      const top = document.getElementById('multiTopArea');
+      const left = document.getElementById('multiLeftCol');
+      const right = document.getElementById('multiRightCol');
+      top.innerHTML = ''; left.innerHTML = ''; right.innerHTML = '';
+
+      const step = computeStep();
+      let idx = 0;
+      for (let i = 0; i < topCount && idx < others.length; i++) top.appendChild(buildMultiSlot(others[idx++], step));
+      for (let i = 0; i < leftCount && idx < others.length; i++) left.appendChild(buildMultiSlot(others[idx++], step));
+      for (let i = 0; i < rightCount && idx < others.length; i++) right.appendChild(buildMultiSlot(others[idx++], step));
+      while (idx < others.length) left.appendChild(buildMultiSlot(others[idx++], step));
+    }
+
+    function buildMultiSlot(p, step) {
+      const slot = document.createElement('div');
+      slot.className = 'multi-slot';
+      const head = document.createElement('div');
+      head.className = 'player-head';
+      head.innerHTML = `
+        <img src="/static/avatars/${p.username}.jpg" alt="">
+        <div class="pname">${p.nickname}</div>
+        <div class="hand-count">手牌 ${p.hand_count}</div>
+      `;
+      const area = document.createElement('div');
+      area.className = 'played-area';
+      renderPlayerPlayed(area, p, step);
+      slot.appendChild(head);
+      slot.appendChild(area);
+      return slot;
+    }
+
+    // ===== 多人手机 =====
+    function renderMobile(others, state) {
+      const el = document.getElementById('mobileArena');
+      el.classList.add('show');
+      el.innerHTML = '';
+      const step = computeStep();
+      others.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'mobile-row';
+        const head = document.createElement('div');
+        head.className = 'player-head';
+        head.innerHTML = `
+          <img src="/static/avatars/${p.username}.jpg" alt="">
+          <div class="pname">${p.nickname}</div>
+          <div class="hand-count">手牌 ${p.hand_count}</div>
+        `;
+        const area = document.createElement('div');
+        area.className = 'played-area';
+        renderPlayerPlayed(area, p, step);
+        row.appendChild(head);
+        row.appendChild(area);
+        el.appendChild(row);
+      });
+    }
+
+    // ===== 我的亮卡区 =====
+    function renderMyPlayed(state) {
+      const myEl = document.getElementById('myPlayed');
+      const me = (state.players || []).find(p => p.username === myUsername);
+      if (!me) { myEl.classList.add('empty'); myEl.innerHTML = ''; return; }
+
+      // 未锁定 → 空
+      if (!me.locked) {
+        myEl.classList.add('empty');
+        myEl.innerHTML = '';
+        return;
+      }
+
+      // 已锁定
+      const step = computeStep();
+      if (step === 'idle') {
+        // 已锁定但还没进 revealing：本地先显示问号
+        myEl.classList.remove('empty');
+        myEl.innerHTML = '';
+        myEl.appendChild(makeQmarkCard());
+        return;
+      }
+      renderPlayerPlayed(myEl, me, step);
+    }
+
+    // ===== 组合校验 =====
+    async function updateComboInfo() {
+      if (locked) return;
+      const infoEl = document.getElementById('comboInfo');
+      if (!infoEl) return;
+      if (myReady.length === 0) {
+        infoEl.innerHTML = '';
+        lastComboValid = true;
+        return;
+      }
+      try {
+        const res = await fetch('/boka/room/' + roomCode + '/validate_combo', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({card_ids: myReady.map(c => c.id)})
+        });
+        const data = await res.json();
+        if (!data.valid) {
+          infoEl.innerHTML = `<span class="combo-error">无效的组合</span>`;
+          lastComboValid = false;
+          return;
+        }
+        const name = data.name || '';
+        const atk = data.atk;
+        const def = data.def;
+        let html = '';
+        if (data.type === 'single') {
+          infoEl.innerHTML = '';
+        } else if (name) {
+          html = `<span class="combo-name">${name}</span>`;
+          if (atk !== null) html += `<span class="info-pill atk-pill">${atk}</span>`;
+          if (def !== null) html += `<span class="info-pill def-pill">${def}</span>`;
+          infoEl.innerHTML = html;
+        } else {
+          infoEl.innerHTML = '';
+        }
+        lastComboValid = true;
+      } catch (e) {
+        infoEl.innerHTML = `<span class="combo-error">校验失败</span>`;
+        lastComboValid = false;
+      }
+    }
+
+    // ===== 结算 =====
+    function showResult(state) {
+      const players = state.players || [];
+      const me = players.find(p => p.username === myUsername);
+      const myRank = me ? (me.rank || '?') : '?';
+      const myChange = me ? (me.score_change || 0) : 0;
+      document.getElementById('resultTitle').textContent = '本局结算';
+      document.getElementById('resultLine').textContent = `你的名次：第 ${myRank} 名`;
+      const sign = myChange >= 0 ? '+' : '';
+      document.getElementById('resultMaterials').textContent = `积分变化：${sign}${myChange}`;
+      document.getElementById('resultModal').classList.add('active');
+    }
+
+    function confirmResult() {
+      window.location.href = '/boka';
+    }
+
+    // ===== 轮询 =====
+    function startPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(pollState, 1500);
+    }
+
+    async function pollState() {
+      try {
+        const res = await fetch('/boka/room/' + roomCode + '/battle_state');
+        const data = await res.json();
+        if (data.error) return;
+
+        // 轮次变化 → 重置
+        if (data.round_no !== shownRound) {
+          shownRound = data.round_no;
+          revealStartedAt = null;
+          lastRenderedStep = null;
+        }
+
+        // 进入 revealing → 记 T0（前端自己算）
+        if (data.phase === 'revealing' && revealStartedAt === null) {
+          // 判断是否所有真人都已锁定
+          const allRealLocked = (data.players || []).every(p => p.locked || p.is_ai);
+          if (allRealLocked) {
+            revealStartedAt = Date.now();
+            startAnimLoop();
+          }
+        }
+
+        applyState(data);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function startAnimLoop() {
+      if (animTimer) return;
+      animTimer = setInterval(() => {
+        if (!lastStateCache || lastStateCache.phase !== 'revealing') {
+          clearInterval(animTimer);
+          animTimer = null;
+          return;
+        }
+        const step = computeStep();
+        if (step !== lastRenderedStep) {
+          lastRenderedStep = step;
+          renderAllPlayers(lastStateCache);
+        }
+      }, 100);
+    }
+
+    window.addEventListener('resize', () => { if (lastStateCache) renderAllPlayers(lastStateCache); });
+
+    renderHand();
+    pollState();
+    startPolling();
+  </script>
+</body>
+</html>
