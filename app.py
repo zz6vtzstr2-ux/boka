@@ -2275,7 +2275,7 @@ def boka_play(room_code):
     all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     if all(p.locked for p in all_players):
         resolve_boka_round(game)
-    return jsonify({"success": True})
+    return jsonify({"success": True, "state": _build_battle_state(game, room)})
 
 @app.route('/boka/room/<room_code>/songjiang_draw', methods=['POST'])
 @login_required
@@ -2321,7 +2321,54 @@ def boka_songjiang_draw(room_code):
     me.hand = json_dumps_safe(my_hand)
     game.card_pool = json_dumps_safe(pool)
     db.session.commit()
-    return jsonify({"success": True, "picked_id": picked_id, "picked_level": picked_level})
+    return jsonify({"success": True, "picked_id": picked_id, "picked_level": picked_level, "state": _build_battle_state(game, room)})
+
+def _build_battle_state(game, room):
+    """把战斗状态打包成 dict（给前端用）"""
+    gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+
+    # 是否有 AI
+    ai_usernames = set()
+    bp_list = BokaPlayer.query.filter_by(room_id=room.id).all()
+    for bp in bp_list:
+        if bp.is_ai:
+            ai_usernames.add(bp.username)
+
+    players_view = []
+    for g in gps:
+        ready_cards = json_loads_safe(g.ready_card)
+        show_cards = (game.phase in ("revealing", "finished")) or (g.username == current_user.username)
+        players_view.append({
+            "username": g.username,
+            "nickname": g.nickname,
+            "is_ai": g.username in ai_usernames,
+            "is_me": g.username == current_user.username,
+            "hand_count": len(json_loads_safe(g.hand)),
+            "locked": g.locked,
+            "ready_cards": [CARD_BY_ID.get(cid) for cid in (ready_cards if show_cards else []) if CARD_BY_ID.get(cid)],
+            "rank": g.rank,
+            "score_change": g.score_change or 0,
+            "surrendered": g.surrendered,
+        })
+
+    me = next((g for g in gps if g.username == current_user.username), None)
+    my_hand_ids = json_loads_safe(me.hand) if me else []
+    my_ready_ids = json_loads_safe(me.ready_card) if me else []
+
+    return {
+        "round_no": game.round_no,
+        "phase": game.phase,
+        "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
+        "players": players_view,
+        "my_hand": [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)],
+        "my_ready": [CARD_BY_ID.get(cid) for cid in my_ready_ids if CARD_BY_ID.get(cid)],
+        "winner_card_id": game.round_winner_card_id,
+        "winner_username": game.winner_username,
+        "pool_count": len(json_loads_safe(game.card_pool)),
+        "history": json_loads_safe(game.history),
+        "finished": game.phase == "finished",
+        "beauty_left": game.beauty_left if game.beauty_left is not None else 3,
+    }
 
 @app.route('/boka/room/<room_code>/battle_state')
 @login_required
@@ -2333,6 +2380,7 @@ def boka_battle_state(room_code):
     if not game:
         return jsonify({"error": "无对局"}), 404
 
+    # 结算后切轮次逻辑（和原来一样）
     if game.phase == "revealing" and game.revealed_at:
         elapsed = (datetime.now() - game.revealed_at).total_seconds()
         if elapsed >= 3.0:
@@ -2349,41 +2397,7 @@ def boka_battle_state(room_code):
                 game.winner_username = None
                 db.session.commit()
 
-    gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
-    me = next((g for g in gps if g.username == current_user.username), None)
-    all_locked = all(g.locked for g in gps)
-
-    players_view = []
-    for g in gps:
-        ready_cards = json_loads_safe(g.ready_card)
-        show_cards = (game.phase in ("revealing", "finished")) or (g.username == current_user.username)
-        players_view.append({
-            "username": g.username, "nickname": g.nickname,
-            "is_me": g.username == current_user.username,
-            "hand_count": len(json_loads_safe(g.hand)),
-            "locked": g.locked,
-            "ready_cards": [CARD_BY_ID.get(cid) for cid in (ready_cards if show_cards else []) if CARD_BY_ID.get(cid)],
-            "rank": g.rank, "score_change": g.score_change or 0,
-            "surrendered": g.surrendered,
-        })
-
-    my_hand_ids = json_loads_safe(me.hand) if me else []
-    my_ready_ids = json_loads_safe(me.ready_card) if me else []
-
-    return jsonify({
-        "round_no": game.round_no, "phase": game.phase,
-        "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
-        "all_locked": all_locked,
-        "my_hand": [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)],
-        "my_ready": [CARD_BY_ID.get(cid) for cid in my_ready_ids if CARD_BY_ID.get(cid)],
-        "players": players_view,
-        "winner_card_id": game.round_winner_card_id,
-        "winner_username": game.winner_username,
-        "pool_count": len(json_loads_safe(game.card_pool)),
-        "history": json_loads_safe(game.history),
-        "finished": game.phase == "finished",
-        "beauty_left": game.beauty_left if game.beauty_left is not None else 3,
-    })
+    return jsonify(_build_battle_state(game, room))
 
 # ========== 搏卡战斗核心 ==========
 def _boka_ai_choose_cards(game, gp):
@@ -3079,8 +3093,8 @@ def boka_surrender(room_code):
     alive = [g for g in all_players if not g.surrendered and len(json_loads_safe(g.hand)) > 0]
     if len(alive) <= 1:
         finish_boka_game(game, alive)
-        return jsonify({"success": True, "rank": me.surrendered_rank, "finished": True})
-    return jsonify({"success": True, "rank": me.surrendered_rank, "finished": False})
+        return jsonify({"success": True, "rank": me.surrendered_rank, "finished": True, "state": _build_battle_state(game, room)})
+    return jsonify({"success": True, "rank": me.surrendered_rank, "finished": False, "state": _build_battle_state(game, room)})
 
 def calc_boka_layout(n, my_username, players):
     if n == 1:
