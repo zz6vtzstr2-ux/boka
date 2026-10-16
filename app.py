@@ -1747,7 +1747,49 @@ def challenge_test_ai_deck():
 # ========== 搏卡 ==========
 # ========== 搏卡（单卡桌） ==========
 TABLE_CODE = "TABLE1"
+# ========== 搏卡状态缓存 ==========
+_TABLE_STATE_CACHE = None
+_TABLE_STATE_CACHE_AT = 0
+_TABLE_CACHE_TTL = 3
 
+_LAST_CLEANUP_AT = 0
+
+_CLASS_COUNT_CACHE = None
+_CLASS_COUNT_CACHE_AT = 0
+
+
+def invalidate_table_state_cache():
+    global _TABLE_STATE_CACHE, _TABLE_STATE_CACHE_AT
+    _TABLE_STATE_CACHE = None
+    _TABLE_STATE_CACHE_AT = 0
+
+
+def invalidate_class_count_cache():
+    global _CLASS_COUNT_CACHE, _CLASS_COUNT_CACHE_AT
+    _CLASS_COUNT_CACHE = None
+    _CLASS_COUNT_CACHE_AT = 0
+
+
+def get_class_count():
+    global _CLASS_COUNT_CACHE, _CLASS_COUNT_CACHE_AT
+    import time
+    now = time.time()
+    if _CLASS_COUNT_CACHE is None or now - _CLASS_COUNT_CACHE_AT > 60:
+        _CLASS_COUNT_CACHE = ClassCollection.query.count()
+        _CLASS_COUNT_CACHE_AT = now
+    return _CLASS_COUNT_CACHE
+
+
+def get_table_state(table, force_refresh=False):
+    global _TABLE_STATE_CACHE, _TABLE_STATE_CACHE_AT
+    import time
+    now = time.time()
+    if (not force_refresh) and _TABLE_STATE_CACHE is not None and (now - _TABLE_STATE_CACHE_AT < _TABLE_CACHE_TTL):
+        return _TABLE_STATE_CACHE
+    state = _build_table_state(table)
+    _TABLE_STATE_CACHE = state
+    _TABLE_STATE_CACHE_AT = now
+    return state
 
 def get_or_create_table():
     """获取唯一卡桌（id=1），没有就创建"""
