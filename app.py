@@ -3120,7 +3120,7 @@ def boka_battle_state(room_code):
         winner_card_ids = [game.round_winner_card_id]
 
     all_loser = (game.round_winner_card_id is None and game.winner_username is None and game.phase == "revealing")
-
+    print(f"[boka_state] phase={game.phase} elapsed={elapsed_since_reveal} players={[(p['username'], len(p['ready_cards']), p['result']) for p in players_view]}", flush=True)
     return jsonify({
         "round_no": game.round_no,
         "phase": game.phase,
