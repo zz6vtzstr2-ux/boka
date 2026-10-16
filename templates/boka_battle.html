@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>搏卡战斗 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; min-height: 100vh;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: radial-gradient(ellipse at center, #f5edda 0%, #d8ccb0 100%) fixed;
+      color: #333;
+      position: relative;
+    }
+
+    .top-bar {
+      position: sticky; top: 0; left: 0; right: 0;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 6px; padding: 6px 12px;
+      background: rgba(245,237,218,0.92);
+      backdrop-filter: blur(6px);
+      z-index: 30;
+      flex-wrap: wrap;
+    }
+    .top-left { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+    .top-right { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+    .top-btn, .top-info {
+      background: rgba(255,255,255,0.95);
+      border: 1px solid #d8d0bc;
+      border-radius: 10px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #4a4a4a;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      white-space: nowrap;
+    }
+    .top-info { color: #8a6d1f; cursor: default; }
+    .top-btn.danger { background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; }
+
+    .center-banner {
+      font-size: 22px; font-weight: bold; color: #fff;
+      letter-spacing: 6px; text-indent: 6px;
+      padding: 10px 28px; border-radius: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      white-space: nowrap;
+      margin: 12px auto; width: fit-content;
+      transition: opacity 0.3s;
+    }
+    .center-banner.atk {
+      background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b);
+      border: 2px solid #8a4a1f;
+    }
+    .center-banner.def {
+      background: radial-gradient(circle at 30% 30%, #8bc0e8, #4a7db8);
+      border: 2px solid #2a4a7a;
+    }
+    .center-banner.hide { display: none; }
+
+    .arena {
+      padding: 6px 12px 380px 12px;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 8px;
+    }
+
+    /* 2 人局 */
+    .duel-layout {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 8px;
+      width: 100%;
+    }
+    .duel-slot {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 8px;
+      width: 100%;
+    }
+    .duel-slot .player-head {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .duel-slot .player-head img {
+      width: 48px; height: 48px;
+      border-radius: 10px;
+      border: 2px solid #e8c8d0;
+      box-shadow: 0 0 0 3px rgba(232,200,208,0.5);
+      background: #fff; object-fit: cover;
+    }
+    .duel-slot .player-head .pname {
+      font-size: 15px; font-weight: bold; color: #4a4a4a; letter-spacing: 1px;
+    }
+    .duel-slot .player-head .hand-count { font-size: 12px; color: #888; }
+    .duel-slot .played-area {
+      display: flex; flex-wrap: wrap;
+      gap: 8px; justify-content: center;
+      min-height: 160px;
+      align-items: center;
+      padding-top: 16px;
+      width: 100%;
+    }
+
+    /* 多人局 */
+    .multi-layout {
+      position: relative;
+      width: 100%;
+      min-height: 520px;
+      display: none;
+    }
+    .multi-layout.show { display: block; }
+
+    .multi-top-area {
+      display: flex; justify-content: center;
+      align-items: flex-start;
+      gap: 32px;
+      width: 100%;
+    }
+    .multi-middle {
+      display: flex; justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 0;
+    }
+    .multi-left-col, .multi-right-col {
+      display: flex; flex-direction: column;
+      gap: 12px;
+    }
+    .multi-right-col { align-items: flex-end; }
+
+    .multi-slot {
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+    }
+    .multi-top-area .multi-slot {
+      flex-direction: column;
+      align-items: center;
+    }
+    .multi-left-col .multi-slot {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+    .multi-right-col .multi-slot {
+      flex-direction: row-reverse;
+      align-items: flex-start;
+    }
+
+    .multi-slot .player-head {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 4px;
+      flex-shrink: 0;
+    }
+    .multi-slot .player-head img {
+      width: 48px; height: 48px;
+      border-radius: 10px;
+      border: 2px solid #e8c8d0;
+      box-shadow: 0 0 0 3px rgba(232,200,208,0.5);
+      background: #fff; object-fit: cover;
+    }
+    .multi-slot .player-head .pname {
+      font-size: 13px; font-weight: bold; color: #4a4a4a;
+      max-width: 80px; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+      text-align: center;
+    }
+    .multi-slot .player-head .hand-count { font-size: 11px; color: #888; }
+    .multi-slot .played-area {
+      display: flex; flex-wrap: wrap;
+      gap: 6px;
+      align-items: flex-start;
+      padding-top: 4px;
+      min-height: 140px;
+    }
+
+    /* 手机端 */
+    .mobile-layout {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+    }
+    .mobile-layout.show { display: flex; }
+    .mobile-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 6px;
+      background: rgba(255,255,255,0.6);
+      border-radius: 10px;
+      border: 1px solid #e0d8c0;
+    }
+    .mobile-row .player-head {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 4px;
+      flex-shrink: 0; width: 64px;
+    }
+    .mobile-row .player-head img {
+      width: 48px; height: 48px;
+      border-radius: 10px;
+      border: 2px solid #e8c8d0;
+      background: #fff; object-fit: cover;
+    }
+    .mobile-row .player-head .pname {
+      font-size: 12px; font-weight: bold; color: #4a4a4a;
+      max-width: 64px; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+      text-align: center;
+    }
+    .mobile-row .player-head .hand-count { font-size: 10px; color: #888; }
+    .mobile-row .played-area {
+      display: flex; flex-wrap: wrap;
+      gap: 4px; flex: 1;
+      align-items: flex-start;
+      padding-top: 2px;
+      min-height: 80px;
+    }
+
+    /* 卡牌 */
+    .hero-card {
+      position: relative;
+      width: 100px; height: 140px;
+      flex-shrink: 0;
+      transition: box-shadow 0.15s;
+    }
+    .hero-card .oval-wrap {
+      width: 100%; height: calc(100% - 22px);
+      border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+      overflow: hidden;
+      background: #fffdf5;
+      border: 4px solid #f0e0a0;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+      position: relative;
+      transition: box-shadow 0.3s, border-color 0.3s;
+    }
+    .hero-card .oval-wrap img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .hero-card .atk-orb,
+    .hero-card .def-orb {
+      position: absolute; bottom: 20px;
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: bold; color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6); z-index: 2;
+    }
+    .hero-card .atk-orb {
+      left: -4px;
+      background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b);
+      border: 2px solid #8a4a1f;
+    }
+    .hero-card .def-orb {
+      right: -4px;
+      background: radial-gradient(circle at 30% 30%, #8bc0e8, #4a7db8);
+      border: 2px solid #2a4a7a;
+    }
+    .hero-card .card-name {
+      position: absolute; bottom: 10px; left: 0; right: 0;
+      text-align: center; font-size: 12px; font-weight: bold;
+      color: #4a4a4a; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .hero-card.selected .oval-wrap {
+      outline: 4px solid #5bb8e8;
+      outline-offset: -4px;
+      box-shadow: 0 0 0 4px rgba(91,184,232,0.35), 0 3px 8px rgba(0,0,0,0.2);
+    }
+    .hero-card.winner .oval-wrap {
+      border-color: #f5c542;
+      box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6);
+      animation: winnerBlink 1s ease-in-out 3;
+    }
+    @keyframes winnerBlink {
+      0%, 100% { box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6); }
+      50% { box-shadow: 0 0 24px #f5c542, 0 0 48px rgba(245,197,66,0.9); }
+    }
+    .hero-card.loser .oval-wrap {
+      opacity: 0.5;
+      filter: grayscale(0.5);
+    }
+
+    /* 问号椭圆 */
+    .qmark-card {
+      position: relative;
+      width: 100px; height: 140px;
+      flex-shrink: 0;
+    }
+    .qmark-card .qmark-wrap {
+      width: 100%; height: calc(100% - 22px);
+      border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+      overflow: hidden;
+      background: radial-gradient(circle at 30% 30%, #3a4a5a, #1a2a3a);
+      border: 4px solid #c8b878;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .qmark-card .qmark-wrap::before {
+      content: "?";
+      font-size: 56px; font-weight: bold;
+      color: #e8d8a0;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+      font-family: "LXGW WenKai", serif;
+    }
+
+    /* 底部 */
+    .bottom-area {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(255,255,255,0.94);
+      border-top: 1px solid #d8d0bc;
+      z-index: 20;
+      max-height: 380px;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .my-played-area {
+      display: flex; flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      align-items: center;
+      min-height: 150px;
+      padding: 6px 12px;
+      border-bottom: 1px dashed #e0d8c0;
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+    .my-played-area:empty::before {
+      content: "出战区（未出牌）";
+      color: #bbb; font-size: 13px;
+    }
+
+    .my-hand-row {
+      display: flex; align-items: stretch;
+      gap: 10px;
+      padding: 6px 12px 0 12px;
+      flex: 1; min-height: 0;
+      overflow: hidden;
+    }
+    .my-avatar-block {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 2px; flex-shrink: 0; width: 64px;
+    }
+    .my-avatar-block img {
+      width: 48px; height: 48px;
+      border-radius: 10px;
+      border: 2px solid #5bb8e8;
+      box-shadow: 0 0 0 3px rgba(91,184,232,0.4);
+      background: #fff; object-fit: cover;
+    }
+    .my-avatar-block .pname {
+      font-size: 11px; font-weight: bold; color: #4a4a4a;
+      text-align: center; max-width: 64px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .my-avatar-block .hand-count { font-size: 10px; color: #888; }
+
+    .my-hand-area {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .hand-label {
+      font-size: 11px; color: #999;
+      letter-spacing: 2px;
+      padding-left: 4px; margin-bottom: 2px;
+      flex-shrink: 0;
+    }
+    .hand-scroll {
+      display: flex; flex-wrap: wrap;
+      gap: 8px;
+      align-content: flex-start;
+      justify-content: center;
+      padding: 4px 0;
+      overflow-y: auto;
+      max-height: 170px;
+    }
+
+    .combo-info {
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; padding: 4px 8px;
+      min-height: 24px;
+      font-size: 13px; color: #666;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .combo-info .combo-name { font-weight: bold; color: #8a6d1f; letter-spacing: 1px; }
+    .combo-info .info-pill {
+      font-size: 12px; font-weight: bold;
+      padding: 2px 8px; border-radius: 6px;
+      line-height: 1.4; white-space: nowrap;
+    }
+    .combo-info .atk-pill { background: #d89050; color: #fff; }
+    .combo-info .def-pill { background: #6ba0d0; color: #fff; }
+    .combo-info .combo-error { color: #b85a6a; font-weight: bold; }
+
+    .btn-row {
+      display: flex; gap: 8px;
+      padding: 4px 12px 10px 12px;
+      flex-shrink: 0;
+    }
+    .play-square-btn {
+      flex: 1; padding: 12px;
+      border: none; border-radius: 12px;
+      background: #5bb8e8; color: #fff;
+      font-size: 16px; font-weight: bold;
+      font-family: inherit; letter-spacing: 3px;
+      cursor: pointer;
+      transition: background 0.15s;
+      transform: translateZ(0);
+    }
+    .play-square-btn:hover:not(:disabled) { background: #4aa8d8; }
+    .play-square-btn:disabled {
+      background: #ccc !important; color: #fff !important;
+      cursor: not-allowed;
+      transform: translateZ(0);
+    }
+
+    /* 弹窗 */
+    .record-modal, .result-modal, .confirm-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 200;
+      justify-content: center; align-items: center;
+      padding: 16px;
+    }
+    .record-modal.active, .result-modal.active, .confirm-modal.active { display: flex; }
+    .record-inner, .result-inner, .confirm-inner {
+      background: #fffdf5; border-radius: 16px;
+      padding: 18px; max-width: 500px; width: 100%;
+      max-height: 80vh; overflow-y: auto;
+      border: 4px double #f0e0a0;
+    }
+    .record-inner h3, .result-inner h2 {
+      margin: 0 0 12px 0; color: #8a6d1f;
+    }
+    .record-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .record-table th, .record-table td {
+      padding: 8px 6px; text-align: center;
+      border-bottom: 1px solid #e8e0cc;
+    }
+    .record-table th { color: #8a6d1f; font-weight: bold; background: #fdf6d8; }
+    .record-table .r-win { color: #5cb85c; font-weight: bold; }
+    .record-table .r-lose { color: #d9534f; font-weight: bold; }
+    .record-table .r-draw { color: #999; font-weight: bold; }
+    .record-close, .result-ok, .confirm-btn {
+      width: 100%; padding: 12px; border: none;
+      border-radius: 10px; background: #5bb8e8;
+      color: #fff; font-size: 15px; font-weight: bold;
+      cursor: pointer; font-family: inherit; margin-top: 14px;
+    }
+    .confirm-btns { display: flex; gap: 10px; margin-top: 14px; }
+    .confirm-btns .confirm-btn { margin-top: 0; }
+    .confirm-btn.confirm-secondary {
+      background: #fce8ec; color: #b85a6a;
+      border: 1px solid #e8c8d0;
+    }
+    .confirm-msg {
+      font-size: 15px; color: #555; line-height: 1.7;
+      margin-bottom: 8px; white-space: pre-wrap; text-align: center;
+    }
+    .confirm-inner h3 {
+      margin: 0 0 14px 0; color: #8a6d1f;
+      font-size: 18px; letter-spacing: 3px; text-align: center;
+    }
+    .result-inner h2 { text-align: center; }
+    .result-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    .result-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; background: #f9f5e8; border-radius: 10px;
+    }
+    .result-row img { width: 36px; height: 36px; border-radius: 10px; }
+    .result-row .r-name { flex: 1; font-weight: bold; font-size: 14px; }
+    .result-row .r-rank { font-size: 13px; color: #b85a6a; font-weight: bold; }
+    .result-row .r-change { font-size: 15px; font-weight: bold; min-width: 50px; text-align: right; }
+    .result-row .r-change.plus { color: #5cb85c; }
+    .result-row .r-change.minus { color: #d9534f; }
+
+    .toast {
+      position: fixed; top: 88%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: rgba(44,110,90,0.95); color: #fff;
+      padding: 14px 24px; border-radius: 14px; font-size: 15px;
+      font-weight: bold; opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none; z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+    @media (max-width: 768px) {
+      .hero-card, .qmark-card { width: 70px; height: 98px; }
+      .hero-card .oval-wrap, .qmark-card .qmark-wrap {
+        height: calc(100% - 16px); border-width: 2px;
+      }
+      .hero-card .atk-orb, .hero-card .def-orb {
+        bottom: 12px; width: 20px; height: 20px; font-size: 11px;
+      }
+      .hero-card .card-name { font-size: 10px; }
+      .qmark-card .qmark-wrap::before { font-size: 36px; }
+      .my-played-area { min-height: 110px; }
+      .my-hand-area { max-height: 140px; }
+      .hand-scroll { max-height: 120px; }
+      .multi-layout { display: none !important; }
+      .mobile-layout.show { display: flex !important; }
+      .duel-layout { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <div class="top-left">
+      <div class="top-info" id="roundInfo">第 1 轮</div>
+      <div class="top-info" id="poolInfo">卡袋 0</div>
+      <button class="top-btn" onclick="showRecord()">记录</button>
+      <button class="top-btn" onclick="temporaryLeave()">暂离房间</button>
+    </div>
+    <div class="top-right">
+      <button class="top-btn danger" onclick="surrender()">弃卡</button>
+    </div>
+  </div>
+
+  <div class="center-banner atk" id="centerBanner">本轮比攻</div>
+
+  <div class="arena">
+    <div class="duel-layout" id="duelLayout">
+      <div class="duel-slot" id="duelTopSlot"></div>
+    </div>
+
+    <div class="multi-layout" id="multiLayout">
+      <div class="multi-top-area" id="multiTopArea"></div>
+      <div class="multi-middle">
+        <div class="multi-left-col" id="multiLeftCol"></div>
+        <div class="multi-right-col" id="multiRightCol"></div>
+      </div>
+    </div>
+
+    <div class="mobile-layout" id="mobileLayout"></div>
+  </div>
+
+  <div class="bottom-area">
+    <div class="my-played-area" id="myPlayedArea"></div>
+
+    <div class="my-hand-row">
+      <div class="my-avatar-block">
+        <img src="/static/avatars/{{ current_user.username }}.jpg" alt="">
+        <div class="pname">{{ current_user.nickname or current_user.username }}</div>
+        <div class="hand-count" id="myHandCount">手牌 0</div>
+      </div>
+      <div class="my-hand-area">
+        <div class="hand-label">手牌</div>
+        <div class="hand-scroll" id="myHandArea"></div>
+      </div>
+    </div>
+
+    <div class="combo-info" id="comboInfo"></div>
+    <div class="btn-row">
+      <button class="play-square-btn" id="playBtn" onclick="submitPlay()" disabled>出战</button>
+    </div>
+  </div>
+
+  <div class="record-modal" id="recordModal" onclick="if(event.target===this)closeRecord()">
+    <div class="record-inner">
+      <h3>对局记录</h3>
+      <div id="recordContent">暂无记录</div>
+      <button class="record-close" onclick="closeRecord()">关闭</button>
+    </div>
+  </div>
+
+  <div class="result-modal" id="resultModal">
+    <div class="result-inner">
+      <h2>本局结算</h2>
+      <div class="result-list" id="resultList"></div>
+      <button class="result-ok" onclick="confirmResult()">确认返回卡桌</button>
+    </div>
+  </div>
+
+  <div class="confirm-modal" id="songjiangModal">
+    <div class="confirm-inner">
+      <h3>智多星 · 宋江</h3>
+      <div class="confirm-msg">是否抽卡？</div>
+      <div class="confirm-btns">
+        <button class="confirm-btn confirm-secondary" onclick="songjiangChoose(false)">取消</button>
+        <button class="confirm-btn" onclick="songjiangChoose(true)">抽卡</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const roomCode = "{{ room_code }}";
+    const myUsername = "{{ current_user.username }}";
+    let myHand = [];
+    let myReady = [];
+    let currentPhase = "{{ phase }}";
+    let currentRound = {{ round_no }};
+    let resultShown = false;
+    let lockedLocally = false;
+    let comboValid = true;
+    let lastServerRound = -1;
+    let lastStateCache = null;
+
+    let revealStartedAt = null;
+    let animTimer = null;
+    let lastRenderedStep = null;
+    let winnerHighlightActive = false;
+
+    let songjiangShownForCurrentSelection = false;
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1600);
+    }
+
+    function makeHeroCard(c, extraCls) {
+      const div = document.createElement('div');
+      div.className = 'hero-card ' + (extraCls || '');
+      div.innerHTML = `
+        <div class="oval-wrap">
+          <img src="/static/cards/${c.name}.PNG" alt="${c.name}">
+        </div>
+        <div class="atk-orb">${Math.floor(c.atk)}</div>
+        <div class="def-orb">${Math.floor(c.def)}</div>
+        <div class="card-name">${c.name}</div>
+      `;
+      return div;
+    }
+
+    function makeQmarkCard() {
+      const div = document.createElement('div');
+      div.className = 'qmark-card';
+      div.innerHTML = `<div class="qmark-wrap"></div>`;
+      return div;
+    }
+
+    function computeStep() {
+      if (currentPhase !== 'revealing') return 'idle';
+      if (!revealStartedAt) return 'idle';
+      const elapsed = (Date.now() - revealStartedAt) / 1000;
+      if (elapsed < 1) return 'my_qmark';
+      if (elapsed < 3) return 'both_qmark';
+      if (elapsed < 6) return 'face';
+      return 'result';
+    }
+
+    function renderOtherPlayed(container, p, winnerUsername, step) {
+      container.innerHTML = '';
+      if (step === 'idle') return;
+      if (step === 'my_qmark') {
+        if (p.locked && !p.is_ai) container.appendChild(makeQmarkCard());
+        return;
+      }
+      if (step === 'both_qmark') {
+        if (p.locked) container.appendChild(makeQmarkCard());
+        return;
+      }
+      (p.ready_cards || []).forEach(c => {
+        let cls = '';
+        if (step === 'result' && winnerHighlightActive) {
+          cls = (p.username === winnerUsername) ? 'winner' : 'loser';
+        }
+        container.appendChild(makeHeroCard(c, cls));
+      });
+    }
+
+    function renderMyPlayed(state, step) {
+      const el = document.getElementById('myPlayedArea');
+      el.innerHTML = '';
+      const me = (state.players || []).find(p => p.username === myUsername);
+      if (!me) return;
+
+      // 我未出战：空
+      if (!me.locked && step === 'idle') return;
+
+      if (step === 'idle') {
+        // 未在 revealing，但我已经锁定（刚出战，等服务器）：显示问号
+        if (me.locked) el.appendChild(makeQmarkCard());
+        return;
+      }
+      if (step === 'my_qmark') {
+        if (me.locked) el.appendChild(makeQmarkCard());
+        return;
+      }
+      if (step === 'both_qmark') {
+        if (me.locked) el.appendChild(makeQmarkCard());
+        return;
+      }
+      (me.ready_cards || []).forEach(c => {
+        let cls = '';
+        if (step === 'result' && winnerHighlightActive) {
+          cls = (me.username === state.winner_username) ? 'winner' : 'loser';
+        }
+        el.appendChild(makeHeroCard(c, cls));
+      });
+    }
+
+    function pickLayout(playerCount) {
+      if (playerCount === 2) return 'duel';
+      const w = window.innerWidth;
+      if (w <= 768) return 'mobile';
+      return 'multi';
+    }
+
+    function renderAll(state) {
+      lastStateCache = state;
+      const players = state.players || [];
+      const step = computeStep();
+
+      const banner = document.getElementById('centerBanner');
+      if (state.phase === 'revealing' || state.phase === 'finished') {
+        banner.classList.add('hide');
+      } else {
+        banner.classList.remove('hide');
+        banner.textContent = '本轮' + state.round_phase;
+        banner.classList.remove('atk', 'def');
+        banner.classList.add(state.round_phase === '比攻' ? 'atk' : 'def');
+      }
+
+      document.getElementById('roundInfo').textContent = '第 ' + state.round_no + ' 轮';
+      document.getElementById('poolInfo').textContent = '卡袋 ' + (state.pool_count || 0);
+
+      const others = players.filter(p => p.username !== myUsername);
+      const layout = pickLayout(players.length);
+
+      document.getElementById('duelLayout').style.display = 'none';
+      document.getElementById('multiLayout').classList.remove('show');
+      document.getElementById('mobileLayout').classList.remove('show');
+
+      if (layout === 'duel') {
+        renderDuel(others, state, step);
+      } else if (layout === 'multi') {
+        renderMulti(others, state, step);
+      } else {
+        renderMobile(others, state, step);
+      }
+
+      renderMyPlayed(state, step);
+      renderMyHand(state);
+      renderRecord(state.history);
+
+      if (state.finished && !resultShown) {
+        resultShown = true;
+        showResult(state.players);
+      }
+    }
+
+    function renderDuel(others, state, step) {
+      const layout = document.getElementById('duelLayout');
+      layout.style.display = 'flex';
+      const top = document.getElementById('duelTopSlot');
+      top.innerHTML = '';
+      if (others.length === 0) return;
+      const p = others[0];
+
+      const head = document.createElement('div');
+      head.className = 'player-head';
+      head.innerHTML = `
+        <img src="/static/avatars/${p.username}.jpg" alt="">
+        <div>
+          <div class="pname">${p.nickname}</div>
+          <div class="hand-count">手牌 ${p.hand_count}</div>
+        </div>
+      `;
+      const area = document.createElement('div');
+      area.className = 'played-area';
+      renderOtherPlayed(area, p, state.winner_username, step);
+
+      top.appendChild(head);
+      top.appendChild(area);
+    }
+
+    function renderMulti(others, state, step) {
+      const layout = document.getElementById('multiLayout');
+      layout.classList.add('show');
+
+      const n = others.length + 1;
+      let rest = n - 1;
+      let topCount = 1;
+      rest -= 1;
+      if (rest % 2 === 1) { topCount += 1; rest -= 1; }
+      const
