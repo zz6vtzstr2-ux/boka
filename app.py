@@ -427,6 +427,7 @@ def donate():
     db.session.add(record)
     current_user.gold += 1
     db.session.commit()
+    invalidate_class_count_cache()
     return jsonify({"success": True, "gold": current_user.gold})
 
 # ========== 家园 ==========
@@ -1815,6 +1816,13 @@ def get_or_create_table():
 
 def cleanup_expired_players(table):
     """惰性清理：未准备超 2 分钟 / 已准备超 30 分钟的玩家（AI 不清理）"""
+    global _LAST_CLEANUP_AT
+    import time
+    now_ts = time.time()
+    if now_ts - _LAST_CLEANUP_AT < 30:
+        return
+    _LAST_CLEANUP_AT = now_ts
+
     if table.status != "waiting":
         return
     now = datetime.now()
@@ -1822,19 +1830,17 @@ def cleanup_expired_players(table):
     changed = False
     for p in players:
         if p.is_ai:
-            continue  # AI 不清理
+            continue
         if p.status_changed_at is None:
             continue
         elapsed = (now - p.status_changed_at).total_seconds()
         if p.ready and elapsed > 30 * 60:
-            # 已准备 30 分钟
             u = User.query.filter_by(username=p.username).first()
             if u:
                 u.boka_room_id = None
             db.session.delete(p)
             changed = True
         elif (not p.ready) and elapsed > 2 * 60:
-            # 未准备 2 分钟
             u = User.query.filter_by(username=p.username).first()
             if u:
                 u.boka_room_id = None
@@ -1842,6 +1848,7 @@ def cleanup_expired_players(table):
             changed = True
     if changed:
         db.session.commit()
+        invalidate_table_state_cache()
 
 def _try_join_table(table, user):
     """尝试加入卡桌，返回 (success, error_msg)"""
@@ -1928,7 +1935,7 @@ def _build_table_state(table):
             "hand_count": hand_counts.get(p.username, -1),
         })
 
-    class_count = ClassCollection.query.count()
+    class_count = get_class_count()
     pool_capacity = min(class_count, 42)
     max_players = pool_capacity // 3
 
@@ -1961,19 +1968,23 @@ def boka_table_state():
     cleanup_expired_players(table)
     t2 = time.time()
 
-    # 同步当前用户的 boka_room_id
+    # 同步当前用户的 boka_room_id（这个要看 boka_room_id 和 me_player 是否一致）
     me_player = BokaPlayer.query.filter_by(room_id=table.id, username=current_user.username).first()
     if current_user.boka_room_id == table.id and me_player is None:
         current_user.boka_room_id = None
         db.session.commit()
+        invalidate_table_state_cache()
     t3 = time.time()
 
-    result = _build_table_state(table)
+    state = get_table_state(table)
+    # 浅拷贝 + 动态加 my_in_table
+    state = dict(state)
+    state["my_in_table"] = (current_user.boka_room_id == table.id)
     t4 = time.time()
 
-    print(f"[table_state] get_table={t1-t0:.3f}s cleanup={t2-t1:.3f}s sync={t3-t2:.3f}s build={t4-t3:.3f}s total={t4-t0:.3f}s", flush=True)
+    print(f"[table_state] get_table={t1-t0:.3f}s cleanup={t2-t1:.3f}s sync={t3-t2:.3f}s state={t4-t3:.3f}s total={t4-t0:.3f}s", flush=True)
 
-    return jsonify(result)
+    return jsonify(state)
 
 @app.route('/boka/join', methods=['POST'])
 @login_required
@@ -1986,10 +1997,13 @@ def boka_join():
     t2 = time.time()
     if not ok:
         return jsonify({"error": err}), 400
-    result = _build_table_state(table)
+    invalidate_table_state_cache()
+    state = get_table_state(table, force_refresh=True)
+    state = dict(state)
+    state["my_in_table"] = True
     t3 = time.time()
     print(f"[boka_join] get_table={t1-t0:.3f}s try_join={t2-t1:.3f}s build={t3-t2:.3f}s total={t3-t0:.3f}s", flush=True)
-    return jsonify({"success": True, "state": result})
+    return jsonify({"success": True, "state": state})
 
 @app.route('/boka/leave', methods=['POST'])
 @login_required
@@ -2000,7 +2014,11 @@ def boka_leave():
         db.session.delete(me)
         current_user.boka_room_id = None
         db.session.commit()
-    return jsonify({"success": True, "state": _build_table_state(table)})
+        invalidate_table_state_cache()
+    state = get_table_state(table, force_refresh=True)
+    state = dict(state)
+    state["my_in_table"] = False
+    return jsonify({"success": True, "state": state})
 
 @app.route('/boka/reset_table', methods=['POST'])
 @login_required
@@ -2018,7 +2036,11 @@ def boka_reset_table():
     # 重置卡桌状态
     table.status = "waiting"
     db.session.commit()
-    return jsonify({"success": True, "state": _build_table_state(table)})
+    invalidate_table_state_cache()
+    state = get_table_state(table, force_refresh=True)
+    state = dict(state)
+    state["my_in_table"] = (current_user.boka_room_id == table.id)
+    return jsonify({"success": True, "state": state})
     
 @app.route('/boka/ready', methods=['POST'])
 @login_required
@@ -2032,7 +2054,11 @@ def boka_ready():
     me.ready = not me.ready
     me.status_changed_at = datetime.now()
     db.session.commit()
-    return jsonify({"success": True, "ready": me.ready, "state": _build_table_state(table)})
+    invalidate_table_state_cache()
+    state = get_table_state(table, force_refresh=True)
+    state = dict(state)
+    state["my_in_table"] = True
+    return jsonify({"success": True, "ready": me.ready, "state": state})
 
 
 @app.route('/boka/add_ai', methods=['POST'])
@@ -2075,9 +2101,13 @@ def boka_add_ai():
         status_changed_at=datetime.now(),
         is_ai=True,
     )
-    db.session.add(p)
+        db.session.add(p)
     db.session.commit()
-    return jsonify({"success": True, "state": _build_table_state(table)})
+    invalidate_table_state_cache()
+    state = get_table_state(table, force_refresh=True)
+    state = dict(state)
+    state["my_in_table"] = (current_user.boka_room_id == table.id)
+    return jsonify({"success": True, "state": state})
 
 @app.route('/boka/start', methods=['POST'])
 @login_required
@@ -2150,6 +2180,7 @@ def boka_start():
     game.round_no = 1
     game.phase = "selecting"
     db.session.commit()
+    invalidate_table_state_cache()
     return jsonify({"success": True})
 
 @app.route('/boka/room/<room_code>/battle')
@@ -2992,6 +3023,7 @@ def finish_boka_game(game, alive):
         room.status = "waiting"
         BokaPlayer.query.filter_by(room_id=room.id).update({"ready": False})
     db.session.commit()
+    invalidate_table_state_cache()
 
 
 def calc_boka_score_change(my_score, rank, total_players, avg_score):
