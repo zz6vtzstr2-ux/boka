@@ -245,9 +245,9 @@
 
   <script>
     const myUsername = "{{ current_user.username }}";
+    const myNickname = "{{ current_user.nickname or current_user.username }}";
     let lastStateJson = '';
     let pollTimer = null;
-    let lastKnownState = null;   // 最近一次的服务端 state
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -271,7 +271,6 @@
     }
 
     function applyState(state) {
-      lastKnownState = state;
       const cmp = JSON.stringify({
         status: state.status,
         is_playing: state.is_playing,
@@ -290,20 +289,9 @@
       }
     }
 
-    // ===== 乐观更新：点击后立刻渲染一个"假装的状态" =====
-    // 基于最近一次的状态，做一个本地的临时改动
-    function optimisticUpdate(mutator) {
-      if (!lastKnownState) return;
-      // 深拷贝
-      const fake = JSON.parse(JSON.stringify(lastKnownState));
-      mutator(fake);
-      renderTable(fake);
-    }
-
-    // ===== 各操作 =====
+    // ===== 各操作（全部：暂停轮询 → 请求 → 用返回的 state 渲染 → 恢复轮询） =====
     async function resetTable() {
       if (!confirm('强制重置卡桌？会中断当前对局，且删除所有 AI。')) return;
-      // 乐观：什么都不用改，只是等
       stopPolling();
       try {
         const res = await fetch('/boka/reset_table', { method: 'POST' });
@@ -317,32 +305,11 @@
     }
 
     async function joinTable() {
-      // 乐观：立刻把自己加到玩家列表，"来一局"变灰
-      optimisticUpdate(fake => {
-        const already = fake.players.some(p => p.username === myUsername);
-        if (!already) {
-          fake.players.push({
-            username: myUsername,
-            nickname: myNickname,
-            avatar: `/static/avatars/${myUsername}.jpg`,
-            is_ai: false,
-            ready: false,
-            hand_count: -1,
-          });
-        }
-        fake.my_in_table = true;
-      });
-
       stopPolling();
       try {
         const res = await fetch('/boka/join', { method: 'POST' });
         const data = await res.json();
-        if (data.error) {
-          showToast(data.error);
-          lastStateJson = '';
-          await refreshState();
-          return;
-        }
+        if (data.error) { showToast(data.error); return; }
         if (data.state) applyState(data.state);
       } finally {
         startPolling();
@@ -351,22 +318,11 @@
 
     async function leaveTable() {
       if (!confirm('确定离开卡桌？')) return;
-      // 乐观：立刻从玩家列表移除自己
-      optimisticUpdate(fake => {
-        fake.players = fake.players.filter(p => p.username !== myUsername);
-        fake.my_in_table = false;
-      });
-
       stopPolling();
       try {
         const res = await fetch('/boka/leave', { method: 'POST' });
         const data = await res.json();
-        if (data.error) {
-          showToast(data.error);
-          lastStateJson = '';
-          await refreshState();
-          return;
-        }
+        if (data.error) { showToast(data.error); return; }
         if (data.state) applyState(data.state);
       } finally {
         startPolling();
@@ -374,27 +330,11 @@
     }
 
     async function toggleReady() {
-      // 乐观：立刻切换自己的 ready 状态
-      optimisticUpdate(fake => {
-        const me = fake.players.find(p => p.username === myUsername);
-        if (me) {
-          me.ready = !me.ready;
-          // 同时调整 ready_count
-          if (me.ready) fake.ready_count += 1;
-          else fake.ready_count = Math.max(0, fake.ready_count - 1);
-        }
-      });
-
       stopPolling();
       try {
         const res = await fetch('/boka/ready', { method: 'POST' });
         const data = await res.json();
-        if (data.error) {
-          showToast(data.error);
-          lastStateJson = '';
-          await refreshState();
-          return;
-        }
+        if (data.error) { showToast(data.error); return; }
         if (data.state) applyState(data.state);
       } finally {
         startPolling();
@@ -402,32 +342,11 @@
     }
 
     async function addAi() {
-      // 乐观：不假装加 AI（名字是随机的，没法预知），只把按钮变灰（CSS disabled）
-      // 或者简单加一个占位 AI
-      optimisticUpdate(fake => {
-        // 加一个占位
-        fake.players.push({
-          username: '__pending_ai__',
-          nickname: '...',
-          avatar: '/static/cards/宋江.PNG',
-          is_ai: true,
-          ready: true,
-          hand_count: -1,
-        });
-        fake.count += 1;
-        fake.ready_count += 1;
-      });
-
       stopPolling();
       try {
         const res = await fetch('/boka/add_ai', { method: 'POST' });
         const data = await res.json();
-        if (data.error) {
-          showToast(data.error);
-          lastStateJson = '';
-          await refreshState();
-          return;
-        }
+        if (data.error) { showToast(data.error); return; }
         if (data.state) applyState(data.state);
       } finally {
         startPolling();
@@ -449,8 +368,6 @@
     function watchGame(username) { showToast('观战功能开发中'); }
 
     // ===== 渲染 =====
-    const myNickname = "{{ current_user.nickname or current_user.username }}";
-
     function renderTable(state) {
       const card = document.getElementById('tableCard');
       const isPlaying = state.is_playing;
