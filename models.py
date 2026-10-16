@@ -198,7 +198,7 @@ class BokaRoom(db.Model):
     max_players = db.Column(db.Integer, default=14)
     created_at = db.Column(db.DateTime, nullable=True)
     started_at = db.Column(db.DateTime, nullable=True)
-
+    pool_capacity = db.Column(db.Integer, default=0)
 
 class BokaPlayer(db.Model):
     """搏卡房间成员"""
