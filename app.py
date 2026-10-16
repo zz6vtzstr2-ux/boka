@@ -2101,7 +2101,7 @@ def boka_add_ai():
         status_changed_at=datetime.now(),
         is_ai=True,
     )
-        db.session.add(p)
+    db.session.add(p)
     db.session.commit()
     invalidate_table_state_cache()
     state = get_table_state(table, force_refresh=True)
@@ -2112,14 +2112,14 @@ def boka_add_ai():
 @app.route('/boka/start', methods=['POST'])
 @login_required
 def boka_start():
-    
+    table = get_or_create_table()
+    if table.status != "waiting":
+        return jsonify({"error": "游戏已开始"}), 400
+
     # 发起者必须在本卡桌内
     me = BokaPlayer.query.filter_by(room_id=table.id, username=current_user.username).first()
     if not me:
         return jsonify({"error": "你不在卡桌，无法开始"}), 400
-    table = get_or_create_table()
-    if table.status != "waiting":
-        return jsonify({"error": "游戏已开始"}), 400
 
     players = BokaPlayer.query.filter_by(room_id=table.id).order_by(BokaPlayer.seat).all()
     if len(players) < 2:
