@@ -1759,24 +1759,22 @@ def challenge_test_ai_deck():
             lines.append(f"  {c['name']} Lv{c['level']} atk={c['atk']} def={c['def']} role={c['role']}")
     return "<pre>" + "\n".join(lines) + "</pre>"
 
-# ========== 搏卡 ==========
-# ========== 搏卡（单卡桌） ==========
-TABLE_CODE = "TABLE1"
-# ========== 搏卡状态缓存 ==========
-_TABLE_STATE_CACHE = None
-_TABLE_STATE_CACHE_AT = 0
-_TABLE_CACHE_TTL = 3
+# ========== 搏卡（多房间版） ==========
 
+def gen_room_code():
+    chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    for _ in range(50):
+        code = ''.join(random.choices(chars, k=6))
+        if not BokaRoom.query.filter_by(room_code=code).first():
+            return code
+    return ''.join(random.choices(chars, k=6))
+
+
+# ========== 搏卡状态缓存 ==========
 _LAST_CLEANUP_AT = 0
 
 _CLASS_COUNT_CACHE = None
 _CLASS_COUNT_CACHE_AT = 0
-
-
-def invalidate_table_state_cache():
-    global _TABLE_STATE_CACHE, _TABLE_STATE_CACHE_AT
-    _TABLE_STATE_CACHE = None
-    _TABLE_STATE_CACHE_AT = 0
 
 
 def invalidate_class_count_cache():
@@ -1795,48 +1793,7 @@ def get_class_count():
     return _CLASS_COUNT_CACHE
 
 
-def get_table_state(table, force_refresh=False):
-    global _TABLE_STATE_CACHE, _TABLE_STATE_CACHE_AT
-    import time
-    now = time.time()
-    if (not force_refresh) and _TABLE_STATE_CACHE is not None and (now - _TABLE_STATE_CACHE_AT < _TABLE_CACHE_TTL):
-        return _TABLE_STATE_CACHE
-    state = _build_table_state(table)
-    _TABLE_STATE_CACHE = state
-    _TABLE_STATE_CACHE_AT = now
-    return state
-
-_TABLE_CACHE = None
-
-def get_or_create_table():
-    global _TABLE_CACHE
-    if _TABLE_CACHE is not None:
-        return _TABLE_CACHE
-    table = BokaRoom.query.filter_by(id=1).first()
-    if table is None:
-        table = BokaRoom(
-            id=1,
-            room_code=TABLE_CODE,
-            owner_username="",
-            status="waiting",
-            max_players=14,
-            created_at=datetime.now(),
-        )
-        db.session.add(table)
-        db.session.commit()
-    elif table.room_code != TABLE_CODE:
-        table.room_code = TABLE_CODE
-        db.session.commit()
-    _TABLE_CACHE = table
-    return table
-
-
-def invalidate_table_cache():
-    global _TABLE_CACHE
-    _TABLE_CACHE = None
-
-
-def cleanup_expired_players(table):
+def cleanup_expired_players(room):
     """惰性清理：未准备超 2 分钟 / 已准备超 30 分钟的玩家（AI 不清理）"""
     global _LAST_CLEANUP_AT
     import time
@@ -1845,10 +1802,10 @@ def cleanup_expired_players(table):
         return
     _LAST_CLEANUP_AT = now_ts
 
-    if table.status != "waiting":
+    if room.status != "waiting":
         return
     now = datetime.now()
-    players = BokaPlayer.query.filter_by(room_id=table.id).all()
+    players = BokaPlayer.query.filter_by(room_id=room.id).all()
     changed = False
     for p in players:
         if p.is_ai:
@@ -1870,57 +1827,40 @@ def cleanup_expired_players(table):
             changed = True
     if changed:
         db.session.commit()
-        invalidate_table_state_cache()
 
-def _try_join_table(table, user):
-    """尝试加入卡桌，返回 (success, error_msg)"""
-    if user.boka_room_id == table.id:
-        return True, None
 
-    if table.status != "waiting":
-        return False, "卡桌正在搏卡中"
+def _build_room_state(room):
+    """把房间状态打包成 dict"""
+    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+    ready_count = sum(1 for p in players if p.ready)
+    max_players_by_pool = room.pool_capacity // 3 if room.pool_capacity else 14
+    return {
+        "room_id": room.room_code,
+        "status": room.status,
+        "count": len(players),
+        "max_players": min(room.max_players, max_players_by_pool),
+        "ready_count": ready_count,
+        "owner": room.owner_username,
+        "players": [
+            {
+                "username": p.username,
+                "nickname": p.nickname or p.username,
+                "avatar": f"/static/avatars/{p.username}.jpg",
+                "is_owner": p.username == room.owner_username,
+                "ready": p.ready,
+                "is_ai": p.is_ai,
+                "is_me": p.username == current_user.username,
+            }
+            for p in players
+        ],
+    }
 
-    player_count = BokaPlayer.query.filter_by(room_id=table.id).count()
-    if player_count >= table.max_players:
-        return False, "卡桌已满"
 
-    # 卡池校验：加入后总人数 * 3 不能超过卡池
-    class_count = ClassCollection.query.count()
-    pool_capacity = min(class_count, 42)
-    if (player_count + 1) * 3 > pool_capacity:
-        return False, f"卡池不足（{pool_capacity} 张）"
+# ========== 大厅 ==========
 
-    p = BokaPlayer(
-        room_id=table.id,
-        username=user.username,
-        nickname=user.nickname or user.username,
-        ready=False,
-        seat=player_count,
-        joined_at=datetime.now(),
-        status_changed_at=datetime.now(),
-        is_ai=False,
-    )
-    db.session.add(p)
-    user.boka_room_id = table.id
-    db.session.commit()
-    return True, None
-def gen_room_code():
-    chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-    for _ in range(50):
-        code = ''.join(random.choices(chars, k=6))
-        if not BokaRoom.query.filter_by(room_code=code).first():
-            return code
-    return ''.join(random.choices(chars, k=6))
 @app.route('/boka')
 @login_required
 def boka():
-    table = get_or_create_table()
-    cleanup_expired_players(table)
-
-    # 处理 ?join=1 自动加入
-    if request.args.get('join') == '1':
-        _try_join_table(table, current_user)
-
     all_users = User.query.order_by(User.score.desc()).all()
     my_rank = 0
     for idx, u in enumerate(all_users, start=1):
@@ -1932,220 +1872,175 @@ def boka():
                            score=current_user.score,
                            rank=my_rank)
 
-def _build_table_state(table):
-    """把卡桌状态打包成 dict（给前端用）"""
-    players = BokaPlayer.query.filter_by(room_id=table.id).order_by(BokaPlayer.seat).all()
 
-    hand_counts = {}
-    is_playing = False
-    if table.status == "playing":   # ← 只有搏卡中才查 game
-        game = BokaGame.query.filter_by(room_id=table.id).order_by(BokaGame.id.desc()).first()
-        if game and game.phase in ("selecting", "revealing"):
-            is_playing = True
-            gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
-            for gp in gps:
-                hand_counts[gp.username] = len(json_loads_safe(gp.hand))
-
-    ready_count = sum(1 for p in players if p.ready)
-    player_list = []
-    for p in players:
-        player_list.append({
-            "username": p.username,
-            "nickname": p.nickname or p.username,
-            "avatar": f"/static/cards/{p.nickname}.PNG" if p.is_ai else f"/static/avatars/{p.username}.jpg",
-            "is_ai": p.is_ai,
-            "ready": p.ready,
-            "hand_count": hand_counts.get(p.username, -1),
+@app.route('/boka/rooms')
+@login_required
+def boka_rooms():
+    rooms = BokaRoom.query.filter_by(status="waiting").order_by(BokaRoom.created_at.desc()).all()
+    result = []
+    for r in rooms:
+        players = BokaPlayer.query.filter_by(room_id=r.id).all()
+        result.append({
+            "room_id": r.room_code,
+            "status": "准备中",
+            "count": len(players),
+            "owner": r.owner_username,
+            "players": [
+                {"name": p.nickname or p.username, "username": p.username,
+                 "avatar": f"/static/avatars/{p.username}.jpg",
+                 "is_owner": p.username == r.owner_username}
+                for p in players
+            ],
+            "joined": any(p.username == current_user.username for p in players),
         })
+    return jsonify({"rooms": result})
 
+
+@app.route('/boka/create', methods=['POST'])
+@login_required
+def boka_create():
+    leave_any_room(current_user)
+    code = gen_room_code()
+
+    # 创建时锁定卡池
     class_count = get_class_count()
     pool_capacity = min(class_count, 42)
-    max_players = pool_capacity // 3
 
-    can_join = (
-        table.status == "waiting"
-        and len(players) < table.max_players
-        and (len(players) + 1) * 3 <= pool_capacity
+    room = BokaRoom(
+        room_code=code,
+        owner_username=current_user.username,
+        status="waiting",
+        max_players=14,
+        created_at=datetime.now(),
+        pool_capacity=pool_capacity,
     )
+    db.session.add(room)
+    db.session.flush()
+    p = BokaPlayer(
+        room_id=room.id,
+        username=current_user.username,
+        nickname=current_user.nickname or current_user.username,
+        ready=False,
+        seat=0,
+        joined_at=datetime.now(),
+        status_changed_at=datetime.now(),
+        is_ai=False,
+    )
+    db.session.add(p)
+    current_user.boka_room_id = room.id
+    db.session.commit()
+    return jsonify({"room_id": code})
 
-    return {
-        "status": table.status,
-        "is_playing": is_playing,
-        "max_players": table.max_players,
-        "count": len(players),
-        "ready_count": ready_count,
-        "players": player_list,
-        "pool_capacity": pool_capacity,
-        "max_supported_players": max_players,
-        "my_in_table": current_user.boka_room_id == table.id,
-        "can_join": can_join,
-    }    
-        
-@app.route('/boka/table_state')
+
+def leave_any_room(user):
+    if not user.boka_room_id:
+        return
+    room = BokaRoom.query.get(user.boka_room_id)
+    if room:
+        if room.owner_username == user.username:
+            BokaPlayer.query.filter_by(room_id=room.id).delete()
+            db.session.delete(room)
+        else:
+            BokaPlayer.query.filter_by(room_id=room.id, username=user.username).delete()
+    user.boka_room_id = None
+    db.session.commit()
+
+
+# ========== 房间页 ==========
+
+@app.route('/boka/room/<room_code>')
 @login_required
-def boka_table_state():
-    import time
-    t0 = time.time()
-    table = get_or_create_table()
-    t1 = time.time()
-    cleanup_expired_players(table)
-    t2 = time.time()
+def boka_room(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return redirect(url_for('boka'))
+    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
+    if not me:
+        if current_user.boka_room_id and current_user.boka_room_id != room.id:
+            leave_any_room(current_user)
+            room = BokaRoom.query.filter_by(room_code=room_code).first()
+            if not room:
+                return redirect(url_for('boka'))
+            me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
+        if not me:
+            player_count = BokaPlayer.query.filter_by(room_id=room.id).count()
+            max_players = min(room.max_players, (room.pool_capacity // 3) if room.pool_capacity else 14)
+            if player_count >= max_players:
+                return "房间已满", 403
+            me = BokaPlayer(
+                room_id=room.id,
+                username=current_user.username,
+                nickname=current_user.nickname or current_user.username,
+                ready=False,
+                seat=player_count,
+                joined_at=datetime.now(),
+                status_changed_at=datetime.now(),
+                is_ai=False,
+            )
+            db.session.add(me)
+            current_user.boka_room_id = room.id
+            db.session.commit()
+    if room.status == "playing":
+        return redirect(url_for('boka_battle', room_code=room_code))
+    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+    ready_count = sum(1 for p in players if p.ready)
+    is_owner = room.owner_username == current_user.username
+    return render_template('boka_room.html',
+                           room_code=room.room_code,
+                           room_id=room.id,
+                           invite_url=request.url,
+                           ready_count=ready_count,
+                           player_count=len(players),
+                           is_ready=me.ready,
+                           is_owner=is_owner,
+                           players=[
+                               {"username": p.username, "nickname": p.nickname or p.username,
+                                "is_owner": p.username == room.owner_username,
+                                "ready": p.ready, "is_away": p.is_temporary_away}
+                               for p in players
+                           ])
 
-    # 同步当前用户的 boka_room_id（这个要看 boka_room_id 和 me_player 是否一致）
-    me_player = BokaPlayer.query.filter_by(room_id=table.id, username=current_user.username).first()
-    if current_user.boka_room_id == table.id and me_player is None:
-        current_user.boka_room_id = None
-        db.session.commit()
-        invalidate_table_state_cache()
-    t3 = time.time()
 
-    state = get_table_state(table)
-    # 浅拷贝 + 动态加 my_in_table
-    state = dict(state)
-    state["my_in_table"] = (current_user.boka_room_id == table.id)
-    t4 = time.time()
-
-    print(f"[table_state] get_table={t1-t0:.3f}s cleanup={t2-t1:.3f}s sync={t3-t2:.3f}s state={t4-t3:.3f}s total={t4-t0:.3f}s", flush=True)
-
+@app.route('/boka/room/<room_code>/state')
+@login_required
+def boka_room_state(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    cleanup_expired_players(room)
+    state = _build_room_state(room)
+    state["is_ready"] = False
+    state["is_owner"] = (room.owner_username == current_user.username)
+    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
+    if me:
+        state["is_ready"] = me.ready
     return jsonify(state)
 
-@app.route('/boka/join', methods=['POST'])
-@login_required
-def boka_join():
-    import time
-    t0 = time.time()
-    table = get_or_create_table()
-    t1 = time.time()
-    ok, err = _try_join_table(table, current_user)
-    t2 = time.time()
-    if not ok:
-        return jsonify({"error": err}), 400
-    invalidate_table_state_cache()
-    state = get_table_state(table)
-    state = dict(state)
-    state["my_in_table"] = True
-    t3 = time.time()
-    print(f"[boka_join] get_table={t1-t0:.3f}s try_join={t2-t1:.3f}s build={t3-t2:.3f}s total={t3-t0:.3f}s", flush=True)
-    return jsonify({"success": True, "state": state})
 
-@app.route('/boka/leave', methods=['POST'])
+@app.route('/boka/room/<room_code>/ready', methods=['POST'])
 @login_required
-def boka_leave():
-    table = get_or_create_table()
-    me = BokaPlayer.query.filter_by(room_id=table.id, username=current_user.username).first()
-    if me:
-        db.session.delete(me)
-        current_user.boka_room_id = None
-        db.session.commit()
-        invalidate_table_state_cache()
-    state = get_table_state(table)
-    state = dict(state)
-    state["my_in_table"] = False
-    return jsonify({"success": True, "state": state})
-
-@app.route('/boka/reset_table', methods=['POST'])
-@login_required
-def boka_reset_table():
-    table = get_or_create_table()
-    # 把所有未结束的 BokaGame 标记 finished
-    games = BokaGame.query.filter_by(room_id=table.id).all()
-    for g in games:
-        if g.phase != "finished":
-            g.phase = "finished"
-    # 删除所有 AI 玩家
-    BokaPlayer.query.filter_by(room_id=table.id, is_ai=True).delete()
-    # 真人清空准备状态
-    BokaPlayer.query.filter_by(room_id=table.id, is_ai=False).update({"ready": False})
-    # 重置卡桌状态
-    table.status = "waiting"
-    db.session.commit()
-    invalidate_table_state_cache()
-    invalidate_table_cache()
-    state = get_table_state(table)
-    state = dict(state)
-    state["my_in_table"] = (current_user.boka_room_id == table.id)
-    return jsonify({"success": True, "state": state})
-    
-@app.route('/boka/ready', methods=['POST'])
-@login_required
-def boka_ready():
-    table = get_or_create_table()
-    if table.status != "waiting":
-        return jsonify({"error": "卡桌正在搏卡中"}), 400
-    me = BokaPlayer.query.filter_by(room_id=table.id, username=current_user.username).first()
+def boka_ready(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
     if not me:
-        return jsonify({"error": "你不在卡桌"}), 400
+        return jsonify({"error": "你不在房间"}), 400
     me.ready = not me.ready
     me.status_changed_at = datetime.now()
     db.session.commit()
-    invalidate_table_state_cache()
-    state = get_table_state(table)
-    state = dict(state)
-    state["my_in_table"] = True
-    return jsonify({"success": True, "ready": me.ready, "state": state})
+    return jsonify({"success": True, "ready": me.ready})
 
 
-@app.route('/boka/add_ai', methods=['POST'])
+@app.route('/boka/room/<room_code>/start', methods=['POST'])
 @login_required
-def boka_add_ai():
-    table = get_or_create_table()
-    if table.status != "waiting":
-        return jsonify({"error": "卡桌正在搏卡中"}), 400
-
-    player_count = BokaPlayer.query.filter_by(room_id=table.id).count()
-    if player_count >= table.max_players:
-        return jsonify({"error": "卡桌已满"}), 400
-
-    # 卡池校验
-    class_count = ClassCollection.query.count()
-    pool_capacity = min(class_count, 42)
-    if (player_count + 1) * 3 > pool_capacity:
-        return jsonify({"error": f"卡池不足（{pool_capacity} 张）"}), 400
-
-    import random as _random
-    existing_names = {p.nickname for p in BokaPlayer.query.filter_by(room_id=table.id).all()}
-    candidates = [c["name"] for c in CARDS if c["name"] not in existing_names]
-    if not candidates:
-        candidates = [c["name"] for c in CARDS]
-    ai_name = _random.choice(candidates)
-
-    ai_username = f"ai_{ai_name}"
-    suffix = 1
-    while BokaPlayer.query.filter_by(room_id=table.id, username=ai_username).first():
-        ai_username = f"ai_{ai_name}_{suffix}"
-        suffix += 1
-
-    p = BokaPlayer(
-        room_id=table.id,
-        username=ai_username,
-        nickname=ai_name,
-        ready=True,
-        seat=player_count,
-        joined_at=datetime.now(),
-        status_changed_at=datetime.now(),
-        is_ai=True,
-    )
-    db.session.add(p)
-    db.session.commit()
-    invalidate_table_state_cache()
-    state = get_table_state(table)
-    state = dict(state)
-    state["my_in_table"] = (current_user.boka_room_id == table.id)
-    return jsonify({"success": True, "state": state})
-
-@app.route('/boka/start', methods=['POST'])
-@login_required
-def boka_start():
-    table = get_or_create_table()
-    if table.status != "waiting":
-        return jsonify({"error": "游戏已开始"}), 400
-
-    # 发起者必须在本卡桌内
-    me = BokaPlayer.query.filter_by(room_id=table.id, username=current_user.username).first()
-    if not me:
-        return jsonify({"error": "你不在卡桌，无法开始"}), 400
-
-    players = BokaPlayer.query.filter_by(room_id=table.id).order_by(BokaPlayer.seat).all()
+def boka_start(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    if room.owner_username != current_user.username:
+        return jsonify({"error": "只有房主能开始"}), 403
+    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
     if len(players) < 2:
         return jsonify({"error": "至少需要 2 名玩家"}), 400
     if not all(p.ready for p in players):
@@ -2158,7 +2053,6 @@ def boka_start():
         return jsonify({"error": f"卡池只有 {pool_capacity} 张，{n_players} 人至少需要 {n_players * 3} 张"}), 400
 
     class_card_ids = [r.card_id for r in class_records]
-
     PRIORITY_EXTRA = ["扈三娘", "凌振", "陶宗旺", "樊瑞", "白胜", "孙二娘"]
     priority_ids = []
     for c in CARDS:
@@ -2174,7 +2068,7 @@ def boka_start():
         pool += available_rest[:need]
 
     game = BokaGame(
-        room_id=table.id, round_no=0, phase="waiting",
+        room_id=room.id, round_no=0, phase="waiting",
         card_pool=json_dumps_safe([]),
         history=json_dumps_safe([]),
         created_at=datetime.now(),
@@ -2199,14 +2093,70 @@ def boka_start():
         db.session.add(gp)
     remaining_pool = pool[cards_per_player * n:]
     game.card_pool = json_dumps_safe(remaining_pool)
-    table.status = "playing"
-    table.started_at = datetime.now()
+    room.status = "playing"
+    room.started_at = datetime.now()
     game.round_no = 1
     game.phase = "selecting"
     db.session.commit()
-    invalidate_table_state_cache()
-    invalidate_table_cache()
     return jsonify({"success": True})
+
+
+@app.route('/boka/room/<room_code>/dissolve', methods=['POST'])
+@login_required
+def boka_dissolve(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    if room.owner_username != current_user.username:
+        return jsonify({"error": "只有房主能解散"}), 403
+    players = BokaPlayer.query.filter_by(room_id=room.id).all()
+    for p in players:
+        u = User.query.filter_by(username=p.username).first()
+        if u:
+            u.boka_room_id = None
+    BokaPlayer.query.filter_by(room_id=room.id).delete()
+    db.session.delete(room)
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@app.route('/boka/room/<room_code>/leave', methods=['POST'])
+@login_required
+def boka_leave(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
+    if not me:
+        return jsonify({"error": "你不在房间"}), 400
+    me.is_temporary_away = True
+    me.ready = False
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@app.route('/boka/room/<room_code>/quit', methods=['POST'])
+@login_required
+def boka_quit(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+    if room.owner_username == current_user.username:
+        players = BokaPlayer.query.filter_by(room_id=room.id).all()
+        for p in players:
+            u = User.query.filter_by(username=p.username).first()
+            if u:
+                u.boka_room_id = None
+        BokaPlayer.query.filter_by(room_id=room.id).delete()
+        db.session.delete(room)
+    else:
+        BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).delete()
+        current_user.boka_room_id = None
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+# ========== 战斗页 ==========
 
 @app.route('/boka/room/<room_code>/battle')
 @login_required
@@ -2216,7 +2166,7 @@ def boka_battle(room_code):
         return redirect(url_for('boka'))
     game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
     if not game:
-        return redirect(url_for('boka'))
+        return redirect(url_for('boka_room', room_code=room_code))
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     layout = calc_boka_layout(len(gps), current_user.username, gps)
     me = next((g for g in gps if g.username == current_user.username), None)
@@ -2238,6 +2188,7 @@ def boka_battle(room_code):
                            layout=layout, hand=my_hand,
                            my_ready=json_loads_safe(me.ready_card) if me else [])
 
+
 @app.route('/boka/room/<room_code>/validate_combo', methods=['POST'])
 @login_required
 def boka_validate_combo(room_code):
@@ -2258,6 +2209,7 @@ def boka_validate_combo(room_code):
     if atk is None:
         return jsonify({"valid": False, "reason": "不是有效组合"})
     return jsonify({"valid": True, "type": "combo", "name": combo_name, "atk": atk, "def": dfn})
+
 
 @app.route('/boka/room/<room_code>/play', methods=['POST'])
 @login_required
@@ -2284,7 +2236,7 @@ def boka_play(room_code):
     me.locked = True
     db.session.commit()
 
-    # 让所有 AI 玩家自动出牌
+    # AI 自动出牌
     all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     for gp in all_players:
         if gp.locked:
@@ -2300,7 +2252,8 @@ def boka_play(room_code):
     all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     if all(p.locked for p in all_players):
         resolve_boka_round(game)
-    return jsonify({"success": True, "state": _build_battle_state(game, room)})
+    return jsonify({"success": True})
+
 
 @app.route('/boka/room/<room_code>/songjiang_draw', methods=['POST'])
 @login_required
@@ -2339,61 +2292,14 @@ def boka_songjiang_draw(room_code):
         picked_id = picked; picked_level = 1
 
     my_hand.append(picked_id)
-    # 宋江进卡袋
     pool.append({"id": songjiang_id, "level": 1})
     my_hand = [c for c in my_hand if c != songjiang_id]
 
     me.hand = json_dumps_safe(my_hand)
     game.card_pool = json_dumps_safe(pool)
     db.session.commit()
-    return jsonify({"success": True, "picked_id": picked_id, "picked_level": picked_level, "state": _build_battle_state(game, room)})
+    return jsonify({"success": True, "picked_id": picked_id, "picked_level": picked_level})
 
-def _build_battle_state(game, room):
-    """把战斗状态打包成 dict（给前端用）"""
-    gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
-
-    # 是否有 AI
-    ai_usernames = set()
-    bp_list = BokaPlayer.query.filter_by(room_id=room.id).all()
-    for bp in bp_list:
-        if bp.is_ai:
-            ai_usernames.add(bp.username)
-
-    players_view = []
-    for g in gps:
-        ready_cards = json_loads_safe(g.ready_card)
-        show_cards = (game.phase in ("revealing", "finished")) or (g.username == current_user.username)
-        players_view.append({
-            "username": g.username,
-            "nickname": g.nickname,
-            "is_ai": g.username in ai_usernames,
-            "is_me": g.username == current_user.username,
-            "hand_count": len(json_loads_safe(g.hand)),
-            "locked": g.locked,
-            "ready_cards": [CARD_BY_ID.get(cid) for cid in (ready_cards if show_cards else []) if CARD_BY_ID.get(cid)],
-            "rank": g.rank,
-            "score_change": g.score_change or 0,
-            "surrendered": g.surrendered,
-        })
-
-    me = next((g for g in gps if g.username == current_user.username), None)
-    my_hand_ids = json_loads_safe(me.hand) if me else []
-    my_ready_ids = json_loads_safe(me.ready_card) if me else []
-
-    return {
-        "round_no": game.round_no,
-        "phase": game.phase,
-        "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
-        "players": players_view,
-        "my_hand": [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)],
-        "my_ready": [CARD_BY_ID.get(cid) for cid in my_ready_ids if CARD_BY_ID.get(cid)],
-        "winner_card_id": game.round_winner_card_id,
-        "winner_username": game.winner_username,
-        "pool_count": len(json_loads_safe(game.card_pool)),
-        "history": json_loads_safe(game.history),
-        "finished": game.phase == "finished",
-        "beauty_left": game.beauty_left if game.beauty_left is not None else 3,
-    }
 
 @app.route('/boka/room/<room_code>/battle_state')
 @login_required
@@ -2405,7 +2311,6 @@ def boka_battle_state(room_code):
     if not game:
         return jsonify({"error": "无对局"}), 404
 
-    # 结算后切轮次逻辑（和原来一样）
     if game.phase == "revealing" and game.revealed_at:
         elapsed = (datetime.now() - game.revealed_at).total_seconds()
         if elapsed >= 3.0:
@@ -2422,679 +2327,42 @@ def boka_battle_state(room_code):
                 game.winner_username = None
                 db.session.commit()
 
-    return jsonify(_build_battle_state(game, room))
-
-# ========== 搏卡战斗核心 ==========
-def _boka_ai_choose_cards(game, gp):
-    """搏卡里给一个 AI 玩家选牌。返回 card_ids 列表。"""
-    hand_ids = json_loads_safe(gp.hand)
-    if not hand_ids:
-        return None
-
-    is_atk_round = (game.round_no % 2 == 1)
-    dim = "atk" if is_atk_round else "def"
-
-    hand = []
-    for cid in hand_ids:
-        base = CARD_BY_ID.get(cid)
-        if not base:
-            continue
-        hand.append({
-            "id": cid, "name": base["name"], "level": 1,
-            "atk": base["atk"], "def": base["def"],
-        })
-    if not hand:
-        return None
-
-    hand_by_name = {}
-    for c in hand:
-        hand_by_name.setdefault(c["name"], []).append(c)
-
-    # 宋江：卡袋平均战斗力 > 宋江战斗力 → 发动抽卡
-    songjiang = hand_by_name.get("宋江", [])
-    songjiang_card = songjiang[0] if songjiang else None
-    pool = json_loads_safe(game.card_pool)
-    if pool and songjiang_card:
-        pool_powers = []
-        for entry in pool:
-            if isinstance(entry, dict):
-                pid = entry.get("id"); plevel = entry.get("level", 1)
-            else:
-                pid = entry; plevel = 1
-            pbase = CARD_BY_ID.get(pid)
-            if not pbase:
-                continue
-            pbonus = plevel - 1
-            pool_powers.append(pbase["atk"] + pbonus + pbase["def"] + pbonus)
-        if pool_powers:
-            avg_power = sum(pool_powers) / len(pool_powers)
-            sj_power = songjiang_card["atk"] + songjiang_card["def"]
-            if avg_power > sj_power:
-                return [songjiang_card["id"]]
-
-    # 组合检测
-    used_ids = set()
-    packages = []
-
-    def try_combo(names):
-        if not all(n in hand_by_name for n in names):
-            return None
-        picked = []
-        for n in names:
-            for c in hand_by_name[n]:
-                if c["id"] not in used_ids:
-                    picked.append(c)
-                    break
-            else:
-                return None
-        return picked
-
-    def consume(cards):
-        for c in cards:
-            used_ids.add(c["id"])
-
-    for names in [
-        ["关胜", "林冲", "秦明", "呼延灼", "董平"],
-        ["阮小二", "阮小五", "阮小七"],
-        ["花荣", "徐宁"],
-        ["张顺", "李逵"],
-        ["解珍", "解宝"],
-    ]:
-        combo = try_combo(names)
-        if combo:
-            consume(combo)
-            packages.append({"type": "combo", "cards": combo})
-
-    # 八虎骑（必须 8 张）
-    bahu_members = ["花荣", "徐宁", "杨志", "索超", "张清", "朱仝", "史进", "穆弘"]
-    bahu_available = [hand_by_name[n][0] for n in bahu_members
-                      if n in hand_by_name and hand_by_name[n][0]["id"] not in used_ids]
-    if len(bahu_available) >= 8:
-        consume(bahu_available)
-        packages.append({"type": "combo", "cards": bahu_available})
-
-    # 水军兄弟（含阮小二）
-    for pair in [["阮小二", "阮小五"], ["阮小二", "阮小七"], ["阮小五", "阮小七"], ["张横", "张顺"]]:
-        combo = try_combo(pair)
-        if combo:
-            consume(combo)
-            packages.append({"type": "combo", "cards": combo})
-            break
-
-    # 智多星（最后）
-    wu = hand_by_name.get("吴用", [])
-    if wu and wu[0]["id"] not in used_ids:
-        wu_card = wu[0]
-        candidates = [c for c in hand
-                      if c["id"] not in used_ids
-                      and c["name"] != "吴用"
-                      and c["name"] != "宋江"
-                      and c["name"] not in ("扈三娘", "白胜", "孙二娘")]
-        if candidates:
-            lowest = min(candidates, key=lambda c: c["atk"] + c["def"])
-            combo = [wu_card, lowest]
-            consume(combo)
-            packages.append({"type": "combo", "cards": combo})
-
-    FUNCTIONAL_NAMES = {"白胜", "孙二娘", "扈三娘"}
-    for c in hand:
-        if c["id"] in used_ids:
-            continue
-        if c["name"] == "宋江":
-            continue
-        if c["name"] in FUNCTIONAL_NAMES:
-            packages.append({"type": "func", "cards": [c]})
-        else:
-            packages.append({"type": "single", "cards": [c]})
-
-    def package_stats(pkg):
-        cards = pkg["cards"]
-        if len(cards) == 1:
-            return cards[0]["atk"], cards[0]["def"]
-        combo_cards = []
-        for c in cards:
-            base = CARD_BY_ID.get(c["id"])
-            if base:
-                combo_cards.append({**base, "level": 1})
-        atk, dfn, _ = calc_combo_stats(combo_cards)
-        if atk is None or dfn is None:
-            atk = sum(c["atk"] for c in cards)
-            dfn = sum(c["def"] for c in cards)
-        return atk, dfn
-
-    for pkg in packages:
-        pkg["atk"], pkg["def"] = package_stats(pkg)
-
-    atk_pkgs, def_pkgs, func_pkgs = [], [], []
-    for pkg in packages:
-        if pkg["type"] == "func":
-            func_pkgs.append(pkg)
-        elif pkg["atk"] - pkg["def"] >= 35:
-            atk_pkgs.append(pkg)
-        else:
-            def_pkgs.append(pkg)
-
-    if is_atk_round:
-        candidates = atk_pkgs + func_pkgs
-        fallback_key = "def"
-    else:
-        candidates = def_pkgs + func_pkgs
-        fallback_key = "atk"
-
-    if candidates:
-        chosen = random.choice(candidates)
-    else:
-        all_pkgs = atk_pkgs + def_pkgs
-        if not all_pkgs:
-            return [hand[0]["id"]]
-        all_pkgs.sort(key=lambda p: p[fallback_key])
-        chosen = all_pkgs[0]
-
-    return [c["id"] for c in chosen["cards"]]
-
-HANDSOME_NAMES = {"林冲", "柴进", "燕青", "花荣", "徐宁"}
-BOMB_NAMES = {"白胜", "孙二娘"}
-BEAUTY_NAME = "扈三娘"
-SONGJIANG_NAME = "宋江"
-
-def _is_combo_with_special(cards, special_tag):
-    """判断 cards 是否是带某个 special 的组合"""
-    if len(cards) < 2:
-        return False
-    atk, dfn, combo_name = calc_combo_stats(cards)
-    if combo_name is None:
-        return False
-    for combo in COMBOS:
-        if combo["name"] == combo_name and combo.get("special") == special_tag:
-            return True
-    return False
-
-def resolve_boka_round(game):
-    """
-    一轮结算。
-    优先级：五虎将/八虎骑 → 风流威猛 → 水军三兄弟 → 炸弹 → 美女 → 普通
-    """
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
-    is_atk_round = (game.round_no % 2 == 1)
-    dim = "atk" if is_atk_round else "def"
-    other_dim = "def" if is_atk_round else "atk"
+    me = next((g for g in gps if g.username == current_user.username), None)
+    all_locked = all(g.locked for g in gps)
 
-    # 收集所有出战卡
-    played = []  # [{"username": ..., "cards": [...], "value":..., "other":..., "is_combo":..., "combo_name":...}]
+    players_view = []
     for g in gps:
-        card_ids = json_loads_safe(g.ready_card)
-        if not card_ids:
-            continue
-        cards_raw = []
-        for cid in card_ids:
-            base = CARD_BY_ID.get(cid)
-            if not base:
-                continue
-            # 附加等级
-            level = 1
-            coll = User.query.filter_by(username=g.username).first()
-            if coll:
-                user_coll = coll.get_collection() if hasattr(coll, "get_collection") else {}
-                entry = user_coll.get(str(cid))
-                if entry:
-                    level = entry.get("level", 1)
-            card = dict(base)
-            card["level"] = level
-            cards_raw.append(card)
-        if not cards_raw:
-            continue
-        atk, dfn, combo_name = calc_combo_stats(cards_raw) if len(cards_raw) > 1 else (None, None, None)
-        if len(cards_raw) == 1:
-            a, d = card_with_level(cards_raw[0], cards_raw[0]["level"])
-            value = a if is_atk_round else d
-            other = d if is_atk_round else a
-            is_combo = False
-        else:
-            if atk is None:
-                # 非法组合，按普通处理
-                continue
-            value = atk if is_atk_round else dfn
-            other = dfn if is_atk_round else atk
-            is_combo = True
-        played.append({
-            "username": g.username,
-            "cards": cards_raw,
-            "card_ids": card_ids,
-            "value": value,
-            "other": other,
-            "is_combo": is_combo,
-            "combo_name": combo_name,
+        ready_cards = json_loads_safe(g.ready_card)
+        show_cards = (game.phase in ("revealing", "finished")) or (g.username == current_user.username)
+        players_view.append({
+            "username": g.username, "nickname": g.nickname,
+            "is_me": g.username == current_user.username,
+            "hand_count": len(json_loads_safe(g.hand)),
+            "locked": g.locked,
+            "ready_cards": [CARD_BY_ID.get(cid) for cid in (ready_cards if show_cards else []) if CARD_BY_ID.get(cid)],
+            "rank": g.rank, "score_change": g.score_change or 0,
+            "surrendered": g.surrendered,
         })
 
-    if not played:
-        game.revealed_at = datetime.now()
-        game.phase = "revealing"
-        db.session.commit()
-        return
+    my_hand_ids = json_loads_safe(me.hand) if me else []
+    my_ready_ids = json_loads_safe(me.ready_card) if me else []
 
-    pool = json_loads_safe(game.card_pool)
-    round_record = {"round": game.round_no, "dim": dim, "played": []}
+    return jsonify({
+        "round_no": game.round_no, "phase": game.phase,
+        "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
+        "all_locked": all_locked,
+        "my_hand": [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)],
+        "my_ready": [CARD_BY_ID.get(cid) for cid in my_ready_ids if CARD_BY_ID.get(cid)],
+        "players": players_view,
+        "winner_card_id": game.round_winner_card_id,
+        "winner_username": game.winner_username,
+        "pool_count": len(json_loads_safe(game.card_pool)),
+        "history": json_loads_safe(game.history),
+        "finished": game.phase == "finished",
+        "beauty_left": game.beauty_left if game.beauty_left is not None else 3,
+    })
 
-    # ====== 1. 五虎将 / 八虎骑 ======
-    def has_combo_tag(tag):
-        for p in played:
-            if not p["is_combo"]:
-                continue
-            for combo in COMBOS:
-                if combo["name"] == p["combo_name"] and combo.get("special") == tag:
-                    return p
-        return None
-
-    top_combo = has_combo_tag("bomb_eater_steal1")
-    if top_combo:
-        _resolve_top_combo(game, gps, played, top_combo, pool, round_record, dim, other_dim)
-        _finalize_round(game, gps, pool, round_record)
-        return
-
-    # ====== 2. 风流威猛 / 水军三兄弟 ======
-    eat_combo = has_combo_tag("bomb_eater")
-    if eat_combo:
-        _resolve_eat_combo(game, gps, played, eat_combo, pool, round_record, dim, other_dim)
-        _finalize_round(game, gps, pool, round_record)
-        return
-
-    # ====== 3. 炸弹 ======
-    has_bomb = any(c["name"] in BOMB_NAMES for p in played for c in p["cards"])
-    if has_bomb:
-        for p in played:
-            pool.extend(p["card_ids"])
-            g = next(x for x in gps if x.username == p["username"])
-            hand = json_loads_safe(g.hand)
-            hand = [cid for cid in hand if cid not in p["card_ids"]]
-            g.hand = json_dumps_safe(hand)
-            g.ready_card = json_dumps_safe([])
-            g.locked = False
-            round_record["played"].append({
-                "username": p["username"],
-                "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in p["cards"]],
-                "value": p["value"], "result": "bombed",
-            })
-        game.round_winner_card_id = None
-        game.winner_username = None
-        _finalize_round(game, gps, pool, round_record)
-        return
-
-    # ====== 4. 美女 ======
-    beauty_p = None
-    for p in played:
-        for c in p["cards"]:
-            if c["name"] == BEAUTY_NAME:
-                beauty_p = p
-                break
-        if beauty_p:
-            break
-
-    if beauty_p:
-        # 美女出场
-        beauty_left = game.beauty_left if game.beauty_left is not None else 3
-        # 找帅哥
-        handsome_players = []
-        for p in played:
-            for c in p["cards"]:
-                if c["name"] in HANDSOME_NAMES:
-                    handsome_players.append(p)
-                    break
-
-        # 计算"剩余卡"（除美女、所有帅哥外）
-        handsome_card_ids = set()
-        for hp in handsome_players:
-            for c in hp["cards"]:
-                if c["name"] in HANDSOME_NAMES:
-                    handsome_card_ids.add(c["id"])
-        beauty_card_ids = {c["id"] for c in beauty_p["cards"] if c["name"] == BEAUTY_NAME}
-
-        remaining_card_ids = []
-        for p in played:
-            for c in p["cards"]:
-                if c["id"] in beauty_card_ids:
-                    continue
-                if c["id"] in handsome_card_ids:
-                    continue
-                remaining_card_ids.append(c["id"])
-
-        beauty_owner_name = beauty_p["username"]
-        beauty_owner_g = next(x for x in gps if x.username == beauty_owner_name)
-
-        # 剩余卡进美女打出者手牌
-        beauty_owner_hand = json_loads_safe(beauty_owner_g.hand)
-        beauty_owner_hand.extend(remaining_card_ids)
-
-        # 所有人打出的卡从手牌里移除（后面再加回）
-        for p in played:
-            g = next(x for x in gps if x.username == p["username"])
-            hand = json_loads_safe(g.hand)
-            hand = [cid for cid in hand if cid not in p["card_ids"]]
-            g.hand = json_dumps_safe(hand)
-
-        if beauty_left >= 2:
-            # 前 2 次：有帅哥 / 无帅哥
-            if handsome_players:
-                # 攻/防最高的帅哥
-                best_hp = max(handsome_players, key=lambda x: (x["value"], x["other"]))
-                best_hp_g = next(x for x in gps if x.username == best_hp["username"])
-                best_hand = json_loads_safe(best_hp_g.hand)
-                best_hand.append(beauty_card_ids.pop() if beauty_card_ids else next(iter(beauty_card_ids)))
-                # 上面这句有问题，改为直接 append 美女卡
-                best_hp_g.hand = json_dumps_safe(best_hand)
-                # 所有帅哥进卡袋
-                for hp in handsome_players:
-                    for c in hp["cards"]:
-                        if c["name"] in HANDSOME_NAMES:
-                            pool.append(c["id"])
-                # 美女进 best_hp 手牌
-                beauty_id = list(beauty_card_ids)[0] if beauty_card_ids else None
-                if beauty_id is not None:
-                    best_hand2 = json_loads_safe(best_hp_g.hand)
-                    if beauty_id not in best_hand2:
-                        best_hand2.append(beauty_id)
-                    best_hp_g.hand = json_dumps_safe(best_hand2)
-            else:
-                # 无帅哥：本轮最大进美女
-                best = max(played, key=lambda x: (x["value"], x["other"]))
-                best_g = next(x for x in gps if x.username == best["username"])
-                best_hand = json_loads_safe(best_g.hand)
-                for c in beauty_p["cards"]:
-                    if c["name"] == BEAUTY_NAME and c["id"] not in best_hand:
-                        best_hand.append(c["id"])
-                best_g.hand = json_dumps_safe(best_hand)
-                # 吴用 + 美女：吴用进卡袋
-                for c in beauty_p["cards"]:
-                    if c["name"] == "吴用":
-                        pool.append(c["id"])
-
-            game.beauty_left = beauty_left - 1
-        else:
-            # 最后一次：美女进卡袋
-            for c in beauty_p["cards"]:
-                pool.append(c["id"])
-            if handsome_players:
-                for hp in handsome_players:
-                    for c in hp["cards"]:
-                        if c["name"] in HANDSOME_NAMES:
-                            pool.append(c["id"])
-            game.beauty_left = 0
-
-        # 剩余卡加回美女打出者手牌
-        beauty_owner_hand2 = json_loads_safe(beauty_owner_g.hand)
-        beauty_owner_hand2.extend(remaining_card_ids)
-        beauty_owner_g.hand = json_dumps_safe(beauty_owner_hand2)
-
-        # 清理其他玩家
-        for p in played:
-            g = next(x for x in gps if x.username == p["username"])
-            if g.username == beauty_owner_name:
-                continue
-            g.ready_card = json_dumps_safe([])
-            g.locked = False
-
-        # 美女打出者清理备战区
-        beauty_owner_g.ready_card = json_dumps_safe([])
-        beauty_owner_g.locked = False
-
-        game.round_winner_card_id = beauty_card_ids and list(beauty_card_ids)[0] or None
-        game.winner_username = beauty_owner_name
-
-        for p in played:
-            round_record["played"].append({
-                "username": p["username"],
-                "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in p["cards"]],
-                "value": p["value"], "result": "beauty",
-            })
-
-        _finalize_round(game, gps, pool, round_record)
-        return
-
-    # ====== 5. 普通比大小 ======
-    best = max(played, key=lambda x: (x["value"], x["other"]))
-    winners = [p for p in played if p["value"] == best["value"] and p["other"] == best["other"]]
-    winner = random.choice(winners) if len(winners) > 1 else winners[0]
-    winner_name = winner["username"]
-
-    # 所有人打出的卡先从手牌移除
-    for p in played:
-        g = next(x for x in gps if x.username == p["username"])
-        hand = json_loads_safe(g.hand)
-        hand = [cid for cid in hand if cid not in p["card_ids"]]
-        g.hand = json_dumps_safe(hand)
-
-    # 赢家打出的全部卡 → 进卡袋
-    for cid in winner["card_ids"]:
-        pool.append(cid)
-
-    # 输家打出的卡 → 进赢家手牌
-    winner_g = next(x for x in gps if x.username == winner_name)
-    winner_hand = json_loads_safe(winner_g.hand)
-    for p in played:
-        if p["username"] == winner_name:
-            continue
-        winner_hand.extend(p["card_ids"])
-
-    # 若赢家组合是 bomb_eater_steal1（五虎将/八虎骑），再偷 1 张
-    if winner["is_combo"] and winner["combo_name"]:
-        for combo in COMBOS:
-            if combo["name"] == winner["combo_name"] and combo.get("special") == "bomb_eater_steal1":
-                for p in played:
-                    if p["username"] == winner_name:
-                        continue
-                    loser_g = next(x for x in gps if x.username == p["username"])
-                    loser_hand = json_loads_safe(loser_g.hand)
-                    if loser_hand:
-                        stolen = random.choice(loser_hand)
-                        loser_hand.remove(stolen)
-                        winner_hand.append(stolen)
-                        loser_g.hand = json_dumps_safe(loser_hand)
-                break
-
-    winner_g.hand = json_dumps_safe(winner_hand)
-
-    for p in played:
-        g = next(x for x in gps if x.username == p["username"])
-        g.ready_card = json_dumps_safe([])
-        g.locked = False
-        round_record["played"].append({
-            "username": p["username"],
-            "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in p["cards"]],
-            "value": p["value"],
-            "result": "win" if p["username"] == winner_name else "lose",
-        })
-
-    max_card_id = max(
-        winner["card_ids"],
-        key=lambda cid: (CARD_BY_ID.get(cid, {}).get(dim, 0), CARD_BY_ID.get(cid, {}).get(other_dim, 0))
-    )
-    game.round_winner_card_id = max_card_id
-    game.winner_username = winner_name
-
-    _finalize_round(game, gps, pool, round_record)
-
-
-def _resolve_top_combo(game, gps, played, combo_p, pool, round_record, dim, other_dim):
-    """五虎将 / 八虎骑：吃一切 + 抽卡"""
-    winner_name = combo_p["username"]
-    # 所有人打出的卡从手牌移除
-    for p in played:
-        g = next(x for x in gps if x.username == p["username"])
-        hand = json_loads_safe(g.hand)
-        hand = [cid for cid in hand if cid not in p["card_ids"]]
-        g.hand = json_dumps_safe(hand)
-    # 组合卡进卡袋
-    for cid in combo_p["card_ids"]:
-        pool.append(cid)
-    # 输家的卡 → 进赢家手牌 + 每输家偷 1 张
-    winner_g = next(x for x in gps if x.username == winner_name)
-    winner_hand = json_loads_safe(winner_g.hand)
-    for p in played:
-        if p["username"] == winner_name:
-            continue
-        winner_hand.extend(p["card_ids"])
-        loser_g = next(x for x in gps if x.username == p["username"])
-        loser_hand = json_loads_safe(loser_g.hand)
-        if loser_hand:
-            stolen = random.choice(loser_hand)
-            loser_hand.remove(stolen)
-            winner_hand.append(stolen)
-            loser_g.hand = json_dumps_safe(loser_hand)
-    winner_g.hand = json_dumps_safe(winner_hand)
-
-    for p in played:
-        g = next(x for x in gps if x.username == p["username"])
-        g.ready_card = json_dumps_safe([])
-        g.locked = False
-        round_record["played"].append({
-            "username": p["username"],
-            "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in p["cards"]],
-            "value": p["value"],
-            "result": "win" if p["username"] == winner_name else "lose",
-        })
-    max_card_id = combo_p["card_ids"][0] if combo_p["card_ids"] else None
-    game.round_winner_card_id = max_card_id
-    game.winner_username = winner_name
-
-
-def _resolve_eat_combo(game, gps, played, combo_p, pool, round_record, dim, other_dim):
-    """风流威猛 / 水军三兄弟：吃炸弹和美女，正常比大小"""
-    winner_name = combo_p["username"]
-    for p in played:
-        g = next(x for x in gps if x.username == p["username"])
-        hand = json_loads_safe(g.hand)
-        hand = [cid for cid in hand if cid not in p["card_ids"]]
-        g.hand = json_dumps_safe(hand)
-    for cid in combo_p["card_ids"]:
-        pool.append(cid)
-    winner_g = next(x for x in gps if x.username == winner_name)
-    winner_hand = json_loads_safe(winner_g.hand)
-    for p in played:
-        if p["username"] == winner_name:
-            continue
-        winner_hand.extend(p["card_ids"])
-    winner_g.hand = json_dumps_safe(winner_hand)
-
-    for p in played:
-        g = next(x for x in gps if x.username == p["username"])
-        g.ready_card = json_dumps_safe([])
-        g.locked = False
-        round_record["played"].append({
-            "username": p["username"],
-            "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in p["cards"]],
-            "value": p["value"],
-            "result": "win" if p["username"] == winner_name else "lose",
-        })
-    max_card_id = combo_p["card_ids"][0] if combo_p["card_ids"] else None
-    game.round_winner_card_id = max_card_id
-    game.winner_username = winner_name
-
-
-def _finalize_round(game, gps, pool, round_record):
-    """结算完毕后，检查出完手牌、游戏结束、切阶段"""
-    for g in gps:
-        hand = json_loads_safe(g.hand)
-        if len(hand) == 0 and g.finished_order is None and not g.surrendered:
-            max_order = db.session.query(db.func.max(BokaGamePlayer.finished_order)).filter_by(game_id=game.id).scalar() or 0
-            g.finished_order = max_order + 1
-
-    alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
-    game.card_pool = json_dumps_safe(pool)
-    history = json_loads_safe(game.history)
-    history.append(round_record)
-    game.history = json_dumps_safe(history)
-
-    if len(alive) <= 1:
-        finish_boka_game(game, alive)
-    else:
-        game.phase = "revealing"
-        game.revealed_at = datetime.now()
-    db.session.commit()
-
-
-def finish_boka_game(game, alive):
-    gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
-    survivors = [g for g in gps if g.username in [a.username for a in alive]]
-    finished = [g for g in gps if g.finished_order is not None]
-    surrendered = [g for g in gps if g.surrendered]
-    finished.sort(key=lambda g: g.finished_order, reverse=True)
-    rank_order = []
-    for s in survivors:
-        rank_order.append(s)
-    for f in finished:
-        rank_order.append(f)
-    for s in surrendered:
-        if s not in rank_order:
-            rank_order.append(s)
-    n = len(rank_order)
-    all_scores = [User.query.filter_by(username=g.username).first().score or 0 for g in rank_order]
-    avg_score = sum(all_scores) / n if n else 0
-    for idx, g in enumerate(rank_order, start=1):
-        g.rank = idx
-    for g in rank_order:
-        u = User.query.filter_by(username=g.username).first()
-        if not u:
-            continue
-        old_score = u.score or 0
-        change = calc_boka_score_change(old_score, g.rank, n, avg_score)
-        new_score = old_score + change
-        if u.max_score is None:
-            u.max_score = 0
-        floor = (u.max_score // 1000) * 1000
-        if new_score < floor:
-            new_score = floor
-        if new_score < 0:
-            new_score = 0
-        if new_score > u.max_score:
-            u.max_score = new_score
-        g.score_change = new_score - old_score
-        u.score = new_score
-        rec = BokaGameRecord(
-            username=g.username, game_id=game.id, room_code=None,
-            rank=g.rank, player_count=n,
-            score_before=old_score, score_change=g.score_change,
-            score_after=new_score, played_at=datetime.now(),
-        )
-        db.session.add(rec)
-    game.phase = "finished"
-    game.finished_at = datetime.now()
-    room = BokaRoom.query.get(game.room_id)
-    if room:
-        room.status = "waiting"
-        BokaPlayer.query.filter_by(room_id=room.id).update({"ready": False})
-    db.session.commit()
-    invalidate_table_state_cache()
-    invalidate_table_cache()
-
-
-def calc_boka_score_change(my_score, rank, total_players, avg_score):
-    base_table = {
-        2:  [25, -25],
-        3:  [45, 15, -45],
-        4:  [60, 15, -15, -60],
-        5:  [75, 30, 0, -30, -75],
-        6:  [85, 40, 10, -10, -40, -85],
-        7:  [95, 50, 20, 0, -20, -50, -95],
-        8:  [100, 60, 30, 10, -10, -30, -60, -100],
-        9:  [105, 65, 35, 15, -5, -15, -35, -65, -105],
-        10: [110, 70, 40, 20, 0, -20, -40, -70, -90, -110],
-        11: [115, 75, 45, 25, 5, -5, -25, -45, -75, -95, -115],
-        12: [120, 80, 50, 30, 10, 0, -10, -30, -50, -80, -100, -120],
-        13: [125, 85, 55, 35, 15, 5, -5, -15, -35, -55, -85, -105, -125],
-        14: [130, 90, 60, 40, 20, 10, 0, -10, -20, -40, -60, -90, -110, -130],
-    }
-    n = max(2, min(14, total_players))
-    row = base_table.get(n, base_table[14])
-    if rank < 1:
-        rank = 1
-    if rank > n:
-        rank = n
-    base = row[rank - 1]
-    coef = 1 + 0.5 * math.log((avg_score + 1000) / (my_score + 1000))
-    coef = max(0.5, min(3.0, coef))
-    if base >= 0:
-        return int(base * coef)
-    else:
-        return -int(-base / coef)
 
 @app.route('/boka/room/<room_code>/surrender', methods=['POST'])
 @login_required
@@ -3119,34 +2387,8 @@ def boka_surrender(room_code):
     alive = [g for g in all_players if not g.surrendered and len(json_loads_safe(g.hand)) > 0]
     if len(alive) <= 1:
         finish_boka_game(game, alive)
-        return jsonify({"success": True, "rank": me.surrendered_rank, "finished": True, "state": _build_battle_state(game, room)})
-    return jsonify({"success": True, "rank": me.surrendered_rank, "finished": False, "state": _build_battle_state(game, room)})
-
-def calc_boka_layout(n, my_username, players):
-    if n == 1:
-        areas = {"bottom": 1}
-    else:
-        rest = n - 1
-        top = 1
-        rest -= 1
-        if rest % 2 == 1:
-            top += 1
-            rest -= 1
-        left = rest // 2
-        right = rest // 2
-        areas = {"top": top, "left": left, "right": right, "bottom": 1}
-    others = [p for p in players if p.username != my_username]
-    result = {}
-    result[my_username] = {"side": "bottom", "index": 0}
-    idx = 0
-    for side in ["top", "left", "right"]:
-        count = areas.get(side, 0)
-        for i in range(count):
-            if idx >= len(others):
-                break
-            result[others[idx].username] = {"side": side, "index": i}
-            idx += 1
-    return result
+        return jsonify({"success": True, "rank": me.surrendered_rank, "finished": True})
+    return jsonify({"success": True, "rank": me.surrendered_rank, "finished": False})
 
 # ========== 世界 Boss ==========
 @app.route('/world_boss')
@@ -3654,6 +2896,7 @@ with app.app_context():
         'ALTER TABLE "mail" ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMP',
         'ALTER TABLE "boka_player" ADD COLUMN IF NOT EXISTS status_changed_at TIMESTAMP',
         'ALTER TABLE "boka_player" ADD COLUMN IF NOT EXISTS is_ai BOOLEAN DEFAULT FALSE',
+        'ALTER TABLE "boka_room" ADD COLUMN IF NOT EXISTS pool_capacity INTEGER DEFAULT 0',
     ]
     try:
         with db.engine.begin() as conn:
