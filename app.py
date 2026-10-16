@@ -2460,6 +2460,11 @@ def resolve_boka_round(game):
     dim = "atk" if is_atk_round else "def"
     other_dim = "def" if is_atk_round else "atk"
 
+    # ★ 一次查所有玩家的 User（避免 N+1）
+    usernames = [g.username for g in gps]
+    users_list = User.query.filter(User.username.in_(usernames)).all()
+    users_map = {u.username: u for u in users_list}
+
     played = []
     for g in gps:
         card_ids = json_loads_safe(g.ready_card)
@@ -2471,9 +2476,9 @@ def resolve_boka_round(game):
             if not base:
                 continue
             level = 1
-            coll = User.query.filter_by(username=g.username).first()
-            if coll:
-                user_coll = coll.get_collection() if hasattr(coll, "get_collection") else {}
+            coll_user = users_map.get(g.username)
+            if coll_user:
+                user_coll = coll_user.get_collection() if hasattr(coll_user, "get_collection") else {}
                 entry = user_coll.get(str(cid))
                 if entry:
                     level = entry.get("level", 1)
@@ -2996,12 +3001,12 @@ def boka_play(room_code):
             return jsonify({"error": f"卡 {cid} 不在手牌"}), 400
     me.ready_card = json_dumps_safe(card_ids)
     me.locked = True
-    db.session.commit()
 
-    # AI 自动出牌（先批量查 AI 玩家，避免 N+1）
+    # 一次查所有 AI 玩家
     bp_list = BokaPlayer.query.filter_by(room_id=room.id).all()
     ai_usernames = {bp.username for bp in bp_list if bp.is_ai}
 
+    # 一次查所有本局玩家
     all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     for gp in all_players:
         if gp.locked:
@@ -3013,7 +3018,6 @@ def boka_play(room_code):
                 gp.locked = True
     db.session.commit()
 
-    all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     if all(p.locked for p in all_players):
         resolve_boka_round(game)
     return jsonify({"success": True})
