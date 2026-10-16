@@ -142,6 +142,16 @@ def get_current_week_start():
 def get_next_week_start():
     return get_current_week_start() + timedelta(days=7)
 
+def get_current_season_start():
+    """搏卡赛季起点：每月 1 号 6:00。
+    若当前时间 < 本月 1 号 6:00，则归入上月。"""
+    now = datetime.now()
+    first_6 = now.replace(day=1, hour=6, minute=0, second=0, microsecond=0)
+    if now < first_6:
+        prev_month_last = first_6 - timedelta(days=1)
+        first_6 = prev_month_last.replace(day=1, hour=6, minute=0, second=0, microsecond=0)
+    return first_6
+
 def generate_weak_schedule():
     base = WEAK_ATTR_KEYS[:]
     random.shuffle(base)
@@ -1833,12 +1843,11 @@ def _build_room_state(room):
     """把房间状态打包成 dict"""
     players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
     ready_count = sum(1 for p in players if p.ready)
-    max_players_by_pool = room.pool_capacity // 3 if room.pool_capacity else 14
     return {
         "room_id": room.room_code,
         "status": room.status,
         "count": len(players),
-        "max_players": min(room.max_players, max_players_by_pool),
+        "max_players": room.max_players,   # ← 创建时已锁定，直接用
         "ready_count": ready_count,
         "owner": room.owner_username,
         "players": [
@@ -1855,22 +1864,36 @@ def _build_room_state(room):
         ],
     }
 
-
 # ========== 大厅 ==========
 
 @app.route('/boka')
 @login_required
 def boka():
+    # 本赛季参与场次
+    season_start = get_current_season_start()
+    season_games = BokaGameRecord.query.filter(
+        BokaGameRecord.username == current_user.username,
+        BokaGameRecord.played_at >= season_start,
+    ).count()
+
+    # 排名（按积分降序）
     all_users = User.query.order_by(User.score.desc()).all()
     my_rank = 0
     for idx, u in enumerate(all_users, start=1):
         if u.id == current_user.id:
             my_rank = idx
             break
+
+    # 是否可创建房间：卡池容量 >= 6（即至少支持 2 人 × 3 张）
+    class_count = get_class_count()
+    pool_capacity = min(class_count, 42)
+    can_create = pool_capacity >= 6
+
     return render_template('boka.html',
-                           games=0,
-                           score=current_user.score,
-                           rank=my_rank)
+                           score=current_user.score or 0,
+                           rank=my_rank,
+                           season_games=season_games,
+                           can_create=can_create)
 
 @app.route('/boka/reset_all')
 @login_required
@@ -1894,6 +1917,7 @@ def boka_rooms():
             "room_id": r.room_code,
             "status": "准备中",
             "count": len(players),
+            "max_players": r.max_players,   # ← 新增
             "owner": r.owner_username,
             "players": [
                 {"name": p.nickname or p.username, "username": p.username,
@@ -1905,22 +1929,27 @@ def boka_rooms():
         })
     return jsonify({"rooms": result})
 
-
 @app.route('/boka/create', methods=['POST'])
 @login_required
 def boka_create():
-    leave_any_room(current_user)
-    code = gen_room_code()
-
-    # 创建时锁定卡池
+    # 卡池校验：至少 6 张（2 人 × 3 张）才能开局
     class_count = get_class_count()
     pool_capacity = min(class_count, 42)
+    if pool_capacity < 6:
+        return jsonify({"error": "班级收藏不足，无法创建房间"}), 400
+
+    # 人数上限：受卡池容量约束（每人至少 3 张），封顶 14，至少 2
+    final_max_players = min(14, pool_capacity // 3)
+    final_max_players = max(2, final_max_players)
+
+    leave_any_room(current_user)
+    code = gen_room_code()
 
     room = BokaRoom(
         room_code=code,
         owner_username=current_user.username,
         status="waiting",
-        max_players=14,
+        max_players=final_max_players,   # ← 创建时锁定
         created_at=datetime.now(),
         pool_capacity=pool_capacity,
     )
@@ -1940,7 +1969,6 @@ def boka_create():
     current_user.boka_room_id = room.id
     db.session.commit()
     return jsonify({"room_id": code})
-
 
 def leave_any_room(user):
     if not user.boka_room_id:
@@ -1981,8 +2009,7 @@ def boka_room(room_code):
             me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
         if not me:
             player_count = BokaPlayer.query.filter_by(room_id=room.id).count()
-            max_players = min(room.max_players, (room.pool_capacity // 3) if room.pool_capacity else 14)
-            if player_count >= max_players:
+            if player_count >= room.max_players:
                 return "房间已满", 403
             me = BokaPlayer(
                 room_id=room.id,
@@ -2060,8 +2087,7 @@ def boka_add_bot(room_code):
         return jsonify({"error": "游戏已开始"}), 400
 
     player_count = BokaPlayer.query.filter_by(room_id=room.id).count()
-    max_players = min(room.max_players, (room.pool_capacity // 3) if room.pool_capacity else 14)
-    if player_count >= max_players:
+    if player_count >= room.max_players:
         return jsonify({"error": "房间已满"}), 400
 
     # 随机选一个水浒角色名
@@ -2125,6 +2151,13 @@ def boka_start(room_code):
     if not all(p.ready for p in players):
         return jsonify({"error": "还有玩家未准备"}), 400
 
+    # 清理该房间的旧局（上一局已结束的 BokaGame 记录）
+    old_games = BokaGame.query.filter_by(room_id=room.id).all()
+    for og in old_games:
+        BokaGamePlayer.query.filter_by(game_id=og.id).delete()
+        db.session.delete(og)
+    db.session.flush()
+    
     class_records = ClassCollection.query.all()
     n_players = len(players)
     pool_capacity = min(len(class_records), 42)
@@ -3120,7 +3153,9 @@ def boka_battle_state(room_code):
         winner_card_ids = [game.round_winner_card_id]
 
     all_loser = (game.round_winner_card_id is None and game.winner_username is None and game.phase == "revealing")
-    print(f"[boka_state] phase={game.phase} elapsed={elapsed_since_reveal} players={[(p['username'], len(p['ready_cards']), p['result']) for p in players_view]}", flush=True)
+    print(f"[boka_state] phase={game.phase} elapsed={elapsed_since_reveal} "
+          f"gps={[(g.username, len(json_loads_safe(g.ready_card)), g.locked) for g in gps]}",
+          flush=True)
     return jsonify({
         "round_no": game.round_no,
         "phase": game.phase,
