@@ -1912,16 +1912,26 @@ def _build_table_state(table):
 @app.route('/boka/table_state')
 @login_required
 def boka_table_state():
+    import time
+    t0 = time.time()
     table = get_or_create_table()
+    t1 = time.time()
     cleanup_expired_players(table)
+    t2 = time.time()
 
     # 同步当前用户的 boka_room_id
     me_player = BokaPlayer.query.filter_by(room_id=table.id, username=current_user.username).first()
     if current_user.boka_room_id == table.id and me_player is None:
         current_user.boka_room_id = None
         db.session.commit()
+    t3 = time.time()
 
-    return jsonify(_build_table_state(table))
+    result = _build_table_state(table)
+    t4 = time.time()
+
+    print(f"[table_state] get_table={t1-t0:.3f}s cleanup={t2-t1:.3f}s sync={t3-t2:.3f}s build={t4-t3:.3f}s total={t4-t0:.3f}s", flush=True)
+
+    return jsonify(result)
 
 
 @app.route('/boka/join', methods=['POST'])
