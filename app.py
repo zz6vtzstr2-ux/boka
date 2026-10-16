@@ -2229,7 +2229,32 @@ def boka_quit(room_code):
 
 
 # ========== 战斗页 ==========
-
+def calc_boka_layout(n, my_username, players):
+    if n == 1:
+        areas = {"bottom": 1}
+    else:
+        rest = n - 1
+        top = 1
+        rest -= 1
+        if rest % 2 == 1:
+            top += 1
+            rest -= 1
+        left = rest // 2
+        right = rest // 2
+        areas = {"top": top, "left": left, "right": right, "bottom": 1}
+    others = [p for p in players if p.username != my_username]
+    result = {}
+    result[my_username] = {"side": "bottom", "index": 0}
+    idx = 0
+    for side in ["top", "left", "right"]:
+        count = areas.get(side, 0)
+        for i in range(count):
+            if idx >= len(others):
+                break
+            result[others[idx].username] = {"side": side, "index": i}
+            idx += 1
+    return result
+    
 @app.route('/boka/room/<room_code>/battle')
 @login_required
 def boka_battle(room_code):
