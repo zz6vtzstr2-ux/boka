@@ -2422,6 +2422,7 @@ def boka_battle_state(room_code):
     if not game:
         return jsonify({"error": "无对局"}), 404
 
+    # 结算推进（保留原逻辑）
     if game.phase == "revealing" and game.revealed_at:
         elapsed = (datetime.now() - game.revealed_at).total_seconds()
         if elapsed >= 3.0:
@@ -2440,38 +2441,50 @@ def boka_battle_state(room_code):
 
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     me = next((g for g in gps if g.username == current_user.username), None)
-    all_locked = all(g.locked for g in gps)
-
-    players_view = []
-    for g in gps:
-        ready_cards = json_loads_safe(g.ready_card)
-        show_cards = (game.phase in ("revealing", "finished")) or (g.username == current_user.username)
-        players_view.append({
-            "username": g.username, "nickname": g.nickname,
-            "is_me": g.username == current_user.username,
-            "hand_count": len(json_loads_safe(g.hand)),
-            "locked": g.locked,
-            "ready_cards": [CARD_BY_ID.get(cid) for cid in (ready_cards if show_cards else []) if CARD_BY_ID.get(cid)],
-            "rank": g.rank, "score_change": g.score_change or 0,
-            "surrendered": g.surrendered,
-        })
+    opp = next((g for g in gps if g.username != current_user.username), None)
 
     my_hand_ids = json_loads_safe(me.hand) if me else []
     my_ready_ids = json_loads_safe(me.ready_card) if me else []
 
+    elapsed_since_reveal = None
+    if game.phase == "revealing" and game.revealed_at:
+        try:
+            t = game.revealed_at
+            elapsed_since_reveal = (datetime.now() - t).total_seconds()
+        except Exception:
+            elapsed_since_reveal = 0
+
+    my_played = [CARD_BY_ID.get(cid) for cid in my_ready_ids if CARD_BY_ID.get(cid)]
+    opp_ready_ids = json_loads_safe(opp.ready_card) if opp else []
+    ai_played = [CARD_BY_ID.get(cid) for cid in opp_ready_ids if CARD_BY_ID.get(cid)]
+
+    winner_card_ids = []
+    if game.round_winner_card_id:
+        winner_card_ids = [game.round_winner_card_id]
+
+    all_loser = (game.round_winner_card_id is None and game.winner_username is None and game.phase == "revealing")
+
     return jsonify({
-        "round_no": game.round_no, "phase": game.phase,
+        "round_no": game.round_no,
+        "phase": game.phase,
         "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
-        "all_locked": all_locked,
         "my_hand": [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)],
-        "my_ready": [CARD_BY_ID.get(cid) for cid in my_ready_ids if CARD_BY_ID.get(cid)],
-        "players": players_view,
-        "winner_card_id": game.round_winner_card_id,
+        "my_hand_count": len(my_hand_ids),
+        "ai_hand_count": len(json_loads_safe(opp.hand)) if opp else 0,
+        "my_played": my_played,
+        "ai_played": ai_played,
+        "winner_card_ids": winner_card_ids,
         "winner_username": game.winner_username,
+        "all_loser": all_loser,
         "pool_count": len(json_loads_safe(game.card_pool)),
         "history": json_loads_safe(game.history),
         "finished": game.phase == "finished",
+        "won": False,
+        "elapsed_since_reveal": elapsed_since_reveal if elapsed_since_reveal is not None else -1,
         "beauty_left": game.beauty_left if game.beauty_left is not None else 3,
+        "my_rank": me.rank if me else None,
+        "my_score_change": me.score_change if me else 0,
+        "opp_nickname": (opp.nickname or opp.username) if opp else "电脑",
     })
 
 
