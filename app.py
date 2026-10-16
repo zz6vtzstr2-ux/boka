@@ -2998,13 +2998,15 @@ def boka_play(room_code):
     me.locked = True
     db.session.commit()
 
-    # AI 自动出牌
+    # AI 自动出牌（先批量查 AI 玩家，避免 N+1）
+    bp_list = BokaPlayer.query.filter_by(room_id=room.id).all()
+    ai_usernames = {bp.username for bp in bp_list if bp.is_ai}
+
     all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     for gp in all_players:
         if gp.locked:
             continue
-        bp = BokaPlayer.query.filter_by(room_id=room.id, username=gp.username).first()
-        if bp and bp.is_ai:
+        if gp.username in ai_usernames:
             ai_cards = _boka_ai_choose_cards(game, gp)
             if ai_cards:
                 gp.ready_card = json_dumps_safe(ai_cards)
