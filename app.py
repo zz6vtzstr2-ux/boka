@@ -1933,16 +1933,21 @@ def boka_table_state():
 
     return jsonify(result)
 
-
 @app.route('/boka/join', methods=['POST'])
 @login_required
 def boka_join():
+    import time
+    t0 = time.time()
     table = get_or_create_table()
+    t1 = time.time()
     ok, err = _try_join_table(table, current_user)
+    t2 = time.time()
     if not ok:
         return jsonify({"error": err}), 400
-    return jsonify({"success": True, "state": _build_table_state(table)})
-
+    result = _build_table_state(table)
+    t3 = time.time()
+    print(f"[boka_join] get_table={t1-t0:.3f}s try_join={t2-t1:.3f}s build={t3-t2:.3f}s total={t3-t0:.3f}s", flush=True)
+    return jsonify({"success": True, "state": result})
 
 @app.route('/boka/leave', methods=['POST'])
 @login_required
