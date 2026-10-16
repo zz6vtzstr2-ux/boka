@@ -1872,7 +1872,17 @@ def boka():
                            score=current_user.score,
                            rank=my_rank)
 
-
+@app.route('/boka/reset_all')
+@login_required
+def boka_reset_all():
+    BokaGamePlayer.query.delete()
+    BokaGame.query.delete()
+    BokaPlayer.query.delete()
+    BokaRoom.query.delete()
+    User.query.update({"boka_room_id": None})
+    db.session.commit()
+    return "✅ 所有搏卡房间已清空"
+    
 @app.route('/boka/rooms')
 @login_required
 def boka_rooms():
