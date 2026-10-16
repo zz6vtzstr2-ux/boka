@@ -1948,7 +1948,14 @@ def leave_any_room(user):
     room = BokaRoom.query.get(user.boka_room_id)
     if room:
         if room.owner_username == user.username:
+            # 先删对局相关（外键依赖）
+            games = BokaGame.query.filter_by(room_id=room.id).all()
+            for g in games:
+                BokaGamePlayer.query.filter_by(game_id=g.id).delete()
+                db.session.delete(g)
+            # 删玩家
             BokaPlayer.query.filter_by(room_id=room.id).delete()
+            # 最后删房间
             db.session.delete(room)
         else:
             BokaPlayer.query.filter_by(room_id=room.id, username=user.username).delete()
@@ -2186,11 +2193,15 @@ def boka_dissolve(room_code):
         u = User.query.filter_by(username=p.username).first()
         if u:
             u.boka_room_id = None
+    # 先删对局相关
+    games = BokaGame.query.filter_by(room_id=room.id).all()
+    for g in games:
+        BokaGamePlayer.query.filter_by(game_id=g.id).delete()
+        db.session.delete(g)
     BokaPlayer.query.filter_by(room_id=room.id).delete()
     db.session.delete(room)
     db.session.commit()
     return jsonify({"success": True})
-
 
 @app.route('/boka/room/<room_code>/leave', methods=['POST'])
 @login_required
@@ -2206,7 +2217,6 @@ def boka_leave(room_code):
     db.session.commit()
     return jsonify({"success": True})
 
-
 @app.route('/boka/room/<room_code>/quit', methods=['POST'])
 @login_required
 def boka_quit(room_code):
@@ -2219,6 +2229,11 @@ def boka_quit(room_code):
             u = User.query.filter_by(username=p.username).first()
             if u:
                 u.boka_room_id = None
+        # 先删对局相关
+        games = BokaGame.query.filter_by(room_id=room.id).all()
+        for g in games:
+            BokaGamePlayer.query.filter_by(game_id=g.id).delete()
+            db.session.delete(g)
         BokaPlayer.query.filter_by(room_id=room.id).delete()
         db.session.delete(room)
     else:
@@ -2226,7 +2241,6 @@ def boka_quit(room_code):
         current_user.boka_room_id = None
     db.session.commit()
     return jsonify({"success": True})
-
 
 # ========== 战斗页 ==========
 def calc_boka_layout(n, my_username, players):
