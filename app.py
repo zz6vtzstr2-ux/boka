@@ -896,6 +896,8 @@ def challenge_validate_combo():
 @app.route('/challenge/play', methods=['POST'])
 @login_required
 def challenge_play():
+    import time
+    t0 = time.time()
     level = int(request.json.get('level', current_user.challenge_level))
     card_ids = request.json.get('card_ids', [])
 
@@ -939,6 +941,8 @@ def challenge_play():
     # 立即结算（单人 PVE 无需等待）
     _resolve_challenge_round(game)
 
+    t_end = time.time()
+    print(f"[challenge_play] total={t_end-t0:.3f}s", flush=True)
     current_user.challenge_active_game = json_dumps_safe(game)
     db.session.commit()
     return jsonify({"success": True})
@@ -1000,10 +1004,13 @@ def challenge_songjiang_draw():
 @app.route('/challenge/state')
 @login_required
 def challenge_state():
+    import time
+    t0 = time.time()
     level = int(request.args.get('level', current_user.challenge_level))
     if not current_user.challenge_active_game:
         return jsonify({"error": "无对局"}), 404
     game = json_loads_safe(current_user.challenge_active_game)
+    t1 = time.time()
     if not isinstance(game, dict):
         return jsonify({"error": "数据异常"}), 500
 
@@ -1057,6 +1064,8 @@ def challenge_state():
 
     my_hand_cards = [c for c in (_to_card(cid) for cid in game.get("my_hand", [])) if c]
 
+    t_end = time.time()
+    print(f"[challenge_state] load={t1-t0:.3f}s total={t_end-t0:.3f}s phase={game.get('phase')}", flush=True)
     return jsonify({
         "round_no": game.get("round_no", 1),
         "phase": game.get("phase", "selecting"),
