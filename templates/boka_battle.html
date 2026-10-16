@@ -777,8 +777,13 @@
             }
             songjiangShownForCurrentSelection = false;
             renderHand();
-            await updateComboInfo();
+            // 先本地粗判：单卡直接亮
+            if (myReady.length === 1) {
+              lastComboValid = true;
+            }
             updatePlayBtn();
+            // 后台校验（不 await）
+            updateComboInfo();
             checkSongjiangTrigger();
           };
         }
@@ -955,6 +960,10 @@
       renderHand();
       updatePlayBtn();
 
+      // ★ 先显示问号（不等请求）
+      shownStep = "my_qmark";
+      renderPlayed([], [], "my_qmark", null);
+
       const res = await fetch('/boka/room/' + roomCode + '/play', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -967,9 +976,6 @@
         updatePlayBtn();
         return;
       }
-
-      shownStep = "my_qmark";
-      renderPlayed([], [], "my_qmark", null);
 
       startPolling();
     }
