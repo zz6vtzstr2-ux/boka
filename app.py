@@ -3076,7 +3076,7 @@ def boka_battle_state(room_code):
     # 结算推进（保留原逻辑）
     if game.phase == "revealing" and game.revealed_at:
         elapsed = (datetime.now() - game.revealed_at).total_seconds()
-        if elapsed >= 3.0:
+        if elapsed >= 8.0:
             gps_check = BokaGamePlayer.query.filter_by(game_id=game.id).all()
             alive = [g for g in gps_check if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
             if len(alive) <= 1 and game.phase != "finished":
