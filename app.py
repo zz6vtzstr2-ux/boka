@@ -2063,31 +2063,35 @@ def boka_room_state(room_code):
 @app.route('/boka/room/<room_code>/ready', methods=['POST'])
 @login_required
 def boka_ready(room_code):
+    # 1. 查房间
     room = BokaRoom.query.filter_by(room_code=room_code).first()
     if not room:
         return jsonify({"error": "房间不存在"}), 404
 
-    # 一次性把该房间所有玩家拉出来（1 次查询）
-    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
-    
-    me = None
-    for p in players:
-        if p.username == current_user.username:
-            me = p
-            break
-            
+    # 2. 查询我的记录（直接用 filter 查，不要拉全表）
+    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
     if not me:
         return jsonify({"error": "你不在房间"}), 400
 
-    # 切换准备状态并写入（1 次写入）
-    me.ready = not me.ready
+    # 3. 切换状态，使用 SQLAlchemy 2.0 的高效更新方式
+    new_ready = not me.ready
+    me.ready = new_ready
     me.status_changed_at = datetime.now()
+    
+    # ★ 核心优化：使用 update 语句直接写库，绕过 Session 的其他未提交检测！
+    from sqlalchemy import update
+    db.session.execute(
+        update(BokaPlayer)
+        .where(BokaPlayer.id == me.id)
+        .values(ready=new_ready, status_changed_at=datetime.now())
+    )
     db.session.commit()
 
-    # 利用已经查出来的 players，在内存里计算，不再发多余 SQL
+    # 4. 重新查出该房间所有人（1 次轻量查询）
+    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
     ready_count = sum(1 for p in players if p.ready)
-    
-    # 直接打包最新的完整状态返回给前端
+
+    # 5. 直接组装返回，不需要再调用其他函数
     state = {
         "room_id": room.room_code,
         "status": room.status,
@@ -2095,7 +2099,7 @@ def boka_ready(room_code):
         "max_players": room.max_players,
         "ready_count": ready_count,
         "owner": room.owner_username,
-        "is_ready": me.ready,
+        "is_ready": new_ready,
         "is_owner": (room.owner_username == current_user.username),
         "players": [
             {
@@ -2109,7 +2113,6 @@ def boka_ready(room_code):
             for p in players
         ],
     }
-    
     return jsonify(state)
 
 @app.route('/boka/room/<room_code>/add_bot', methods=['POST'])
