@@ -2326,6 +2326,7 @@ def boka_dissolve(room_code):
         db.session.delete(g)
     BokaPlayer.query.filter_by(room_id=room.id).delete()
     db.session.delete(room)
+    BOKA_ROOM_CACHE.pop(room_code, None)
     db.session.commit()
     return jsonify({"success": True})
 
@@ -2365,6 +2366,7 @@ def boka_quit(room_code):
     else:
         BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).delete()
         current_user.boka_room_id = None
+    BOKA_ROOM_CACHE.pop(room_code, None)
     db.session.commit()
     return jsonify({"success": True})
 
