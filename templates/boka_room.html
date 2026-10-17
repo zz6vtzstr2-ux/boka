@@ -504,14 +504,31 @@
 
     // ===== 准备 / 取消准备 =====
     async function toggleReady() {
-      const res = await fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' });
-      const data = await res.json();
-      if (data.error) { showToast(data.error); return; }
-      // 立即反馈
       const btn = document.getElementById('readyBtn');
-      btn.textContent = data.ready ? '取消准备' : '准备';
-      // 刷新完整状态
-      fetchState();
+      if (btn.disabled) return; // 防连点
+      
+      btn.disabled = true;
+      const oldText = btn.textContent;
+      btn.textContent = '处理中...';
+
+      try {
+        const res = await fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' });
+        const data = await res.json();
+        if (data.error) { 
+          showToast(data.error); 
+          btn.textContent = oldText;
+          return; 
+        }
+        // 立即反馈
+        btn.textContent = data.ready ? '取消准备' : '准备';
+        // 刷新完整状态
+        fetchState();
+      } catch (e) {
+        showToast('网络异常');
+        btn.textContent = oldText;
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     // ===== 开始游戏 =====
@@ -550,10 +567,17 @@
               </div>`;
     }
 
-    // ===== 渲染玩家列表 =====
+    // ===== 渲染玩家列表（加上判重，避免每次都重新加载图片） =====
+    let lastPlayersStr = '';
     function renderPlayers(players, owner) {
+      // ★ 核心优化：比对数据，如果玩家/准备状态没变，直接跳过 DOM 重建
+      const str = JSON.stringify(players.map(p => [p.username, p.ready, p.is_ai]));
+      if (str === lastPlayersStr) return; 
+      lastPlayersStr = str;
+
       const el = document.getElementById('playerList');
       el.innerHTML = '';
+      
       players.forEach(p => {
         const div = document.createElement('div');
         div.className = 'player-item' + (p.is_me ? ' is-me' : '');
@@ -564,34 +588,33 @@
         if (p.ready && !p.is_ai) tags.push('<span class="tag tag-ready">已准备</span>');
 
         let kickHtml = '';
-        // 房主可以踢非自己
         if (IS_OWNER && p.username !== MY_USERNAME) {
           kickHtml = `<button class="kick-btn" onclick="event.stopPropagation();kickPlayer('${p.username}','${p.nickname}')">踢出</button>`;
         }
 
         div.innerHTML = `
           ${avatarHtml(p.username)}
-          <div class="player-name">
-            ${p.nickname}${p.is_me ? '<span class="me-suffix">（我）</span>' : ''}
-          </div>
+          <div class="player-name">${p.nickname}${p.is_me ? '<span class="me-suffix">（我）</span>' : ''}</div>
           ${tags.join('')}
           ${kickHtml}
         `;
         el.appendChild(div);
       });
 
-      // 空白座位（可选，用占位提示）
+      // 空白座位
       const maxP = lastStatus ? lastStatus.max_players : players.length;
       const emptyCount = Math.max(0, maxP - players.length);
-      for (let i = 0; i < emptyCount; i++) {
-        const div = document.createElement('div');
-        div.className = 'player-item';
-        div.style.opacity = '0.5';
-        div.innerHTML = `
-          <div class="avatar-fallback"></div>
-          <div class="player-name" style="color:#aaa;">等待加入...</div>
-        `;
-        el.appendChild(div);
+      if (emptyCount > 0) {
+        for (let i = 0; i < emptyCount; i++) {
+          const div = document.createElement('div');
+          div.className = 'player-item';
+          div.style.opacity = '0.5';
+          div.innerHTML = `
+            <div class="avatar-fallback"></div>
+            <div class="player-name" style="color:#aaa;">等待加入...</div>
+          `;
+          el.appendChild(div);
+        }
       }
     }
 
@@ -636,7 +659,7 @@
     // ===== 轮询 =====
     function startPolling() {
       if (statePollTimer) clearInterval(statePollTimer);
-      statePollTimer = setInterval(fetchState, 2000);
+      statePollTimer = setInterval(fetchState, 3000);
     }
     function stopPolling() {
       if (statePollTimer) { clearInterval(statePollTimer); statePollTimer = null; }
