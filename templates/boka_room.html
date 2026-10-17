@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>搏卡房间 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background-color: #e8e0cc;
+      color: #333;
+      margin: 0;
+      padding: 16px 16px 90px 16px;
+      min-height: 100vh;
+    }
+    .container { max-width: 868px; margin: 0 auto; }
+
+    /* ===== 顶部标题 ===== */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .title-block .page-name {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 4px;
+      text-indent: 4px;
+    }
+    .title-block .en {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .back-btn {
+      background: #fce8ec;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid #e8c8d0;
+      font-size: 15px;
+      color: #b85a6a;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .back-btn:hover { background: #f8d8de; }
+
+    /* ===== 通用卡片 ===== */
+    .panel {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .panel-title {
+      display: inline-block;
+      background: #fdf6d8;
+      color: #8a6d1f;
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: 1px solid #f0e0a0;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-indent: 3px;
+      margin-bottom: 16px;
+    }
+
+    /* ===== 板块1：房间号 + 准备 ===== */
+    .room-code-big {
+      text-align: center;
+      font-family: monospace;
+      font-size: 42px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 8px;
+      text-indent: 8px;
+      margin: 10px 0 18px 0;
+      user-select: all;
+    }
+
+    .copy-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .copy-input {
+      flex: 1;
+      min-width: 0;
+      padding: 12px 14px;
+      border: 1px solid #d8d0bc;
+      border-radius: 10px;
+      background: #f9f5e8;
+      font-size: 14px;
+      color: #666;
+      font-family: inherit;
+      outline: none;
+    }
+    .copy-btn {
+      padding: 12px 20px;
+      border: none;
+      border-radius: 10px;
+      background: #5bb8e8;
+      color: #fff;
+      font-size: 15px;
+      font-weight: bold;
+      font-family: inherit;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+      white-space: nowrap;
+    }
+    .copy-btn:hover { transform: translateY(-2px); background: #4aa8d8; }
+
+    /* 准备区 */
+    .ready-block {
+      border-top: 1px solid #e8e0cc;
+      padding-top: 18px;
+    }
+    .ready-status {
+      text-align: center;
+      font-size: 16px;
+      color: #666;
+      margin-bottom: 16px;
+      letter-spacing: 1px;
+    }
+    .ready-status b {
+      color: #b85a6a;
+      font-size: 22px;
+      font-weight: bold;
+      margin: 0 3px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .btn-row:last-child { margin-bottom: 0; }
+
+    .btn-room {
+      flex: 1;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-indent: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: transform 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .btn-room:hover:not(:disabled) { transform: translateY(-2px); }
+    .btn-room:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-green {
+      background: #5cb85c; color: #fff;
+      box-shadow: 0 2px 6px rgba(92,184,92,0.3);
+    }
+    .btn-green:hover:not(:disabled) { background: #4ea84e; }
+
+    .btn-blue {
+      background: #5bb8e8; color: #fff;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+    }
+    .btn-blue:hover:not(:disabled) { background: #4aa8d8; }
+
+    .btn-pink {
+      background: #e8a0b0; color: #fff;
+      box-shadow: 0 2px 6px rgba(232,160,176,0.3);
+    }
+    .btn-pink:hover:not(:disabled) { background: #d88898; }
+
+    .btn-gray {
+      background: #c8bca0; color: #fff;
+      box-shadow: 0 2px 6px rgba(200,188,160,0.3);
+    }
+    .btn-gray:hover:not(:disabled) { background: #b8ac90; }
+
+    /* ===== 板块2：玩家列表 ===== */
+    .player-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .player-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border: 1px solid #e0d8c0;
+      border-radius: 12px;
+      background: #fdfaf0;
+      transition: background 0.15s;
+    }
+    .player-item.is-me { background: #f9f5e8; border-color: #d8c8a0; }
+
+    /* 头像兜底容器 */
+    .avatar-fallback {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      border: 2px solid #d8d0bc;
+      background: #d8d0bc;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .avatar-fallback img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .player-name {
+      flex: 1;
+      min-width: 0;
+      font-size: 16px;
+      font-weight: bold;
+      color: #2c3e50;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .player-name .me-suffix {
+      color: #b85a6a;
+      font-size: 14px;
+      margin-left: 4px;
+    }
+
+    .tag {
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: bold;
+      padding: 4px 10px;
+      border-radius: 8px;
+      letter-spacing: 1px;
+      white-space: nowrap;
+    }
+    .tag-owner {
+      color: #b85a6a;
+      background: #fce8ec;
+      border: 1px solid #e8c8d0;
+    }
+    .tag-ready {
+      color: #5cb85c;
+      background: #e8f5e8;
+      border: 1px solid #b8e0b8;
+    }
+    .tag-ai {
+      color: #8a6d1f;
+      background: #fdf6d8;
+      border: 1px solid #f0e0a0;
+    }
+
+    .kick-btn {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 8px;
+      background: #fce8ec;
+      color: #b85a6a;
+      font-size: 13px;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+      border: 1px solid #e8c8d0;
+      transition: background 0.15s;
+    }
+    .kick-btn:hover { background: #f8d8de; }
+
+    /* ===== Toast ===== */
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 100px;
+      background: rgba(44,110,90,0.95);
+      color: #fff;
+      padding: 12px 22px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: bold;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ===== 通用弹窗 ===== */
+    .confirm-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 400;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+    .confirm-modal.active { display: flex; }
+    .confirm-inner {
+      background: #fffdf5;
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 400px;
+      width: 100%;
+      border: 4px double #f0e0a0;
+      text-align: center;
+      animation: confirmPop 0.18s ease-out;
+    }
+    @keyframes confirmPop {
+      from { transform: scale(0.92); opacity: 0; }
+      to   { transform: scale(1);    opacity: 1; }
+    }
+    .confirm-inner h3 {
+      margin: 0 0 14px 0;
+      color: #8a6d1f;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 3px;
+    }
+    .confirm-inner .confirm-msg {
+      font-size: 15px;
+      color: #555;
+      line-height: 1.7;
+      margin-bottom: 20px;
+      white-space: pre-wrap;
+    }
+    .confirm-btns {
+      display: flex;
+      gap: 10px;
+    }
+    .confirm-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 2px;
+      transition: transform 0.15s, background 0.15s;
+    }
+    .confirm-btn:hover { transform: translateY(-1px); }
+    .confirm-btn.confirm-primary {
+      background: #5bb8e8;
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+    }
+    .confirm-btn.confirm-primary:hover { background: #4aa8d8; }
+    .confirm-btn.confirm-secondary {
+      background: #fce8ec;
+      color: #b85a6a;
+      border: 1px solid #e8c8d0;
+    }
+    .confirm-btn.confirm-secondary:hover { background: #f8d8de; }
+
+    /* ===== 移动端 ===== */
+    @media (max-width: 480px) {
+      .title-block .page-name { font-size: 24px; letter-spacing: 3px; }
+      .back-btn { padding: 8px 14px; font-size: 14px; }
+      .room-code-big { font-size: 34px; letter-spacing: 6px; }
+      .btn-room { font-size: 16px; letter-spacing: 2px; padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 顶部 -->
+    <div class="header">
+      <div class="title-block">
+        <div class="page-name">搏卡房间</div>
+        <div class="en">Room</div>
+      </div>
+      <a href="/boka" class="back-btn">返回列表</a>
+    </div>
+
+    <!-- 板块1：房间号 + 准备 -->
+    <div class="panel">
+      <div class="panel-title">房间号</div>
+      <div class="room-code-big" id="roomCode">{{ room_code }}</div>
+
+      <div class="copy-row">
+        <input class="copy-input" id="inviteUrl" value="{{ invite_url }}" readonly>
+        <button class="copy-btn" onclick="copyInvite()">复制</button>
+      </div>
+
+      <!-- 准备区 -->
+      <div class="ready-block">
+        <div class="ready-status">
+          已准备 <b id="readyCount">{{ ready_count }}</b> / <b id="playerCount">{{ player_count }}</b>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-room btn-green" id="readyBtn" onclick="toggleReady()">
+            {% if is_ready %}取消准备{% else %}准备{% endif %}
+          </button>
+          {% if is_owner %}
+          <button class="btn-room btn-blue" id="startBtn" onclick="startGame()" disabled>开始游戏</button>
+          {% endif %}
+        </div>
+
+        {% if is_owner %}
+        <div class="btn-row">
+          <button class="btn-room btn-pink" onclick="dissolveRoom()">解散房间</button>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 板块2：玩家列表 -->
+    <div class="panel">
+      <div class="panel-title">玩家列表</div>
+      <div class="player-list" id="playerList"></div>
+    </div>
+  </div>
+
+  <!-- 通用确认弹窗 -->
+  <div class="confirm-modal" id="confirmModal">
+    <div class="confirm-inner">
+      <h3 id="confirmTitle">确认</h3>
+      <div class="confirm-msg" id="confirmMsg"></div>
+      <div class="confirm-btns" id="confirmBtns">
+        <button class="confirm-btn confirm-secondary" onclick="confirmChoose(false)">取消</button>
+        <button class="confirm-btn confirm-primary" onclick="confirmChoose(true)">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const ROOM_CODE = "{{ room_code }}";
+    const IS_OWNER = {{ 'true' if is_owner else 'false' }};
+    const MY_USERNAME = "{{ current_user.username }}";
+    let lastStatus = null;
+
+    let statePollTimer = null;
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1600);
+    }
+
+    // 通用确认弹窗
+    let confirmResolver = null;
+    function showConfirm(title, message, okText, cancelText) {
+      document.getElementById('confirmTitle').textContent = title || '确认';
+      document.getElementById('confirmMsg').textContent = message || '';
+      const btns = document.getElementById('confirmBtns');
+      // 重新生成按钮文字（支持自定义）
+      btns.innerHTML = `
+        <button class="confirm-btn confirm-secondary" onclick="confirmChoose(false)">${cancelText || '取消'}</button>
+        <button class="confirm-btn confirm-primary" onclick="confirmChoose(true)">${okText || '确定'}</button>
+      `;
+      document.getElementById('confirmModal').classList.add('active');
+      return new Promise(resolve => { confirmResolver = resolve; });
+    }
+    function confirmChoose(ok) {
+      document.getElementById('confirmModal').classList.remove('active');
+      if (confirmResolver) {
+        confirmResolver(ok);
+        confirmResolver = null;
+      }
+    }
+
+    // ===== 复制邀请链接 =====
+    async function copyInvite() {
+      const input = document.getElementById('inviteUrl');
+      try {
+        await navigator.clipboard.writeText(input.value);
+        showToast('已复制');
+      } catch (e) {
+        input.select();
+        document.execCommand('copy');
+        showToast('已复制');
+      }
+    }
+
+    // ===== 准备 / 取消准备 =====
+    async function toggleReady() {
+      const res = await fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      // 立即反馈
+      const btn = document.getElementById('readyBtn');
+      btn.textContent = data.ready ? '取消准备' : '准备';
+      // 刷新完整状态
+      fetchState();
+    }
+
+    // ===== 开始游戏 =====
+    async function startGame() {
+      const res = await fetch(`/boka/room/${ROOM_CODE}/start`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      window.location.href = `/boka/room/${ROOM_CODE}/battle`;
+    }
+
+    // ===== 解散房间 =====
+    async function dissolveRoom() {
+      const ok = await showConfirm('解散房间', '确定解散房间？所有玩家将被移出。', '解散', '取消');
+      if (!ok) return;
+      const res = await fetch(`/boka/room/${ROOM_CODE}/dissolve`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      window.location.href = '/boka';
+    }
+
+    // ===== 踢人 =====
+    async function kickPlayer(username, nickname) {
+      const ok = await showConfirm('踢出玩家', `确定将「${nickname}」踢出房间？`, '踢出', '取消');
+      if (!ok) return;
+      const res = await fetch(`/boka/room/${ROOM_CODE}/kick/${username}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      showToast('已踢出');
+      fetchState();
+    }
+
+    // ===== 头像兜底 =====
+    function avatarHtml(username) {
+      return `<div class="avatar-fallback">
+                <img src="/static/avatars/${username}.jpg" onerror="this.remove()" alt="">
+              </div>`;
+    }
+
+    // ===== 渲染玩家列表 =====
+    function renderPlayers(players, owner) {
+      const el = document.getElementById('playerList');
+      el.innerHTML = '';
+      players.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'player-item' + (p.is_me ? ' is-me' : '');
+
+        const tags = [];
+        if (p.username === owner) tags.push('<span class="tag tag-owner">房主</span>');
+        if (p.is_ai) tags.push('<span class="tag tag-ai">AI</span>');
+        if (p.ready && !p.is_ai) tags.push('<span class="tag tag-ready">已准备</span>');
+
+        let kickHtml = '';
+        // 房主可以踢非自己
+        if (IS_OWNER && p.username !== MY_USERNAME) {
+          kickHtml = `<button class="kick-btn" onclick="event.stopPropagation();kickPlayer('${p.username}','${p.nickname}')">踢出</button>`;
+        }
+
+        div.innerHTML = `
+          ${avatarHtml(p.username)}
+          <div class="player-name">
+            ${p.nickname}${p.is_me ? '<span class="me-suffix">（我）</span>' : ''}
+          </div>
+          ${tags.join('')}
+          ${kickHtml}
+        `;
+        el.appendChild(div);
+      });
+
+      // 空白座位（可选，用占位提示）
+      const maxP = lastStatus ? lastStatus.max_players : players.length;
+      const emptyCount = Math.max(0, maxP - players.length);
+      for (let i = 0; i < emptyCount; i++) {
+        const div = document.createElement('div');
+        div.className = 'player-item';
+        div.style.opacity = '0.5';
+        div.innerHTML = `
+          <div class="avatar-fallback"></div>
+          <div class="player-name" style="color:#aaa;">等待加入...</div>
+        `;
+        el.appendChild(div);
+      }
+    }
+
+    // ===== 拉取房间状态 =====
+    async function fetchState() {
+      try {
+        const res = await fetch(`/boka/room/${ROOM_CODE}/state`);
+        const data = await res.json();
+        if (data.error) return;
+
+        lastStatus = data;
+
+        document.getElementById('readyCount').textContent = data.ready_count;
+        document.getElementById('playerCount').textContent = data.count;
+
+        // 准备按钮
+        const me = (data.players || []).find(p => p.username === MY_USERNAME);
+        const readyBtn = document.getElementById('readyBtn');
+        if (me) {
+          readyBtn.textContent = me.ready ? '取消准备' : '准备';
+        }
+
+        // 开始按钮：房主 + 全员准备 + 人数 >= 2
+        const startBtn = document.getElementById('startBtn');
+        if (startBtn && IS_OWNER) {
+          const allReady = data.players.every(p => p.ready);
+          const enoughPlayers = data.count >= 2;
+          startBtn.disabled = !(allReady && enoughPlayers);
+        }
+
+        renderPlayers(data.players || [], data.owner);
+
+        // 房间已开始 → 跳战斗页
+        if (data.status === "playing") {
+          window.location.href = `/boka/room/${ROOM_CODE}/battle`;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ===== 轮询 =====
+    function startPolling() {
+      if (statePollTimer) clearInterval(statePollTimer);
+      statePollTimer = setInterval(fetchState, 2000);
+    }
+    function stopPolling() {
+      if (statePollTimer) { clearInterval(statePollTimer); statePollTimer = null; }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stopPolling();
+      else { fetchState(); startPolling(); }
+    });
+
+    // 首次加载
+    fetchState();
+    startPolling();
+  </script>
+</body>
+</html>
