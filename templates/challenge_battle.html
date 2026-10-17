@@ -95,18 +95,18 @@
     .top-btn.danger { background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; }
 
     .arena {
-      padding: 6px 12px 16px 12px;
+      padding: 0px 12px 8px 12px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
+      gap: 4px;
     }
 
     .side {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 24px;
+      gap: 12px; /* 从 24px 改为 12px */
       width: 100%;
     }
     .side .player-head {
@@ -156,9 +156,9 @@
       flex-wrap: wrap;
       gap: 8px;
       justify-content: center;
-      min-height: 180px;
+      min-height: 140px; /* 从 180 降到 140，给下方腾出 40px */
       align-items: center;
-      padding-top: 20px;
+      padding-top: 24px; /* 留一点顶部空间给星星 */
     }
 
     .center-banner {
@@ -172,7 +172,7 @@
       box-shadow: 0 4px 16px rgba(0,0,0,0.25);
       text-shadow: 0 2px 4px rgba(0,0,0,0.3);
       white-space: nowrap;
-      margin: 20px 0;
+      margin: 10px 0;
     }
     .center-banner.atk {
       background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b);
