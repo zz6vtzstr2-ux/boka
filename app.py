@@ -2208,6 +2208,19 @@ def boka_add_bot(room_code):
     )
     db.session.add(p)
     db.session.commit()
+
+    # ★ 同步塞进内存缓存
+    if room_code in BOKA_ROOM_CACHE:
+        BOKA_ROOM_CACHE[room_code].append({
+            "username": p.username,
+            "nickname": p.nickname,
+            "is_owner": False,
+            "ready": True,
+            "is_ai": True,
+            "is_me": False,
+            "id": p.id
+        })
+
     return jsonify({"success": True})
 
 @app.route('/boka/room/<room_code>/kick/<target_username>', methods=['POST'])
@@ -2228,6 +2241,13 @@ def boka_kick(room_code, target_username):
         u.boka_room_id = None
     db.session.delete(target)
     db.session.commit()
+
+    # ★ 从内存缓存中剔除
+    if room_code in BOKA_ROOM_CACHE:
+        BOKA_ROOM_CACHE[room_code] = [
+            p for p in BOKA_ROOM_CACHE[room_code] if p["username"] != target_username
+        ]
+
     return jsonify({"success": True})
 
 @app.route('/boka/room/<room_code>/start', methods=['POST'])
