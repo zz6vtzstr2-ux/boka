@@ -90,6 +90,8 @@ BOSS_DAILY_LIMIT = 2
 
 ROOMS = {}
 
+# ★ 搏卡房间内存缓存（房号 -> 玩家状态列表）
+BOKA_ROOM_CACHE = {}
 # ========== 收藏数据迁移辅助 ==========
 def normalize_collection(coll):
     new_coll = {}
@@ -2045,73 +2047,17 @@ def boka_room(room_code):
                                for p in players
                            ])
 
-
 @app.route('/boka/room/<room_code>/state')
 @login_required
 def boka_room_state(room_code):
     room = BokaRoom.query.filter_by(room_code=room_code).first()
     if not room:
         return jsonify({"error": "房间不存在"}), 404
-    # ★ 去掉了 cleanup_expired_players(room)，高并发轮询时绝对不能做写操作
-    state = _build_room_state(room)
-    state["is_ready"] = False
-    state["is_owner"] = (room.owner_username == current_user.username)
-    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
-    if me:
-        state["is_ready"] = me.ready
-    return jsonify(state)
 
-@app.route('/boka/room/<room_code>/ready', methods=['POST'])
-@login_required
-def boka_ready(room_code):
-    import time
-    t0 = time.time() # ★ 记录开始时间
-    
-    from sqlalchemy import text
-    
-    # 1. 查房间
-    room = BokaRoom.query.filter_by(room_code=room_code).first()
-    if not room:
-        return jsonify({"error": "房间不存在"}), 404
-    print(f"[ready] 1.查房间耗时: {time.time()-t0:.3f}s", flush=True)
-
-    # 2. 查我的记录
-    res = db.session.execute(
-        text("SELECT id, ready FROM boka_player WHERE room_id = :rid AND username = :uid"),
-        {"rid": room.id, "uid": current_user.username}
-    ).fetchone()
-
-    if not res:
-        return jsonify({"error": "你不在房间"}), 400
-    print(f"[ready] 2.查自己耗时: {time.time()-t0:.3f}s", flush=True)
-
-    my_id = res[0]
-    new_ready = not res[1]
-
-    # 3. 纯 SQL 更新
-    db.session.execute(
-        text("UPDATE boka_player SET ready = :r, status_changed_at = :t WHERE id = :mid"),
-        {"r": new_ready, "t": datetime.now(), "mid": my_id}
-    )
-    db.session.commit()
-    print(f"[ready] 3.提交更新耗时: {time.time()-t0:.3f}s", flush=True)
-
-    # 4. 查最新所有人状态
-    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
-    ready_count = sum(1 for p in players if p.ready)
-    print(f"[ready] 4.查所有人耗时: {time.time()-t0:.3f}s", flush=True)
-
-    # 5. 返回状态
-    return jsonify({
-        "room_id": room.room_code,
-        "status": room.status,
-        "count": len(players),
-        "max_players": room.max_players,
-        "ready_count": ready_count,
-        "owner": room.owner_username,
-        "is_ready": new_ready,
-        "is_owner": (room.owner_username == current_user.username),
-        "players": [
+    # 如果缓存没有，初始化
+    if room_code not in BOKA_ROOM_CACHE:
+        db_players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+        BOKA_ROOM_CACHE[room_code] = [
             {
                 "username": p.username,
                 "nickname": p.nickname or p.username,
@@ -2119,10 +2065,108 @@ def boka_ready(room_code):
                 "ready": p.ready,
                 "is_ai": p.is_ai,
                 "is_me": p.username == current_user.username,
+                "id": p.id
+            } for p in db_players
+        ]
+    
+    players_cache = BOKA_ROOM_CACHE[room_code]
+    me = next((p for p in players_cache if p["username"] == current_user.username), None)
+
+    return jsonify({
+        "room_id": room.room_code,
+        "status": room.status,
+        "count": len(players_cache),
+        "max_players": room.max_players,
+        "ready_count": sum(1 for p in players_cache if p["ready"]),
+        "owner": room.owner_username,
+        "is_ready": me["ready"] if me else False,
+        "is_owner": (room.owner_username == current_user.username),
+        "players": [
+            {
+                "username": p["username"],
+                "nickname": p["nickname"],
+                "is_owner": p["is_owner"],
+                "ready": p["ready"],
+                "is_ai": p["is_ai"],
+                "is_me": p["is_me"],
             }
-            for p in players
+            for p in players_cache
         ],
     })
+
+@app.route('/boka/room/<room_code>/ready', methods=['POST'])
+@login_required
+def boka_ready(room_code):
+    from sqlalchemy import text
+    import threading
+
+    # 1. 查房间（这里必须查，为了确认房号有效和人数上限）
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+
+    # 2. 读缓存，如果没有则初始化
+    if room_code not in BOKA_ROOM_CACHE:
+        # 首次加载：去数据库拉一次
+        db_players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+        BOKA_ROOM_CACHE[room_code] = [
+            {
+                "username": p.username,
+                "nickname": p.nickname or p.username,
+                "is_owner": p.username == room.owner_username,
+                "ready": p.ready,
+                "is_ai": p.is_ai,
+                "is_me": p.username == current_user.username,
+                "id": p.id
+            } for p in db_players
+        ]
+    
+    players_cache = BOKA_ROOM_CACHE[room_code]
+
+    # 3. 在内存中切换我的状态
+    me_cache = next((p for p in players_cache if p["username"] == current_user.username), None)
+    if not me_cache:
+        return jsonify({"error": "你不在房间"}), 400
+
+    new_ready = not me_cache["ready"]
+    me_cache["ready"] = new_ready
+    ready_count = sum(1 for p in players_cache if p["ready"])
+
+    # 4. 组装返回数据（直接从内存取）
+    state = {
+        "room_id": room.room_code,
+        "status": room.status,
+        "count": len(players_cache),
+        "max_players": room.max_players,
+        "ready_count": ready_count,
+        "owner": room.owner_username,
+        "is_ready": new_ready,
+        "is_owner": (room.owner_username == current_user.username),
+        "players": [
+            {
+                "username": p["username"],
+                "nickname": p["nickname"],
+                "is_owner": p["is_owner"],
+                "ready": p["ready"],
+                "is_ai": p["is_ai"],
+                "is_me": p["is_me"],
+            }
+            for p in players_cache
+        ],
+    }
+
+    # 5. ★ 核心：开一个后台线程去更新数据库，前端直接拿结果返回，不等待！
+    def save_to_db():
+        with app.app_context():
+            db.session.execute(
+                text("UPDATE boka_player SET ready = :r, status_changed_at = :t WHERE id = :mid"),
+                {"r": new_ready, "t": datetime.now(), "mid": me_cache["id"]}
+            )
+            db.session.commit()
+    
+    threading.Thread(target=save_to_db).start()
+
+    return jsonify(state)
 
 @app.route('/boka/room/<room_code>/add_bot', methods=['POST'])
 @login_required
