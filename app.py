@@ -1786,12 +1786,10 @@ _LAST_CLEANUP_AT = 0
 _CLASS_COUNT_CACHE = None
 _CLASS_COUNT_CACHE_AT = 0
 
-
 def invalidate_class_count_cache():
     global _CLASS_COUNT_CACHE, _CLASS_COUNT_CACHE_AT
     _CLASS_COUNT_CACHE = None
     _CLASS_COUNT_CACHE_AT = 0
-
 
 def get_class_count():
     global _CLASS_COUNT_CACHE, _CLASS_COUNT_CACHE_AT
@@ -1802,12 +1800,12 @@ def get_class_count():
         _CLASS_COUNT_CACHE_AT = now
     return _CLASS_COUNT_CACHE
 
-
 def cleanup_expired_players(room):
     """惰性清理：未准备超 2 分钟 / 已准备超 30 分钟的玩家（AI 不清理）"""
     global _LAST_CLEANUP_AT
     import time
     now_ts = time.time()
+    # 保持 30 秒全局缓存，不要每次请求都跑
     if now_ts - _LAST_CLEANUP_AT < 30:
         return
     _LAST_CLEANUP_AT = now_ts
@@ -1816,28 +1814,30 @@ def cleanup_expired_players(room):
         return
     now = datetime.now()
     players = BokaPlayer.query.filter_by(room_id=room.id).all()
-    changed = False
+    
+    to_delete = []
     for p in players:
-        if p.is_ai:
-            continue
-        if p.status_changed_at is None:
+        if p.is_ai or p.status_changed_at is None:
             continue
         elapsed = (now - p.status_changed_at).total_seconds()
         if p.ready and elapsed > 30 * 60:
-            u = User.query.filter_by(username=p.username).first()
-            if u:
-                u.boka_room_id = None
-            db.session.delete(p)
-            changed = True
+            to_delete.append(p)
         elif (not p.ready) and elapsed > 2 * 60:
-            u = User.query.filter_by(username=p.username).first()
-            if u:
-                u.boka_room_id = None
-            db.session.delete(p)
-            changed = True
-    if changed:
-        db.session.commit()
+            to_delete.append(p)
+            
+    if not to_delete:
+        return
 
+    # ★ 优化：一次性查出所有需要解绑的 User，不再 N+1 查询
+    usernames = [p.username for p in to_delete]
+    users = User.query.filter(User.username.in_(usernames)).all()
+    for u in users:
+        u.boka_room_id = None
+        
+    for p in to_delete:
+        db.session.delete(p)
+        
+    db.session.commit()
 
 def _build_room_state(room):
     """把房间状态打包成 dict"""
@@ -2051,7 +2051,7 @@ def boka_room_state(room_code):
     room = BokaRoom.query.filter_by(room_code=room_code).first()
     if not room:
         return jsonify({"error": "房间不存在"}), 404
-    cleanup_expired_players(room)
+    # ★ 去掉了 cleanup_expired_players(room)，高并发轮询时绝对不能做写操作
     state = _build_room_state(room)
     state["is_ready"] = False
     state["is_owner"] = (room.owner_username == current_user.username)
@@ -2060,13 +2060,16 @@ def boka_room_state(room_code):
         state["is_ready"] = me.ready
     return jsonify(state)
 
-
 @app.route('/boka/room/<room_code>/ready', methods=['POST'])
 @login_required
 def boka_ready(room_code):
     room = BokaRoom.query.filter_by(room_code=room_code).first()
     if not room:
         return jsonify({"error": "房间不存在"}), 404
+    
+    # ★ 在这里做清理（因为有 30 秒全局锁，不会频繁查库）
+    cleanup_expired_players(room)
+    
     me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
     if not me:
         return jsonify({"error": "你不在房间"}), 400
