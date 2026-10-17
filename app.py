@@ -2064,14 +2064,18 @@ def boka_room_state(room_code):
 @app.route('/boka/room/<room_code>/ready', methods=['POST'])
 @login_required
 def boka_ready(room_code):
+    import time
+    t0 = time.time() # ★ 记录开始时间
+    
     from sqlalchemy import text
     
     # 1. 查房间
     room = BokaRoom.query.filter_by(room_code=room_code).first()
     if not room:
         return jsonify({"error": "房间不存在"}), 404
+    print(f"[ready] 1.查房间耗时: {time.time()-t0:.3f}s", flush=True)
 
-    # 2. 纯 SQL 查我当前的准备状态
+    # 2. 查我的记录
     res = db.session.execute(
         text("SELECT id, ready FROM boka_player WHERE room_id = :rid AND username = :uid"),
         {"rid": room.id, "uid": current_user.username}
@@ -2079,20 +2083,23 @@ def boka_ready(room_code):
 
     if not res:
         return jsonify({"error": "你不在房间"}), 400
+    print(f"[ready] 2.查自己耗时: {time.time()-t0:.3f}s", flush=True)
 
     my_id = res[0]
     new_ready = not res[1]
 
-    # 3. 纯 SQL 更新（不走 ORM，没有脏检查，没有锁）
+    # 3. 纯 SQL 更新
     db.session.execute(
         text("UPDATE boka_player SET ready = :r, status_changed_at = :t WHERE id = :mid"),
         {"r": new_ready, "t": datetime.now(), "mid": my_id}
     )
     db.session.commit()
+    print(f"[ready] 3.提交更新耗时: {time.time()-t0:.3f}s", flush=True)
 
     # 4. 查最新所有人状态
     players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
     ready_count = sum(1 for p in players if p.ready)
+    print(f"[ready] 4.查所有人耗时: {time.time()-t0:.3f}s", flush=True)
 
     # 5. 返回状态
     return jsonify({
