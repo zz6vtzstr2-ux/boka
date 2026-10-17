@@ -2066,17 +2066,51 @@ def boka_ready(room_code):
     room = BokaRoom.query.filter_by(room_code=room_code).first()
     if not room:
         return jsonify({"error": "房间不存在"}), 404
+
+    # 一次性把该房间所有玩家拉出来（1 次查询）
+    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
     
-    # ★ 在这里做清理（因为有 30 秒全局锁，不会频繁查库）
-    cleanup_expired_players(room)
-    
-    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
+    me = None
+    for p in players:
+        if p.username == current_user.username:
+            me = p
+            break
+            
     if not me:
         return jsonify({"error": "你不在房间"}), 400
+
+    # 切换准备状态并写入（1 次写入）
     me.ready = not me.ready
     me.status_changed_at = datetime.now()
     db.session.commit()
-    return jsonify({"success": True, "ready": me.ready})
+
+    # 利用已经查出来的 players，在内存里计算，不再发多余 SQL
+    ready_count = sum(1 for p in players if p.ready)
+    
+    # 直接打包最新的完整状态返回给前端
+    state = {
+        "room_id": room.room_code,
+        "status": room.status,
+        "count": len(players),
+        "max_players": room.max_players,
+        "ready_count": ready_count,
+        "owner": room.owner_username,
+        "is_ready": me.ready,
+        "is_owner": (room.owner_username == current_user.username),
+        "players": [
+            {
+                "username": p.username,
+                "nickname": p.nickname or p.username,
+                "is_owner": p.username == room.owner_username,
+                "ready": p.ready,
+                "is_ai": p.is_ai,
+                "is_me": p.username == current_user.username,
+            }
+            for p in players
+        ],
+    }
+    
+    return jsonify(state)
 
 @app.route('/boka/room/<room_code>/add_bot', methods=['POST'])
 @login_required
