@@ -35,10 +35,10 @@ if database_url.startswith('postgresql://'):
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_pre_ping': True,
+    'pool_pre_ping': False,  # ★ 核心：关闭 Ping，直接复用连接
     'pool_recycle': 300,
-    'pool_size': 5,
-    'max_overflow': 10,
+    'pool_size': 10,         # 稍微扩大池
+    'max_overflow': 20,
 }
 db.init_app(app)
 
