@@ -48,7 +48,8 @@ login_manager.login_view = 'login'
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    # ★ 使用 db.session.get()，比 query.get() 更高效
+    return db.session.get(User, int(user_id))
 
 ATTR_MAP = {1: "lead", 2: "might", 3: "intel", 4: "politics", 5: "charm"}
 ATTR_NAMES = {1: "聚义厅", 2: "演武场", 3: "天机阁", 4: "政务堂", 5: "聚贤庄"}
@@ -2063,43 +2064,32 @@ def boka_room_state(room_code):
 @app.route('/boka/room/<room_code>/ready', methods=['POST'])
 @login_required
 def boka_ready(room_code):
-    # 1. 查房间
     room = BokaRoom.query.filter_by(room_code=room_code).first()
     if not room:
         return jsonify({"error": "房间不存在"}), 404
 
-    # 2. 查询我的记录（直接用 filter 查，不要拉全表）
-    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
+    # 一次查出所有玩家
+    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+    
+    me = next((p for p in players if p.username == current_user.username), None)
     if not me:
         return jsonify({"error": "你不在房间"}), 400
 
-    # 3. 切换状态，使用 SQLAlchemy 2.0 的高效更新方式
-    new_ready = not me.ready
-    me.ready = new_ready
+    me.ready = not me.ready
     me.status_changed_at = datetime.now()
-    
-    # ★ 核心优化：使用 update 语句直接写库，绕过 Session 的其他未提交检测！
-    from sqlalchemy import update
-    db.session.execute(
-        update(BokaPlayer)
-        .where(BokaPlayer.id == me.id)
-        .values(ready=new_ready, status_changed_at=datetime.now())
-    )
     db.session.commit()
 
-    # 4. 重新查出该房间所有人（1 次轻量查询）
-    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
     ready_count = sum(1 for p in players if p.ready)
-
-    # 5. 直接组装返回，不需要再调用其他函数
-    state = {
+    
+    # 直接拼装返回，省掉多余查询
+    return jsonify({
         "room_id": room.room_code,
         "status": room.status,
         "count": len(players),
         "max_players": room.max_players,
         "ready_count": ready_count,
         "owner": room.owner_username,
-        "is_ready": new_ready,
+        "is_ready": me.ready,
         "is_owner": (room.owner_username == current_user.username),
         "players": [
             {
@@ -2112,8 +2102,7 @@ def boka_ready(room_code):
             }
             for p in players
         ],
-    }
-    return jsonify(state)
+    })
 
 @app.route('/boka/room/<room_code>/add_bot', methods=['POST'])
 @login_required
