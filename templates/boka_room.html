@@ -583,15 +583,57 @@
               </div>`;
     }
 
-    // ===== 渲染玩家列表（加上判重，避免每次都重新加载图片） =====
-    let lastPlayersStr = '';
-    function renderPlayers(players, owner) {
-      // ★ 核心优化：比对数据，如果玩家/准备状态没变，直接跳过 DOM 重建
-      const str = JSON.stringify(players.map(p => [p.username, p.ready, p.is_ai]));
-      if (str === lastPlayersStr) return; 
-      lastPlayersStr = str;
 
+    // ===== 渲染玩家列表（精准更新DOM，不刷新图片） =====
+    let lastPlayersData = []; // 记录上一次的数据
+
+    function renderPlayers(players, owner) {
       const el = document.getElementById('playerList');
+      
+      // 简单的 diff：如果玩家数量和 ID 没变，只更新标签，不重建整个 DOM
+      let isSamePlayers = false;
+      if (lastPlayersData.length === players.length) {
+        isSamePlayers = true;
+        for (let i = 0; i < players.length; i++) {
+          if (lastPlayersData[i].username !== players[i].username) {
+            isSamePlayers = false; break;
+          }
+        }
+      }
+      
+      // 如果连玩家都没变，只原地更新文字（准备标签、踢人按钮等）
+      if (isSamePlayers) {
+        players.forEach((p, i) => {
+          const item = el.children[i];
+          if (!item) return;
+          
+          // 更新标签区
+          const tags = [];
+          if (p.username === owner) tags.push('<span class="tag tag-owner">房主</span>');
+          if (p.is_ai) tags.push('<span class="tag tag-ai">AI</span>');
+          if (p.ready && !p.is_ai) tags.push('<span class="tag tag-ready">已准备</span>');
+          
+          // 找到名字后面容器（通过对比 class 判断）
+          // 简化处理：直接替换后半部分的 HTML（保留头像）
+          const nameHtml = `
+            <div class="player-name">${p.nickname}${p.is_me ? '<span class="me-suffix">（我）</span>' : ''}</div>
+            ${tags.join('')}
+            ${(IS_OWNER && p.username !== MY_USERNAME) ? `<button class="kick-btn" onclick="event.stopPropagation();kickPlayer('${p.username}','${p.nickname}')">踢出</button>` : ''}
+          `;
+          // 把名字、标签、踢人按钮放在一起更新
+          let contentWrap = item.querySelector('.content-wrap');
+          if (!contentWrap) {
+            // 如果没包装，第一次进入时重建一次
+            item.innerHTML = `${avatarHtml(p.username)}<div class="content-wrap" style="display:flex;flex:1;align-items:center;gap:12px;">${nameHtml}</div>`;
+          } else {
+            contentWrap.innerHTML = nameHtml;
+          }
+        });
+        return;
+      }
+
+      // 如果玩家列表变了，整体重建
+      lastPlayersData = players;
       el.innerHTML = '';
       
       players.forEach(p => {
@@ -610,9 +652,11 @@
 
         div.innerHTML = `
           ${avatarHtml(p.username)}
-          <div class="player-name">${p.nickname}${p.is_me ? '<span class="me-suffix">（我）</span>' : ''}</div>
-          ${tags.join('')}
-          ${kickHtml}
+          <div class="content-wrap" style="display:flex;flex:1;align-items:center;gap:12px;">
+            <div class="player-name">${p.nickname}${p.is_me ? '<span class="me-suffix">（我）</span>' : ''}</div>
+            ${tags.join('')}
+            ${kickHtml}
+          </div>
         `;
         el.appendChild(div);
       });
