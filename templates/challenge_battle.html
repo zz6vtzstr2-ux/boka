@@ -107,7 +107,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 12px; /* 从 24px 改为 12px */
+      gap: 4px;
       width: 100%;
     }
     .side .player-head {
@@ -116,8 +116,8 @@
       gap: 10px;
     }
     .side .player-head img {
-      width: 48px;
-      height: 48px;
+      width: 40px;
+      height: 40px;
       border-radius: 10px;
       border: 2px solid #5bb8e8;
       box-shadow: 0 0 0 3px rgba(91,184,232,0.4);
@@ -125,8 +125,8 @@
       object-fit: cover;
     }
     .ai-avatar-placeholder {
-      height: 48px;
-      min-width: 48px;
+      height: 40px;
+      min-width: 40px;
       border-radius: 10px;
       border: 2px solid #e8c8d0;
       box-shadow: 0 0 0 3px rgba(232,200,208,0.5);
@@ -153,13 +153,13 @@
     }
 
     .played-area {
-      position: relative; /* 开启绝对定位基准 */
+      position: relative;
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       justify-content: center;
       align-items: center;
-      height: 155px; /* ★ 强制固定高度（刚好容纳一张卡），不再使用 min-height */
+      height: 140px; /* ★ 降到刚好一张卡的高度 */
       padding: 0;
       margin: 0;
     }
@@ -318,7 +318,7 @@
       flex-direction: column;
     }
     .my-hand-area {
-      padding: 6px 16px;
+      padding: 4px 16px 10px 16px; /* ★ 减少上下 padding */
       display: flex;
       flex-direction: column;
       background: rgba(255,255,255,0.94);
@@ -328,7 +328,7 @@
       color: #999;
       letter-spacing: 2px;
       padding-left: 4px;
-      margin-bottom: 4px;
+      margin-bottom: 0px; /* ★ 去掉底部的 4px */
     }
     .hand-scroll {
       display: flex;
@@ -343,8 +343,8 @@
       align-items: stretch;
       justify-content: space-between;
       gap: 10px;
-      padding: 6px 12px 4px 12px; /* ★ 减少上下 padding */
-      min-height: 64px; /* ★ 从 80 降到 64 */
+      padding: 2px 12px 2px 12px; /* ★ 减少上下 padding */
+      min-height: 56px;
     }
     .my-avatar-block {
       display: flex;
@@ -356,8 +356,8 @@
       width: 64px;
     }
     .my-avatar-block img {
-      width: 48px;
-      height: 48px;
+      width: 40px;
+      height: 40px;
       border-radius: 10px;
       border: 2px solid #5bb8e8;
       box-shadow: 0 0 0 3px rgba(91,184,232,0.4);
