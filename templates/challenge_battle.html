@@ -95,12 +95,11 @@
     .top-btn.danger { background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; }
 
     .arena {
-      padding: 0px 12px 0px 12px; /* 底部不留空间 */
+      padding: 0px 12px 0px 12px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
-      justify-content: space-between; /* 均匀分布 */
+      gap: 0px; /* ★ 间隙从 4px 改为 0，完全靠 margin 控制 */
     }
 
     .side {
@@ -158,10 +157,11 @@
       flex-wrap: wrap;
       gap: 8px;
       justify-content: center;
-      align-items: center;
-      height: 140px; /* ★ 降到刚好一张卡的高度 */
-      padding: 0;
+      align-items: center; /* 垂直居中，会自动把卡牌往下推 */
+      height: 160px;       /* 给足高度，上下留白自然就会居中 */
+      padding-top: 20px;   /* ★ 核心：顶部留出 20px 空间，防止星星顶到上面 */
       margin: 0;
+    }
     }
     /* 当没牌或者展示问号时，不让内容撑开或收缩 */
     .played-area.empty::before {
@@ -169,17 +169,19 @@
     }
 
     .center-banner {
-      font-size: 20px; /* 稍微改小一点点 */
+      /* 前面的字体、背景、颜色等都不变 */
+      font-size: 20px;
       font-weight: bold;
       color: #fff;
       letter-spacing: 6px;
       text-indent: 6px;
-      padding: 6px 24px; /* 上下 padding 减少 */
+      padding: 6px 24px;
       border-radius: 20px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.25);
       text-shadow: 0 2px 4px rgba(0,0,0,0.3);
       white-space: nowrap;
-      margin: 6px 0; /* ★ 从 20px 砍到 6px，极致压缩中间空隙 */
+      
+      margin: 10px 0 20px 0; /* ★ 增加上下 margin，彻底拉开和卡片的距离 */
     }
     .center-banner.atk {
       background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b);
