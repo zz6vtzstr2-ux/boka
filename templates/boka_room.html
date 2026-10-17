@@ -505,10 +505,11 @@
     // ===== 准备 / 取消准备 =====
     async function toggleReady() {
       const btn = document.getElementById('readyBtn');
-      if (btn.disabled) return; 
+      if (btn.disabled) return;
       
-      // 仅禁用防止狂点，不修改文字，保证原生流畅感
-      btn.disabled = true;
+      btn.disabled = true; // 防止连点
+      const oldText = btn.textContent;
+      btn.textContent = '处理中...'; // 告诉用户我在处理
 
       try {
         const res = await fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' });
@@ -516,20 +517,17 @@
         
         if (data.error) { 
           showToast(data.error); 
+          btn.textContent = oldText;
           return; 
         }
         
-        // ★ 核心优化：后端已经返回了最新状态，直接使用！不再发 fetchState()
+        // 使用返回的完整数据更新 UI
         lastStatus = data;
-        
-        // 1. 更新人数
         document.getElementById('readyCount').textContent = data.ready_count;
         document.getElementById('playerCount').textContent = data.count;
         
-        // 2. 更新我的按钮文字
         btn.textContent = data.is_ready ? '取消准备' : '准备';
 
-        // 3. 更新房主的开始按钮状态
         const startBtn = document.getElementById('startBtn');
         if (startBtn && IS_OWNER) {
           const allReady = data.players.every(p => p.ready);
@@ -537,11 +535,11 @@
           startBtn.disabled = !(allReady && enoughPlayers);
         }
 
-        // 4. 重新渲染玩家列表（自动处理了判重，不会闪烁）
         renderPlayers(data.players || [], data.owner);
         
       } catch (e) {
         showToast('网络异常');
+        btn.textContent = oldText;
       } finally {
         btn.disabled = false;
       }
@@ -693,7 +691,8 @@
         // 准备按钮
         const me = (data.players || []).find(p => p.username === MY_USERNAME);
         const readyBtn = document.getElementById('readyBtn');
-        if (me) {
+        // 只有非处理中状态才改文案
+        if (me && !readyBtn.disabled) {
           readyBtn.textContent = me.ready ? '取消准备' : '准备';
         }
 
