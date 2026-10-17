@@ -425,6 +425,8 @@
 
         {% if is_owner %}
         <div class="btn-row">
+          <!-- ★ 新增：添加机器人按钮 -->
+          <button class="btn-room btn-gray" id="addBotBtn" onclick="addBot()">添加机器人</button>
           <button class="btn-room btn-pink" onclick="dissolveRoom()">解散房间</button>
         </div>
         {% endif %}
@@ -563,6 +565,36 @@
       window.location.href = '/boka';
     }
 
+    // ===== 添加机器人 =====
+    async function addBot() {
+      const btn = document.getElementById('addBotBtn');
+      if (btn.disabled) return;
+      
+      btn.disabled = true;
+      const oldText = btn.textContent;
+      btn.textContent = '添加中...';
+
+      try {
+        const res = await fetch(`/boka/room/${ROOM_CODE}/add_bot`, { method: 'POST' });
+        const data = await res.json();
+        
+        if (data.error) {
+          showToast(data.error);
+          return;
+        }
+        
+        showToast('机器人已加入');
+        // 刷新状态（此时会拉取包含机器人的最新列表）
+        fetchState();
+        
+      } catch (e) {
+        showToast('网络异常');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+      }
+    }
+    
     // ===== 踢人 =====
     async function kickPlayer(username, nickname) {
       const ok = await showConfirm('踢出玩家', `确定将「${nickname}」踢出房间？`, '踢出', '取消');
