@@ -95,11 +95,12 @@
     .top-btn.danger { background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; }
 
     .arena {
-      padding: 0px 12px 8px 12px;
+      padding: 0px 12px 0px 12px; /* 底部不留空间 */
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 4px;
+      justify-content: space-between; /* 均匀分布 */
     }
 
     .side {
@@ -152,27 +153,33 @@
     }
 
     .played-area {
+      position: relative; /* 开启绝对定位基准 */
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       justify-content: center;
-      min-height: 140px; /* 从 180 降到 140，给下方腾出 40px */
       align-items: center;
-      padding-top: 24px; /* 留一点顶部空间给星星 */
+      height: 155px; /* ★ 强制固定高度（刚好容纳一张卡），不再使用 min-height */
+      padding: 0;
+      margin: 0;
+    }
+    /* 当没牌或者展示问号时，不让内容撑开或收缩 */
+    .played-area.empty::before {
+      display: none;
     }
 
     .center-banner {
-      font-size: 22px;
+      font-size: 20px; /* 稍微改小一点点 */
       font-weight: bold;
       color: #fff;
       letter-spacing: 6px;
       text-indent: 6px;
-      padding: 10px 28px;
+      padding: 6px 24px; /* 上下 padding 减少 */
       border-radius: 20px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.25);
       text-shadow: 0 2px 4px rgba(0,0,0,0.3);
       white-space: nowrap;
-      margin: 10px 0;
+      margin: 6px 0; /* ★ 从 20px 砍到 6px，极致压缩中间空隙 */
     }
     .center-banner.atk {
       background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b);
@@ -306,7 +313,7 @@
     }
 
     .bottom-area {
-      margin-top: 12px;
+      margin-top: 0; /* ★ 去掉 12px 的外边距 */
       display: flex;
       flex-direction: column;
     }
@@ -336,8 +343,8 @@
       align-items: stretch;
       justify-content: space-between;
       gap: 10px;
-      padding: 10px 12px;
-      min-height: 80px;
+      padding: 6px 12px 4px 12px; /* ★ 减少上下 padding */
+      min-height: 64px; /* ★ 从 80 降到 64 */
     }
     .my-avatar-block {
       display: flex;
