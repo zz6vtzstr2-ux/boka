@@ -2064,24 +2064,37 @@ def boka_room_state(room_code):
 @app.route('/boka/room/<room_code>/ready', methods=['POST'])
 @login_required
 def boka_ready(room_code):
+    from sqlalchemy import text
+    
+    # 1. 查房间
     room = BokaRoom.query.filter_by(room_code=room_code).first()
     if not room:
         return jsonify({"error": "房间不存在"}), 404
 
-    # 一次查出所有玩家
-    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
-    
-    me = next((p for p in players if p.username == current_user.username), None)
-    if not me:
+    # 2. 纯 SQL 查我当前的准备状态
+    res = db.session.execute(
+        text("SELECT id, ready FROM boka_player WHERE room_id = :rid AND username = :uid"),
+        {"rid": room.id, "uid": current_user.username}
+    ).fetchone()
+
+    if not res:
         return jsonify({"error": "你不在房间"}), 400
 
-    me.ready = not me.ready
-    me.status_changed_at = datetime.now()
+    my_id = res[0]
+    new_ready = not res[1]
+
+    # 3. 纯 SQL 更新（不走 ORM，没有脏检查，没有锁）
+    db.session.execute(
+        text("UPDATE boka_player SET ready = :r, status_changed_at = :t WHERE id = :mid"),
+        {"r": new_ready, "t": datetime.now(), "mid": my_id}
+    )
     db.session.commit()
 
+    # 4. 查最新所有人状态
+    players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
     ready_count = sum(1 for p in players if p.ready)
-    
-    # 直接拼装返回，省掉多余查询
+
+    # 5. 返回状态
     return jsonify({
         "room_id": room.room_code,
         "status": room.status,
@@ -2089,7 +2102,7 @@ def boka_ready(room_code):
         "max_players": room.max_players,
         "ready_count": ready_count,
         "owner": room.owner_username,
-        "is_ready": me.ready,
+        "is_ready": new_ready,
         "is_owner": (room.owner_username == current_user.username),
         "players": [
             {
