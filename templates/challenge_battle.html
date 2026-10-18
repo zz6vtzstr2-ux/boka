@@ -805,7 +805,7 @@
         const isSelected = myReady.find(x => x.id === c.id);
         const d = makeHeroCard(c, isSelected ? 'selected' : '');
         if (!locked) {
-          d.onclick = async () => {
+          d.onclick = () => {
             if (locked) return;
             const idx = myReady.findIndex(x => x.id === c.id);
             if (idx >= 0) {
@@ -815,8 +815,10 @@
             }
             songjiangShownForCurrentSelection = false;
             renderHand();
-            await updateComboInfo();
-            updatePlayBtn();
+            
+            // ★ 瞬间更新 UI 和按钮
+            updateComboInfo(); 
+            
             checkSongjiangTrigger();
           };
         }
@@ -936,71 +938,93 @@
 
     let lastComboValid = true;
 
-    async function updateComboInfo() {
+    // ★ 纯前端本地计算，0 网络请求，瞬间亮起
+    function updateComboInfo() {
       if (locked) return;
       const infoEl = document.getElementById('comboInfo');
       if (!infoEl) return;
+
       if (myReady.length === 0) {
         infoEl.innerHTML = '';
         lastComboValid = true;
+        updatePlayBtn();
         return;
       }
-      try {
-        const res = await fetch('/challenge/validate_combo', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({card_ids: myReady.map(c => c.id)})
-        });
-        const data = await res.json();
 
-        if (!data.valid) {
-          infoEl.innerHTML = `<span class="combo-error">无效的组合</span>`;
-          lastComboValid = false;
-          return;
+      const names = myReady.map(c => c.name);
+      let html = '';
+      let isValid = true;
+
+      // 1 张卡
+      if (myReady.length === 1) {
+        const c = myReady[0];
+        if (c.name === '扈三娘') {
+          html = `<span class="combo-name">美女</span>`;
+        } else if (['白胜', '孙二娘'].includes(c.name)) {
+          html = `<span class="combo-name">炸弹</span>`;
+        } else if (['林冲', '柴进', '燕青', '花荣', '徐宁'].includes(c.name)) {
+          html = `<span class="combo-name">帅哥</span>`;
         }
-
-        const name = data.name || '';
-        const atk = data.atk;
-        const def = data.def;
-        let html = '';
-
-        if (data.type === 'single') {
-          infoEl.innerHTML = '';
-        } else if (data.type === 'single_beauty') {
-          html = `<span class="combo-name">${name}</span>`;
-          infoEl.innerHTML = html;
-        } else if (data.type === 'single_bomb') {
-          html = `<span class="combo-name">${name}</span>`;
-          infoEl.innerHTML = html;
-        } else if (data.type === 'single_handsome') {
-          html = `<span class="combo-name">${name}</span>`;
-          infoEl.innerHTML = html;
-        } else if (data.type === 'double_bomb') {
-          html = `<span class="combo-name">${name}</span>`;
-          infoEl.innerHTML = html;
-        } else if (data.type === 'wu_yong') {
-          html = `<span class="combo-name">${name}</span>`;
-          if (atk !== null) html += `<span class="info-pill atk-pill">${atk}</span>`;
-          if (def !== null) html += `<span class="info-pill def-pill">${def}</span>`;
-          infoEl.innerHTML = html;
-        } else if (data.type === 'wu_yong_handsome') {
-          html = `<span class="combo-name">${name}</span>`;
-          if (atk !== null) html += `<span class="info-pill atk-pill">${atk}</span>`;
-          if (def !== null) html += `<span class="info-pill def-pill">${def}</span>`;
-          infoEl.innerHTML = html;
-        } else if (data.type === 'combo') {
-          html = `<span class="combo-name">${name}</span>`;
-          if (atk !== null) html += `<span class="info-pill atk-pill">${atk}</span>`;
-          if (def !== null) html += `<span class="info-pill def-pill">${def}</span>`;
-          infoEl.innerHTML = html;
+      } 
+      // 多张卡
+      else {
+        // 双炸
+        if (names.includes('白胜') && names.includes('孙二娘') && names.length === 2) {
+          html = `<span class="combo-name">双炸</span>`;
+        }
+        // 智多星
+        else if (names.includes('吴用') && names.length === 2) {
+          const other = myReady.find(c => c.name !== '吴用');
+          if (['林冲', '柴进', '燕青', '花荣', '徐宁'].includes(other.name)) {
+            html = `<span class="combo-name">智多星 帅哥</span>`;
+          } else if (!['扈三娘', '白胜', '孙二娘', '宋江'].includes(other.name)) {
+            html = `<span class="combo-name">智多星</span>`;
+          } else {
+            isValid = false;
+          }
+        }
+        // 五虎将
+        else if (['关胜', '林冲', '秦明', '呼延灼', '董平'].every(n => names.includes(n)) && names.length === 5) {
+          html = `<span class="combo-name">五虎将</span>`;
+        }
+        // 八虎骑
+        else if (['花荣', '徐宁', '杨志', '索超', '张清', '朱仝', '史进', '穆弘'].every(n => names.includes(n)) && names.length === 8) {
+          html = `<span class="combo-name">八虎骑</span>`;
+        }
+        // 风流威猛
+        else if (names.length === 2 && names.includes('花荣') && names.includes('徐宁')) {
+          html = `<span class="combo-name">风流威猛</span>`;
+        }
+        // 水军三兄弟
+        else if (names.length === 3 && names.includes('阮小二') && names.includes('阮小五') && names.includes('阮小七')) {
+          html = `<span class="combo-name">水军三兄弟</span>`;
+        }
+        // 黑白双煞
+        else if (names.length === 2 && names.includes('张顺') && names.includes('李逵')) {
+          html = `<span class="combo-name">黑白双煞</span>`;
+        }
+        // 打猎兄弟
+        else if (names.length === 2 && names.includes('解珍') && names.includes('解宝')) {
+          html = `<span class="combo-name">打猎兄弟</span>`;
+        }
+        // 非法组合拦截（多卡带美女/宋江）
+        else if (names.includes('扈三娘') || names.includes('宋江')) {
+          isValid = false;
         } else {
-          infoEl.innerHTML = '';
+          // 其他任何合法的组合（比如水军两兄弟等）都放行，按钮亮起
+          html = `<span class="combo-name">组合</span>`;
         }
-        lastComboValid = true;
-      } catch (e) {
-        infoEl.innerHTML = `<span class="combo-error">校验失败</span>`;
-        lastComboValid = false;
       }
+
+      if (!isValid) {
+        infoEl.innerHTML = `<span class="combo-error">无效的组合</span>`;
+        lastComboValid = false;
+      } else {
+        infoEl.innerHTML = html;
+        lastComboValid = true;
+      }
+      
+      updatePlayBtn();
     }
 
     async function submitPlay() {
