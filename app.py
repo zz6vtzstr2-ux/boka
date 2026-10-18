@@ -92,6 +92,8 @@ ROOMS = {}
 
 # ★ 搏卡房间内存缓存（房号 -> 玩家状态列表）
 BOKA_ROOM_CACHE = {}
+# ★ 挑战对局内存缓存（user_id -> game dict）
+CHALLENGE_GAME_CACHE = {}
 # ========== 收藏数据迁移辅助 ==========
 def normalize_collection(coll):
     new_coll = {}
@@ -859,7 +861,11 @@ def challenge_validate_combo():
 
     if not current_user.challenge_active_game:
         return jsonify({"valid": False, "reason": "无对局"})
+        
+    # ★ 核心：读取最新对局数据，并立刻覆盖更新到内存缓存
     game = json_loads_safe(current_user.challenge_active_game)
+    CHALLENGE_GAME_CACHE[current_user.id] = game
+
     my_lv_map = game.get("my_level_map", {})
     beauty_left = game.get("beauty_left", 3)
 
