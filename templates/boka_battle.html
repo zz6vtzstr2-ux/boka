@@ -140,14 +140,16 @@
 </head>
 <body>
   <div class="top-bar">
-    <div class="top-left">
+    <!-- 左侧：轮次、卡袋、记录 -->
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
       <div class="top-info" id="roundInfo">第 1 轮</div>
       <div class="top-info" id="poolInfo">卡袋 0</div>
       <button class="top-btn" onclick="showRecord()">记录</button>
     </div>
-    <div class="top-right">
+    <!-- 右侧：暂离、弃卡 -->
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
       <button class="top-btn" onclick="temporaryLeave()">暂离</button>
-      <button class="top-btn danger" onclick="discardCards()">弃卡</button>
+      <button class="top-btn danger" style="margin-left: 12px;" onclick="discardCards()">弃卡</button>
     </div>
   </div>
 
