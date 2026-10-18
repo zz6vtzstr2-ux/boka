@@ -326,14 +326,14 @@
       flex-direction: column;
     }
     .my-hand-area {
-      padding: 4px 16px 10px 16px; /* ★ 减少上下 padding */
+      padding: 2px 16px 8px 16px; /* ★ 减少上下 padding */
       display: flex;
       flex-direction: column;
       background: rgba(255,255,255,0.94);
     }
     .hand-label {
-      font-size: 11px;
-      color: #999;
+      font-size: 12px;
+      color: #888;
       letter-spacing: 2px;
       padding-left: 4px;
       margin-bottom: 0px; /* ★ 去掉底部的 4px */
@@ -373,7 +373,7 @@
       object-fit: cover;
     }
     .my-avatar-block .pname {
-      font-size: 11px;
+      font-size: 14px;
       font-weight: bold;
       color: #4a4a4a;
       text-align: center;
@@ -381,6 +381,7 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      margin-top: 4px; /* 增加一点上方间距，视觉更稳 */
     }
     .my-avatar-block .hand-count {
       font-size: 10px;
@@ -670,13 +671,12 @@
       <div class="my-avatar-block">
         <img src="/static/avatars/{{ username }}.jpg" alt="">
         <div class="pname">{{ nickname }}</div>
-        <div class="hand-count">手牌 <span id="myHandCount">6</span></div>
       </div>
       <div class="combo-info" id="comboInfo"></div>
       <button class="play-square-btn" id="playBtn" onclick="submitPlay()" disabled>出战</button>
     </div>
     <div class="my-hand-area">
-      <div class="hand-label">手牌</div>
+      <div class="hand-label">手牌 <span id="myHandCount" style="font-weight:bold; color:#b85a6a; font-size:14px;">6</span></div>
       <div class="hand-scroll" id="myHandArea"></div>
     </div>
   </div>
