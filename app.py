@@ -3317,24 +3317,84 @@ def boka_surrender(room_code):
     if not room:
         return jsonify({"error": "房间不存在"}), 404
     game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
-    if not game or game.phase != "selecting":
-        return jsonify({"error": "当前不可投降"}), 400
+    if not game or game.phase == "finished":
+        return jsonify({"error": "游戏已结束或不存在"}), 400
+
     me = BokaGamePlayer.query.filter_by(game_id=game.id, username=current_user.username).first()
     if not me or me.surrendered:
-        return jsonify({"error": "你无法投降"}), 400
+        return jsonify({"error": "你无法弃卡"}), 400
+
     all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+    
+    # 1. 计算弃卡者的名次
     alive_count = sum(1 for g in all_players if not g.surrendered and len(json_loads_safe(g.hand)) > 0)
     me.surrendered = True
     me.surrendered_rank = alive_count
+    
+    # 2. 将弃卡者的手牌（不含已锁定的）放入卡袋
+    pool = json_loads_safe(game.card_pool)
+    hand = json_loads_safe(me.hand)
+    ready = json_loads_safe(me.ready_card)
+    to_pool = [cid for cid in hand if cid not in ready]
+    pool.extend(to_pool)
+    game.card_pool = json_dumps_safe(pool)
+    
     me.hand = json_dumps_safe([])
     me.ready_card = json_dumps_safe([])
     me.locked = True
     db.session.commit()
-    alive = [g for g in all_players if not g.surrendered and len(json_loads_safe(g.hand)) > 0]
-    if len(alive) <= 1:
-        finish_boka_game(game, alive)
-        return jsonify({"success": True, "rank": me.surrendered_rank, "finished": True})
-    return jsonify({"success": True, "rank": me.surrendered_rank, "finished": False})
+
+    # 3. 判断场上是否还有真人
+    ai_usernames = {bp.username for bp in BokaPlayer.query.filter_by(room_id=room.id).all() if bp.is_ai}
+    real_alive = [g for g in all_players if not g.surrendered and len(json_loads_safe(g.hand)) > 0 and g.username not in ai_usernames]
+
+    if not real_alive:
+        # 没有真人了，直接结算所有人（剩余的 AI 名次随机打乱，或者按当前手牌排）
+        remaining_players = [g for g in all_players if g.username != me.username]
+        # 剩余的存活 AI 随机排序一下
+        ai_alive = [g for g in remaining_players if not g.surrendered and len(json_loads_safe(g.hand)) > 0]
+        random.shuffle(ai_alive)
+        finished = [g for g in remaining_players if g.surrendered or len(json_loads_safe(g.hand)) == 0]
+        
+        final_order = [me] + ai_alive + finished
+        
+        # 分配名次
+        for idx, g in enumerate(final_order, start=1):
+            g.rank = idx
+            
+        game.phase = "finished"
+        game.finished_at = datetime.now()
+        # 如果房间还在等待中，重置状态
+        room.status = "waiting"
+        db.session.commit()
+        
+        return jsonify({
+            "success": True, 
+            "rank": me.surrendered_rank, 
+            "finished": True,
+            "all_ranks": [{"username": g.username, "nickname": g.nickname, "rank": g.rank} for g in final_order]
+        })
+
+    # 4. 还有真人，只返回当前已确定的名次
+    # 弃卡者排 alive_count，剩下的名额按顺序排在弃卡者之后
+    partial_ranks = []
+    partial_ranks.append({"username": me.username, "nickname": me.nickname or me.username, "rank": alive_count})
+    
+    # 将已经出局（手牌为0）或已经弃卡的人排在更后面
+    others_out = [g for g in all_players if (g.surrendered or len(json_loads_safe(g.hand)) == 0) and g.username != me.username]
+    others_out.sort(key=lambda x: x.surrendered_rank or 99)
+    
+    current_rank = alive_count + 1
+    for g in others_out:
+        partial_ranks.append({"username": g.username, "nickname": g.nickname or g.username, "rank": current_rank})
+        current_rank += 1
+
+    return jsonify({
+        "success": True, 
+        "rank": me.surrendered_rank, 
+        "finished": False,
+        "partial_ranks": partial_ranks
+    })
 
 # ========== 世界 Boss ==========
 @app.route('/world_boss')
