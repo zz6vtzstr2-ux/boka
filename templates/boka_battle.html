@@ -30,7 +30,12 @@
     }
     .top-info { color: #8a6d1f; }
     .top-btn.danger { background: #fce8ec; color: #b85a6a; }
-
+    .top-btn:disabled {
+      background: #e8e8e8 !important;
+      color: #aaa !important;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
     /* 中心横幅 */
     .center-banner {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -146,10 +151,12 @@
       <div class="top-info" id="poolInfo">卡袋 0</div>
       <button class="top-btn" onclick="showRecord()">记录</button>
     </div>
-    <!-- 右侧：暂离、弃卡 -->
+    
+    <!-- 右侧：暂离、退出、弃卡 -->
     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
       <button class="top-btn" onclick="temporaryLeave()">暂离</button>
-      <button class="top-btn danger" style="margin-left: 12px;" onclick="discardCards()">弃卡</button>
+      <button class="top-btn danger" id="exitBtn" disabled onclick="quitGame()">退出</button>
+      <button class="top-btn danger" onclick="discardCards()">弃卡</button>
     </div>
   </div>
 
@@ -438,6 +445,10 @@
 
         if (data.finished) {
           clearInterval(pollTimer);
+          // ★ 游戏结束，自动解锁“退出”按钮
+          const exitBtn = document.getElementById('exitBtn');
+          if (exitBtn) exitBtn.disabled = false;
+          
           setTimeout(() => {
             alert(`游戏结束！你的排名：${data.my_rank}`);
             window.location.href = `/boka/room/${roomCode}`;
@@ -452,21 +463,31 @@
       alert("对局记录功能开发中...");
     }
 
+    // 暂离：回主页，保留房间状态
     async function temporaryLeave() {
       if (!confirm("确定要暂离房间吗？你的位置将被保留。")) return;
       await fetch(`/boka/room/${roomCode}/leave`, { method: 'POST' });
       window.location.href = '/boka';
     }
 
+    // 退出：回主页，且退出当前房间（只有弃卡后才能点，或者直接视为投降）
+    async function quitGame() {
+      if (!confirm("确定要退出房间吗？")) return;
+      await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' });
+      window.location.href = '/boka';
+    }
+
+    // 弃卡：直接判负，结束后才能退出
     async function discardCards() {
-      if (!confirm("确定要弃卡并直接认输吗？")) return;
+      if (!confirm("确定要弃卡认输吗？")) return;
       const res = await fetch(`/boka/room/${roomCode}/surrender`, { method: 'POST' });
       const data = await res.json();
       if (data.error) {
         alert(data.error);
       } else {
         alert(`你已弃卡，当前排名：第 ${data.rank} 名`);
-        window.location.href = '/boka';
+        // 弃卡后解锁退出按钮
+        document.getElementById('exitBtn').disabled = false;
       }
     }
 
