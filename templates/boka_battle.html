@@ -336,10 +336,11 @@
       });
     }
 
+    // 渲染卡牌到指定区域（支持问号、重叠、胜负）
     function renderCardsToArea(area, cards, phase, winnerCardIds, allLoser, isWinnerUser) {
       area.innerHTML = '';
       
-      // 1. 问号阶段：直接渲染问号
+      // ★ 如果是问号阶段，直接画问号，不依赖 cards 数组
       if (phase === 'qmark') {
         const q = document.createElement('div');
         q.className = 'qmark-card';
@@ -348,10 +349,10 @@
         return;
       }
 
-      // 2. 如果没有牌，不渲染
+      // 没牌不渲染
       if (!cards || cards.length === 0) return;
 
-      // 斗地主式重叠计算
+      // 斗地主式重叠计算（电脑200px，手机300px，这里统一按200算也行）
       const containerWidth = window.innerWidth <= 768 ? 300 : 200;
       const cardWidth = 100;
       let totalWidth = cards.length * cardWidth;
@@ -390,17 +391,49 @@
       });
     }
 
-    function renderHand() {
-      const handArea = document.getElementById('myHandArea');
-      handArea.innerHTML = '';
-      myHand.forEach(c => {
-        const isSel = myReady.find(x => x.id === c.id);
+    // 渲染卡牌到指定区域（支持问号、重叠、胜负）
+    function renderCardsToArea(area, cards, phase, winnerCardIds, allLoser, isWinnerUser) {
+      area.innerHTML = '';
+      
+      // ★ 如果是问号阶段，直接画问号，不依赖 cards 数组
+      if (phase === 'qmark') {
+        const q = document.createElement('div');
+        q.className = 'qmark-card';
+        q.innerHTML = `<div class="qmark-wrap"></div>`;
+        area.appendChild(q);
+        return;
+      }
+
+      // 没牌不渲染
+      if (!cards || cards.length === 0) return;
+
+      // 斗地主式重叠计算（电脑200px，手机300px，这里统一按200算也行）
+      const containerWidth = window.innerWidth <= 768 ? 300 : 200;
+      const cardWidth = 100;
+      let totalWidth = cards.length * cardWidth;
+      let marginLeft = 0;
+      
+      if (totalWidth > containerWidth) {
+        marginLeft = (totalWidth - containerWidth) / (cards.length - 1);
+      }
+
+      cards.forEach((c, i) => {
+        let cls = '';
+        if (phase === 'result') {
+          if (allLoser) cls = 'loser';
+          else if (winnerCardIds.includes(c.id)) cls = 'winner';
+          else cls = 'loser';
+        }
+
         const div = document.createElement('div');
-        div.className = `hero-card ${isSel ? 'selected' : ''}`;
-        div.style.transform = isSel ? 'scale(0.95) translateY(-4px)' : 'scale(0.9)';
-        div.style.transformOrigin = 'bottom center';
-        div.style.cursor = 'pointer';
-        div.style.margin = '0 4px';
+        div.className = `hero-card ${cls}`;
+        
+        if (i > 0 && marginLeft > 0) {
+          div.style.marginLeft = `-${marginLeft}px`;
+        }
+        if (marginLeft === 0 && i > 0) {
+          div.style.marginLeft = '8px';
+        }
         
         div.innerHTML = `
           <div class="oval-wrap" style="border-color:#f0e0a0;">
@@ -408,18 +441,8 @@
           </div>
           <div class="atk-orb">${c.atk}</div>
           <div class="def-orb">${c.def}</div>
-          <div class="card-name">${c.name}</div>
         `;
-        if (!locked) {
-          div.onclick = () => {
-            const idx = myReady.findIndex(x => x.id === c.id);
-            if (idx >= 0) myReady.splice(idx, 1);
-            else myReady.push(c);
-            renderHand();
-            updatePlayBtn();
-          };
-        }
-        handArea.appendChild(div);
+        area.appendChild(div);
       });
     }
 
@@ -432,21 +455,40 @@
 
     async function submitPlay() {
       if (myReady.length === 0) return;
+      
+      // 1. 锁定，手牌不可点
       locked = true;
       updatePlayBtn();
-      
-      const myArea = document.getElementById(`play-${myUsername}`);
-      if (myArea) renderCardsToArea(myArea, null, 'qmark', [], false, false);
+      renderHand(); // 重新渲染，蓝框保留但不可点
 
-      const res = await fetch(`/boka/room/${roomCode}/play`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ card_ids: myReady.map(c => c.id) })
-      });
-      if (!res.ok) {
-        alert("出牌失败");
+      // 2. 立刻在亮卡区展示问号（不等网络）
+      const myArea = document.getElementById(`play-${myUsername}`);
+      if (myArea) {
+        renderCardsToArea(myArea, null, 'qmark', [], false, false);
+      }
+
+      try {
+        const res = await fetch(`/boka/room/${roomCode}/play`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ card_ids: myReady.map(c => c.id) })
+        });
+        const data = await res.json();
+        
+        if (!res.ok || data.error) {
+          alert(data.error || "出牌失败");
+          locked = false;
+          updatePlayBtn();
+          renderHand();
+          if (myArea) myArea.innerHTML = ''; // 失败退回
+        }
+      } catch (e) {
+        console.error(e);
+        alert("网络异常");
         locked = false;
         updatePlayBtn();
+        renderHand();
+        if (myArea) myArea.innerHTML = '';
       }
     }
 
