@@ -142,10 +142,12 @@
   <div class="top-bar">
     <div class="top-left">
       <div class="top-info" id="roundInfo">第 1 轮</div>
-      <div class="top-info" id="phaseInfo">比攻</div>
+      <div class="top-info" id="poolInfo">卡袋 0</div>
+      <button class="top-btn" onclick="showRecord()">记录</button>
     </div>
     <div class="top-right">
-      <button class="top-btn danger" onclick="quitGame()">退出</button>
+      <button class="top-btn" onclick="temporaryLeave()">暂离</button>
+      <button class="top-btn danger" onclick="discardCards()">弃卡</button>
     </div>
   </div>
 
@@ -374,9 +376,15 @@
         const data = await res.json();
         if (data.error) return;
 
+        // 更新顶栏
         document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
         document.getElementById('phaseInfo').textContent = data.round_phase;
+        
+        // ★ 新增：更新卡袋数量
+        document.getElementById('poolInfo').textContent = `卡袋 ${data.pool_count || 0}`;
+        
         const banner = document.getElementById('centerBanner');
+        // ... 下面是原有的代码保持不变
         banner.textContent = '本轮' + data.round_phase;
         banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
 
@@ -436,9 +444,27 @@
       } catch(e) { console.error(e); }
     }
 
-    function quitGame() {
-      if (confirm("确定退出游戏？")) {
-        window.location.href = `/boka/room/${roomCode}`;
+    // ===== 顶部栏按钮功能 =====
+    function showRecord() {
+      // 目前搏卡还没有做记录弹窗，这里先留空或简单提示
+      alert("对局记录功能开发中...");
+    }
+
+    async function temporaryLeave() {
+      if (!confirm("确定要暂离房间吗？你的位置将被保留。")) return;
+      await fetch(`/boka/room/${roomCode}/leave`, { method: 'POST' });
+      window.location.href = '/boka';
+    }
+
+    async function discardCards() {
+      if (!confirm("确定要弃卡并直接认输吗？")) return;
+      const res = await fetch(`/boka/room/${roomCode}/surrender`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+      } else {
+        alert(`你已弃卡，当前排名：第 ${data.rank} 名`);
+        window.location.href = '/boka';
       }
     }
 
