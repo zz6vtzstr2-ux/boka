@@ -281,6 +281,12 @@
       0%, 100% { box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6); }
       50% { box-shadow: 0 0 24px #f5c542, 0 0 48px rgba(245,197,66,0.9); }
     }
+    /* ★ 宋江抽卡短暂金框 */
+    .hero-card.new-drawn .oval-wrap {
+      border-color: #f5c542 !important;
+      box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6);
+      animation: winnerBlink 1s ease-in-out 3;
+    }
     .hero-card.loser .oval-wrap {
       opacity: 0.5;
       filter: grayscale(0.5);
@@ -803,8 +809,15 @@
       handEl.innerHTML = '';
       myHand.forEach(c => {
         const isSelected = myReady.find(x => x.id === c.id);
-        const d = makeHeroCard(c, isSelected ? 'selected' : '');
+        // ★ 加上这段判断
+        let extraCls = isSelected ? 'selected ' : '';
+        if (window.newDrawnCards && window.newDrawnCards.has(c.id)) {
+          extraCls += 'new-drawn';
+        }
+        
+        const d = makeHeroCard(c, extraCls); // 注意这里传 extraCls
         if (!locked) {
+          // ... 后面原本的点击逻辑保持不变
           d.onclick = () => {
             if (locked) return;
             const idx = myReady.findIndex(x => x.id === c.id);
@@ -854,7 +867,7 @@
         return;
       }
 
-      // 在亮卡区展示宋江 2 秒（金边）
+      // 1. 在亮卡区展示宋江 2 秒（金边）
       const songjiangCard = myHand.find(c => c.name === '宋江');
       if (songjiangCard) {
         renderPlayed([songjiangCard], [], "face", [songjiangCard.id], false);
@@ -868,16 +881,34 @@
       myReady = [];
       songjiangShownForCurrentSelection = false;
 
+      // 2. 拉取最新手牌状态
       const stateRes = await fetch('/challenge/state?level=' + level);
       const state = await stateRes.json();
       if (!state.error) {
         myHand = state.my_hand || [];
+        
+        // 3. ★ 处理抽到新卡的 3 秒金色呼吸特效
+        if (data.picked_id) {
+          // 初始化全局 Set（用于存放需要闪烁的卡牌 ID）
+          if (!window.newDrawnCards) window.newDrawnCards = new Set();
+          window.newDrawnCards.add(data.picked_id);
+          
+          // 3 秒后自动移除并重绘
+          setTimeout(() => {
+            if (window.newDrawnCards) {
+              window.newDrawnCards.delete(data.picked_id);
+              renderHand(); // 重绘，取消金框
+            }
+          }, 3000);
+        }
+
         document.getElementById('myHandCount').textContent = state.my_hand_count || 0;
         document.getElementById('aiHandCount').textContent = state.ai_hand_count || 0;
         poolCount = state.card_pool_count || 0;
         document.getElementById('poolInfo').textContent = '卡袋 ' + poolCount;
       }
 
+      // 4. 重新渲染 UI
       renderHand();
       updateComboInfo();
       updatePlayBtn();
