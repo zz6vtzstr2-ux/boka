@@ -3229,6 +3229,7 @@ def boka_battle_state(room_code):
     room = BokaRoom.query.filter_by(room_code=room_code).first()
     if not room:
         return jsonify({"error": "房间不存在"}), 404
+        
     game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
     if not game:
         return jsonify({"error": "无对局"}), 404
@@ -3252,11 +3253,21 @@ def boka_battle_state(room_code):
 
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     me = next((g for g in gps if g.username == current_user.username), None)
-    opp = next((g for g in gps if g.username != current_user.username), None)
+    
+    if not me:
+        return jsonify({"error": "你不在本局"}), 403
 
-    my_hand_ids = json_loads_safe(me.hand) if me else []
-    my_ready_ids = json_loads_safe(me.ready_card) if me else []
+    # ★ 收集所有人这轮出的牌
+    all_played = {}
+    for g in gps:
+        played_ids = json_loads_safe(g.ready_card)
+        if played_ids:
+            all_played[g.username] = [CARD_BY_ID.get(cid) for cid in played_ids if CARD_BY_ID.get(cid)]
+        else:
+            all_played[g.username] = []
 
+    my_hand_ids = json_loads_safe(me.hand)
+    
     elapsed_since_reveal = None
     if game.phase == "revealing" and game.revealed_at:
         try:
@@ -3265,41 +3276,39 @@ def boka_battle_state(room_code):
         except Exception:
             elapsed_since_reveal = 0
 
-    my_played = [CARD_BY_ID.get(cid) for cid in my_ready_ids if CARD_BY_ID.get(cid)]
-    opp_ready_ids = json_loads_safe(opp.ready_card) if opp else []
-    ai_played = [CARD_BY_ID.get(cid) for cid in opp_ready_ids if CARD_BY_ID.get(cid)]
-
-    winner_card_ids = []
-    if game.round_winner_card_id:
-        winner_card_ids = [game.round_winner_card_id]
-
+    winner_card_ids = [game.round_winner_card_id] if game.round_winner_card_id else []
     all_loser = (game.round_winner_card_id is None and game.winner_username is None and game.phase == "revealing")
-    print(f"[boka_state] phase={game.phase} elapsed={elapsed_since_reveal} "
-          f"gps={[(g.username, len(json_loads_safe(g.ready_card)), g.locked) for g in gps]}",
-          flush=True)
+
+    # 构建所有人的基础信息（用于前端列表渲染）
+    players_info = []
+    for g in gps:
+        players_info.append({
+            "username": g.username,
+            "nickname": g.nickname or g.username,
+            "hand_count": len(json_loads_safe(g.hand)),
+            "locked": g.locked,
+            "is_me": g.username == current_user.username
+        })
+
     return jsonify({
         "round_no": game.round_no,
         "phase": game.phase,
         "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
         "my_hand": [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)],
         "my_hand_count": len(my_hand_ids),
-        "ai_hand_count": len(json_loads_safe(opp.hand)) if opp else 0,
-        "my_played": my_played,
-        "ai_played": ai_played,
+        "all_played": all_played,               # 所有人的出牌
         "winner_card_ids": winner_card_ids,
-        "winner_username": game.winner_username,
+        "winner_username": game.winner_username, # 赢家用户名
         "all_loser": all_loser,
         "pool_count": len(json_loads_safe(game.card_pool)),
         "history": json_loads_safe(game.history),
         "finished": game.phase == "finished",
-        "won": False,
         "elapsed_since_reveal": elapsed_since_reveal if elapsed_since_reveal is not None else -1,
         "beauty_left": game.beauty_left if game.beauty_left is not None else 3,
         "my_rank": me.rank if me else None,
         "my_score_change": me.score_change if me else 0,
-        "opp_nickname": (opp.nickname or opp.username) if opp else "电脑",
+        "players_info": players_info         # 玩家列表信息
     })
-
 
 @app.route('/boka/room/<room_code>/surrender', methods=['POST'])
 @login_required
