@@ -3146,13 +3146,16 @@ def boka_play(room_code):
         return jsonify({"error": "你不在本局"}), 403
     if me.locked:
         return jsonify({"error": "你已经锁定"}), 400
+        
     card_ids = request.json.get('card_ids', [])
     if not isinstance(card_ids, list) or len(card_ids) < 1:
         return jsonify({"error": "至少出 1 张"}), 400
+        
     my_hand = json_loads_safe(me.hand)
     for cid in card_ids:
         if cid not in my_hand:
             return jsonify({"error": f"卡 {cid} 不在手牌"}), 400
+            
     me.ready_card = json_dumps_safe(card_ids)
     me.locked = True
 
@@ -3174,6 +3177,7 @@ def boka_play(room_code):
 
     if all(p.locked for p in all_players):
         resolve_boka_round(game)
+        
     return jsonify({"success": True})
 
 
@@ -3234,7 +3238,7 @@ def boka_battle_state(room_code):
     if not game:
         return jsonify({"error": "无对局"}), 404
 
-    # 结算推进（保留原逻辑）
+    # 结算推进
     if game.phase == "revealing" and game.revealed_at:
         elapsed = (datetime.now() - game.revealed_at).total_seconds()
         if elapsed >= 8.0:
@@ -3250,7 +3254,7 @@ def boka_battle_state(room_code):
                 game.winner_card_id = None
                 game.winner_username = None
                 
-                # ★ 核心修复：在 8 秒切轮次的时候，才清空玩家这轮出的牌和锁定状态
+                # ★ 8 秒后切轮次，此时才清空所有人出的牌和锁定状态
                 for g in gps_check:
                     g.ready_card = json_dumps_safe([])
                     g.locked = False
@@ -3285,7 +3289,6 @@ def boka_battle_state(room_code):
     winner_card_ids = [game.round_winner_card_id] if game.round_winner_card_id else []
     all_loser = (game.round_winner_card_id is None and game.winner_username is None and game.phase == "revealing")
 
-    # 构建所有人的基础信息（用于前端列表渲染）
     players_info = []
     for g in gps:
         players_info.append({
@@ -3302,7 +3305,7 @@ def boka_battle_state(room_code):
         "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
         "my_hand": [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)],
         "my_hand_count": len(my_hand_ids),
-        "all_played": all_played,               # 所有人的出牌（8秒内一直保留）
+        "all_played": all_played,               # 包含所有人的牌，8秒内一直保留
         "winner_card_ids": winner_card_ids,
         "winner_username": game.winner_username, 
         "all_loser": all_loser,
