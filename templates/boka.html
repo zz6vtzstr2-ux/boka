@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>搏卡 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background-color: #e8e0cc;
+      color: #333;
+      margin: 0;
+      padding: 16px 16px 90px 16px;
+      min-height: 100vh;
+    }
+    .container { max-width: 868px; margin: 0 auto; }
+
+    /* ===== 顶部标题 ===== */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .title-block .page-name {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 4px;
+      text-indent: 4px;
+    }
+    .title-block .en {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .back-btn {
+      background: #fce8ec;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid #e8c8d0;
+      font-size: 15px;
+      color: #b85a6a;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .back-btn:hover { background: #f8d8de; }
+
+    /* ===== 通用卡片 ===== */
+    .panel {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #d8d0bc;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .panel-title {
+      display: inline-block;
+      background: #fdf6d8;
+      color: #8a6d1f;
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: 1px solid #f0e0a0;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-indent: 3px;
+      margin-bottom: 16px;
+    }
+
+    /* ===== 玩家信息 ===== */
+    .user-block {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e8e0cc;
+    }
+    .user-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+      padding: 6px 10px;
+      border-radius: 12px;
+    }
+    .user-link:hover { background: #f9f5e8; }
+    .user-link .nickname {
+      font-size: 22px;
+      font-weight: bold;
+      color: #2c3e50;
+      letter-spacing: 1px;
+    }
+
+    .avatar-fallback {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      border: 2px solid #d8d0bc;
+      background: #d8d0bc;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .avatar-fallback img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* ===== 赛季数据 ===== */
+    .stats-row {
+      display: flex;
+      gap: 12px;
+    }
+    .stat-box {
+      flex: 1;
+      background: #f9f5e8;
+      border: 1px solid #e0d8c0;
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-box .lbl {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 4px;
+      letter-spacing: 2px;
+    }
+    .stat-box .val {
+      font-size: 22px;
+      font-weight: bold;
+      color: #b85a6a;
+    }
+
+    /* ===== 创建房间按钮 ===== */
+    .btn-main {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-indent: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: transform 0.15s, background 0.15s;
+    }
+    .btn-blue {
+      background: #5bb8e8;
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+    }
+    .btn-blue:hover:not(:disabled) { transform: translateY(-2px); background: #4aa8d8; }
+    .btn-blue:disabled {
+      background: #ccc !important;
+      color: #fff !important;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* ===== 房间列表 ===== */
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .list-header .panel-title { margin-bottom: 0; }
+    .refresh-btn {
+      background: transparent;
+      border: none;
+      color: #8a6d1f;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 6px 12px;
+      border-radius: 8px;
+      letter-spacing: 1px;
+    }
+    .refresh-btn:hover { background: #fdf6d8; }
+
+    .rooms-empty {
+      text-align: center;
+      color: #bbb;
+      font-size: 15px;
+      padding: 40px 8px;
+      letter-spacing: 1px;
+    }
+
+    /* 房间卡片 */
+    .room-item {
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      border: 1px solid #e0d8c0;
+      border-radius: 16px;
+      background: #fdfaf0;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .room-item:last-child { margin-bottom: 0; }
+
+    /* 第一行：房号 + 加入按钮 */
+    .room-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed #e8e0cc;
+    }
+    .room-code {
+      font-family: monospace;
+      font-size: 20px;
+      font-weight: bold;
+      color: #8a6d1f;
+      letter-spacing: 2px;
+    }
+    .room-join-btn {
+      background: #5cb85c;
+      color: #fff;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(92,184,92,0.3);
+      transition: transform 0.15s, background 0.15s;
+    }
+    .room-join-btn:hover { transform: translateY(-2px); background: #4ea84e; }
+    .room-join-btn.joined {
+      background: #fff; color: #5cb85c; border: 1px solid #5cb85c; box-shadow: none;
+    }
+    .room-join-btn.joined:hover { background: #e8f5e8; transform: none; }
+
+    /* 第二行：玩家列表 */
+    .room-players {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .room-player-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    /* 头像兜底 */
+    .avatar-fallback {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      border: 2px solid #d8d0bc;
+      background: #d8d0bc;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .avatar-fallback img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+
+    .player-info-text {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    .player-info-text .me-tag {
+      color: #b85a6a;
+      font-size: 12px;
+      font-weight: normal;
+    }
+    .owner-tag {
+      color: #d89050;
+      background: #fdf0e0;
+      border: 1px solid #f0d0b0;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    /* ===== Toast ===== */
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 100px;
+      background: rgba(44,110,90,0.95);
+      color: #fff;
+      padding: 12px 22px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: bold;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ===== 通用弹窗 ===== */
+    .confirm-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 400;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+    .confirm-modal.active { display: flex; }
+    .confirm-inner {
+      background: #fffdf5;
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 400px;
+      width: 100%;
+      border: 4px double #f0e0a0;
+      text-align: center;
+      animation: confirmPop 0.18s ease-out;
+    }
+    @keyframes confirmPop {
+      from { transform: scale(0.92); opacity: 0; }
+      to   { transform: scale(1);    opacity: 1; }
+    }
+    .confirm-inner h3 {
+      margin: 0 0 14px 0;
+      color: #8a6d1f;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 3px;
+    }
+    .confirm-inner .confirm-msg {
+      font-size: 15px;
+      color: #555;
+      line-height: 1.7;
+      margin-bottom: 20px;
+      white-space: pre-wrap;
+    }
+    .confirm-btns {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    .confirm-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 2px;
+      transition: transform 0.15s, background 0.15s;
+    }
+    .confirm-btn:hover { transform: translateY(-1px); }
+    .confirm-btn.confirm-primary {
+      background: #5bb8e8;
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3);
+    }
+    .confirm-btn.confirm-primary:hover { background: #4aa8d8; }
+    .confirm-btn.confirm-secondary {
+      background: #fce8ec;
+      color: #b85a6a;
+      border: 1px solid #e8c8d0;
+    }
+    .confirm-btn.confirm-secondary:hover { background: #f8d8de; }
+
+    /* ===== 移动端 ===== */
+    @media (max-width: 480px) {
+      .title-block .page-name { font-size: 24px; letter-spacing: 3px; }
+      .back-btn { padding: 8px 14px; font-size: 14px; }
+      .user-link .nickname { font-size: 19px; }
+      .stat-box .val { font-size: 20px; }
+      .room-code { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 顶部 -->
+    <div class="header">
+      <div class="title-block">
+        <div class="page-name">搏卡</div>
+        <div class="en">Boka</div>
+      </div>
+      <a href="/" class="back-btn">返回主页</a>
+    </div>
+
+    <!-- 玩家信息 + 赛季数据 -->
+    <div class="panel">
+      <div class="user-block">
+        <a href="/player_profile" class="user-link">
+          <div class="avatar-fallback">
+            <img src="/static/avatars/{{ current_user.username }}.jpg"
+                 onerror="this.remove()" alt="">
+          </div>
+          <span class="nickname">{{ current_user.nickname or current_user.username }}</span>
+        </a>
+      </div>
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="lbl">场次</div>
+          <div class="val">{{ season_games }}</div>
+        </div>
+        <div class="stat-box">
+          <div class="lbl">积分</div>
+          <div class="val">{{ score }}</div>
+        </div>
+        <div class="stat-box">
+          <div class="lbl">排名</div>
+          <div class="val">{{ rank }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 创建房间 -->
+    <button class="btn-main btn-blue" id="createBtn"
+            onclick="createRoom()" {% if not can_create %}disabled{% endif %}>
+      创建房间
+    </button>
+
+    <!-- 房间列表 -->
+    <div class="panel" style="margin-top: 16px;">
+      <div class="list-header">
+        <div class="panel-title">房间列表</div>
+        <button class="refresh-btn" onclick="loadRooms(true)">刷新</button>
+      </div>
+      <div id="roomList">
+        <div class="rooms-empty">加载中...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const CAN_CREATE = {{ 'true' if can_create else 'false' }};
+    const myUsername = "{{ current_user.username }}";
+    let roomPollTimer = null;
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1600);
+    }
+
+    // ===== 创建房间 =====
+    async function createRoom() {
+      if (!CAN_CREATE) {
+        showToast('班级收藏不足，无法创建房间');
+        return;
+      }
+      const btn = document.getElementById('createBtn');
+      btn.disabled = true;
+      const oldText = btn.textContent;
+      btn.textContent = '创建中...';
+      try {
+        const res = await fetch('/boka/create', { method: 'POST' });
+        const data = await res.json();
+        if (data.error) {
+          showToast(data.error);
+          btn.disabled = false;
+          btn.textContent = oldText;
+          return;
+        }
+        window.location.href = '/boka/room/' + data.room_id;
+      } catch (e) {
+        showToast('创建失败，请重试');
+        btn.disabled = false;
+        btn.textContent = oldText;
+      }
+    }
+
+    // ===== 加入房间 =====
+    function joinRoomById(roomId) {
+      window.location.href = '/boka/room/' + roomId;
+    }
+
+    // ===== 房间列表 =====
+    async function loadRooms(manual) {
+      try {
+        const res = await fetch('/boka/rooms');
+        const data = await res.json();
+        renderRooms(data.rooms || []);
+      } catch (e) {
+        if (manual) showToast('刷新失败');
+      }
+    }
+
+    function avatarHtml(username) {
+      return `<div class="avatar-fallback">
+                <img src="/static/avatars/${username}.jpg" onerror="this.remove()" alt="">
+              </div>`;
+    }
+
+    function renderRooms(rooms) {
+      const el = document.getElementById('roomList');
+      if (!rooms.length) {
+        el.innerHTML = '<div class="rooms-empty">暂无房间，点上方按钮创建一个</div>';
+        return;
+      }
+      el.innerHTML = '';
+      rooms.forEach(r => {
+        const div = document.createElement('div');
+        div.className = 'room-item';
+
+        // 房号 + 加入按钮
+        const joinBtnCls = r.joined ? 'room-join-btn joined' : 'room-join-btn';
+        const joinBtnText = r.joined ? '已加入' : '加入房间';
+        
+        // 玩家列表 DOM 拼装
+        let playersHtml = '';
+        (r.players || []).forEach(p => {
+          const isOwner = p.username === r.owner;
+          const isMe = p.username === myUsername;
+          
+          playersHtml += `
+            <div class="room-player-row">
+              ${avatarHtml(p.username)}
+              <div class="player-info-text">
+                ${p.name}
+                ${isMe ? '<span class="me-tag">（我）</span>' : ''}
+                ${isOwner ? '<span class="owner-tag">房主</span>' : ''}
+              </div>
+            </div>
+          `;
+        });
+
+        div.innerHTML = `
+          <div class="room-header">
+            <div class="room-code">${r.room_id}</div>
+            <button class="${joinBtnCls}" onclick="event.stopPropagation(); joinRoomById('${r.room_id}')">${joinBtnText}</button>
+          </div>
+          <div class="room-players">
+            ${playersHtml}
+          </div>
+        `;
+        el.appendChild(div);
+      });
+    }
+
+    // ===== 轮询 =====
+    function startRoomPolling() {
+      if (roomPollTimer) clearInterval(roomPollTimer);
+      roomPollTimer = setInterval(() => loadRooms(false), 4000);
+    }
+    function stopRoomPolling() {
+      if (roomPollTimer) { clearInterval(roomPollTimer); roomPollTimer = null; }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        stopRoomPolling();
+      } else {
+        loadRooms(false);
+        startRoomPolling();
+      }
+    });
+
+    loadRooms(false);
+    startRoomPolling();
+  </script>
+</body>
+</html>
