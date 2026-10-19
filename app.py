@@ -3249,6 +3249,12 @@ def boka_battle_state(room_code):
                 game.round_winner_card_id = None
                 game.winner_card_id = None
                 game.winner_username = None
+                
+                # ★ 核心修复：在 8 秒切轮次的时候，才清空玩家这轮出的牌和锁定状态
+                for g in gps_check:
+                    g.ready_card = json_dumps_safe([])
+                    g.locked = False
+                    
                 db.session.commit()
 
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
@@ -3257,7 +3263,7 @@ def boka_battle_state(room_code):
     if not me:
         return jsonify({"error": "你不在本局"}), 403
 
-    # ★ 收集所有人这轮出的牌
+    # 收集所有人这轮出的牌
     all_played = {}
     for g in gps:
         played_ids = json_loads_safe(g.ready_card)
@@ -3296,9 +3302,9 @@ def boka_battle_state(room_code):
         "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
         "my_hand": [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)],
         "my_hand_count": len(my_hand_ids),
-        "all_played": all_played,               # 所有人的出牌
+        "all_played": all_played,               # 所有人的出牌（8秒内一直保留）
         "winner_card_ids": winner_card_ids,
-        "winner_username": game.winner_username, # 赢家用户名
+        "winner_username": game.winner_username, 
         "all_loser": all_loser,
         "pool_count": len(json_loads_safe(game.card_pool)),
         "history": json_loads_safe(game.history),
@@ -3307,7 +3313,7 @@ def boka_battle_state(room_code):
         "beauty_left": game.beauty_left if game.beauty_left is not None else 3,
         "my_rank": me.rank if me else None,
         "my_score_change": me.score_change if me else 0,
-        "players_info": players_info         # 玩家列表信息
+        "players_info": players_info         
     })
 
 @app.route('/boka/room/<room_code>/surrender', methods=['POST'])
