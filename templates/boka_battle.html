@@ -232,7 +232,7 @@
     let pollTimer = null;
     let lastPhase = "selecting";
     let lastRound = 0;
-    
+    let currentRoundPlayed = null; // ★ 缓存这一轮所有人的出牌数据
     // 初始化对手信息 (在挑战逻辑里，对手固定是 AI)
     const playersData = {{ players | tojson | default('[]', true) }};
 
@@ -261,7 +261,9 @@
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
       
-      // ★ 核心：根据经过的时间精准判断阶段
+      // 优先使用缓存的出牌数据，防止后端提早清空
+      const playedData = currentRoundPlayed || data.all_played || {};
+
       let renderPhase = 'qmark';
       if (elapsed >= 3 && elapsed < 6) renderPhase = 'face';
       else if (elapsed >= 6) renderPhase = 'result';
@@ -280,7 +282,7 @@
         if (renderPhase === 'qmark') {
           area.appendChild(makeQmarkCard());
         } else {
-          const cards = data.all_played[p.username] || [];
+          const cards = playedData[p.username] || [];
           const isWin = data.winner_username === p.username;
           cards.forEach(c => {
             let cls = '';
@@ -303,7 +305,7 @@
       if (renderPhase === 'qmark') {
         myArea.appendChild(makeQmarkCard());
       } else {
-        const cards = data.all_played[myUsername] || [];
+        const cards = playedData[myUsername] || [];
         const isWin = data.winner_username === myUsername;
         cards.forEach(c => {
           let cls = '';
@@ -383,7 +385,6 @@
         banner.textContent = '本轮' + data.round_phase;
         banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
 
-        // 获取从后端返回的真实流逝时间
         const elapsed = data.elapsed_since_reveal || 0;
 
         if (data.phase === 'selecting') {
@@ -394,7 +395,8 @@
             renderHand();
             updatePlayBtn();
             
-            // 清空桌面上的所有问号和牌
+            // 新的一轮，清空本地缓存和桌面
+            currentRoundPlayed = null; 
             playersData.forEach(p => {
               const area = document.getElementById(`play-${p.username}`);
               if (area) area.innerHTML = '';
@@ -407,7 +409,11 @@
           locked = true;
           updatePlayBtn();
           
-          // 渲染卡牌动画
+          // ★ 关键：如果是刚进入 revealing 阶段，把所有人的出牌存下来
+          if (!currentRoundPlayed && data.all_played) {
+            currentRoundPlayed = data.all_played;
+          }
+          
           renderPlayedCards(data, elapsed);
         }
 
