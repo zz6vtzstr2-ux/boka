@@ -2009,7 +2009,13 @@ def boka_room(room_code):
     if not room:
         return redirect(url_for('boka'))
     me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
-    if not me:
+    
+    if me:
+        # ★ 核心：只要你还在房间，重新进来就刷新一下状态时间，防止刚点进页面就被踢
+        me.status_changed_at = datetime.now()
+        db.session.commit()
+    else:
+        # 原有逻辑（用于新加入）
         if current_user.boka_room_id and current_user.boka_room_id != room.id:
             leave_any_room(current_user)
             room = BokaRoom.query.filter_by(room_code=room_code).first()
@@ -2033,8 +2039,11 @@ def boka_room(room_code):
             db.session.add(me)
             current_user.boka_room_id = room.id
             db.session.commit()
+            
     if room.status == "playing":
         return redirect(url_for('boka_battle', room_code=room_code))
+        
+    # ... 后面渲染页面的代码保持不变 ...
     players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
     ready_count = sum(1 for p in players if p.ready)
     is_owner = room.owner_username == current_user.username
@@ -2365,9 +2374,13 @@ def boka_leave(room_code):
     me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
     if not me:
         return jsonify({"error": "你不在房间"}), 400
-    me.is_temporary_away = True
-    me.ready = False
+    
+    # ★ 核心：暂离时，不改变 ready 状态，也不更新 status_changed_at
+    # 这样后端清理机制就认为你还在原状态下，不会把你当成“闲置”踢掉。
+    # 如果你怕 2 分钟到了被踢，可以用下面这行刷新一下最后操作时间：
+    me.status_changed_at = datetime.now()
     db.session.commit()
+    
     return jsonify({"success": True})
 
 @app.route('/boka/room/<room_code>/quit', methods=['POST'])
