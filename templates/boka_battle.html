@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>搏卡对战 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; min-height: 100vh;
+      user-select: none; -webkit-tap-highlight-color: transparent;
+      font-family: "LXGW WenKai", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(ellipse at center, #f5edda 0%, #d8ccb0 100%) fixed;
+      color: #333;
+    }
+
+    /* ===== 顶部状态栏 ===== */
+    .top-bar {
+      position: sticky; top: 0;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 12px; background: rgba(245,237,218,0.92);
+      backdrop-filter: blur(6px); z-index: 100;
+    }
+    .top-btn, .top-info {
+      background: rgba(255,255,255,0.95); border: 1px solid #d8d0bc;
+      border-radius: 8px; padding: 6px 12px; font-size: 13px;
+      font-weight: bold; color: #4a4a4a; font-family: inherit;
+    }
+    .top-info { color: #8a6d1f; }
+    .top-btn.danger { background: #fce8ec; color: #b85a6a; }
+    .top-btn:disabled { background: #e8e8e8 !important; color: #aaa !important; }
+
+    /* ===== 战斗区域（完全照抄挑战页） ===== */
+    .arena {
+      padding: 0px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .side {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      width: 100%;
+    }
+    .side .player-head {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .side .player-head img {
+      width: 40px; height: 40px; border-radius: 10px;
+      border: 2px solid #5bb8e8; background: #fff; object-fit: cover;
+    }
+    .ai-avatar-placeholder {
+      height: 40px; min-width: 40px; border-radius: 10px;
+      border: 2px solid #e8c8d0; background: #fce8ec;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: bold; color: #b85a6a;
+    }
+    .side .pname { font-size: 15px; font-weight: bold; color: #4a4a4a; }
+    .side .hand-count { font-size: 12px; color: #888; }
+
+    .played-area {
+      position: relative; display: flex; flex-wrap: wrap; gap: 8px;
+      justify-content: center; align-items: center;
+      height: 160px; padding-top: 20px; margin: 0;
+    }
+
+    .center-banner {
+      font-size: 20px; font-weight: bold; color: #fff;
+      letter-spacing: 6px; text-indent: 6px; padding: 6px 24px;
+      border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      white-space: nowrap; margin: 10px 0 20px 0;
+    }
+    .center-banner.atk { background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b); border: 2px solid #8a4a1f; }
+    .center-banner.def { background: radial-gradient(circle at 30% 30%, #8bc0e8, #4a7db8); border: 2px solid #2a4a7a; }
+
+    /* ===== 卡牌样式 ===== */
+    .hero-card {
+      position: relative; width: 100px; height: 140px; flex-shrink: 0;
+      transition: transform 0.15s;
+    }
+    .hero-card .oval-wrap {
+      width: 100%; height: calc(100% - 22px);
+      border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+      overflow: hidden; background: #fffdf5; border: 4px solid #f0e0a0;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2); position: relative;
+      transition: box-shadow 0.3s, border-color 0.3s, opacity 0.3s;
+    }
+    .hero-card .oval-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .hero-card .atk-orb, .hero-card .def-orb {
+      position: absolute; bottom: 20px; width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 12px;
+      font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.6); z-index: 2;
+    }
+    .hero-card .atk-orb { left: -4px; background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b); border: 2px solid #8a4a1f; }
+    .hero-card .def-orb { right: -4px; background: radial-gradient(circle at 30% 30%, #8bc0e8, #4a7db8); border: 2px solid #2a4a7a; }
+    .hero-card .card-name {
+      position: absolute; bottom: 10px; left: 0; right: 0; text-align: center;
+      font-size: 12px; font-weight: bold; color: #4a4a4a; white-space: nowrap;
+    }
+
+    /* 选中蓝框 */
+    .hero-card.selected .oval-wrap {
+      outline: 4px solid #5bb8e8; outline-offset: -4px;
+      box-shadow: 0 0 0 4px rgba(91,184,232,0.35), 0 3px 8px rgba(0,0,0,0.2);
+    }
+
+    /* 胜负高亮 */
+    .hero-card.winner .oval-wrap { border-color: #f5c542; box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6); }
+    .hero-card.loser .oval-wrap { opacity: 0.5; filter: grayscale(0.5); }
+
+    /* 问号样式 */
+    .qmark-card { position: relative; width: 100px; height: 140px; flex-shrink: 0; }
+    .qmark-card .qmark-wrap {
+      width: 100%; height: calc(100% - 22px); border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+      background: radial-gradient(circle at 30% 30%, #3a4a5a, #1a2a3a); border: 4px solid #c8b878;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .qmark-card .qmark-wrap::before { content: "?"; font-size: 56px; color: #e8d8a0; font-weight: bold; }
+
+    /* ===== 底部手牌区 ===== */
+    .bottom-area { display: flex; flex-direction: column; margin-top: 0; }
+    .ready-row {
+      display: flex; align-items: stretch; justify-content: space-between;
+      padding: 2px 12px; min-height: 56px;
+    }
+    .my-avatar-block { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 64px; }
+    .my-avatar-block img { width: 40px; height: 40px; border-radius: 10px; border: 2px solid #5bb8e8; }
+    .my-avatar-block .pname { font-size: 14px; font-weight: bold; margin-top: 4px; }
+    .combo-info { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #666; }
+    .play-btn {
+      padding: 0 20px; border-radius: 12px; border: none;
+      background: #5bb8e8; color: #fff; font-size: 15px; font-weight: bold;
+      cursor: pointer; font-family: inherit;
+    }
+    .play-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+    .my-hand-area { padding: 2px 16px 8px 16px; display: flex; flex-direction: column; background: rgba(255,255,255,0.94); }
+    .hand-label { font-size: 12px; color: #888; padding-left: 4px; margin-bottom: 0; }
+    .hand-scroll { display: flex; flex-wrap: wrap; gap: 12px; align-content: flex-start; justify-content: center; padding: 4px 0; }
+
+    @media (max-width: 768px) {
+      .played-area { min-height: 130px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <div class="top-info" id="roundInfo">第 1 轮</div>
+      <div class="top-info" id="poolInfo">卡袋 0</div>
+      <button class="top-btn" onclick="alert('记录功能开发中')">记录</button>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <button class="top-btn" onclick="temporaryLeave()">暂离</button>
+      <button class="top-btn danger" id="exitBtn" disabled onclick="quitGame()">退出</button>
+      <button class="top-btn danger" onclick="discardCards()">弃卡</button>
+    </div>
+  </div>
+
+  <div class="arena">
+    <!-- 对手区（2人局只显示一个，多人会被 JS 动态生成） -->
+    <div id="opponentsContainer"></div>
+
+    <div class="center-banner atk" id="centerBanner">等待出牌</div>
+
+    <!-- 我的出牌区 -->
+    <div class="side me">
+      <div class="played-area" id="play-myArea"></div>
+    </div>
+  </div>
+
+  <div class="bottom-area">
+    <div class="ready-row">
+      <div class="my-avatar-block">
+        <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'">
+        <div class="pname">{{ current_user.nickname or current_user.username }}</div>
+      </div>
+      <div class="combo-info" id="comboInfo">请选择卡牌</div>
+      <button class="play-btn" id="playBtn" onclick="submitPlay()" disabled>出战</button>
+    </div>
+    <div class="my-hand-area">
+      <div class="hand-label">手牌 <span id="myHandCount" style="font-weight:bold; color:#b85a6a; font-size:14px;">0</span></div>
+      <div class="hand-scroll" id="myHandArea"></div>
+    </div>
+  </div>
+
+  <!-- 确认和结果弹窗 -->
+  <div id="confirmModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); z-index:999; justify-content:center; align-items:center;">
+    <div style="background:#fffdf5; padding:24px; border-radius:16px; border:4px double #f0e0a0; text-align:center; max-width:400px; width:90%;">
+      <h3 style="margin:0 0 14px 0; color:#8a6d1f;">提示</h3>
+      <div id="confirmMsg" style="font-size:15px; color:#555; margin-bottom:20px;">确认操作？</div>
+      <div style="display:flex; gap:10px;">
+        <button onclick="closeCustomConfirm(false)" style="flex:1; padding:12px; border-radius:12px; background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; font-weight:bold;">取消</button>
+        <button onclick="closeCustomConfirm(true)" style="flex:1; padding:12px; border-radius:12px; background:#5bb8e8; color:#fff; border:none; font-weight:bold;">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="resultModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center;">
+    <div style="background:#fffdf5; padding:24px; border-radius:20px; border:4px double #f0e0a0; text-align:center; max-width:400px; width:90%;">
+      <h2 style="margin:0 0 16px 0; color:#8a6d1f;" id="resultTitle">对局结束</h2>
+      <div style="font-size:15px; color:#555; margin-bottom:10px;" id="resultLine"></div>
+      <div style="font-size:15px; color:#333; margin-bottom:20px; text-align:left; line-height:1.8;" id="resultRanks"></div>
+      <button onclick="window.location.href='/boka'" style="width:100%; padding:14px; border-radius:12px; background:#5bb8e8; color:#fff; font-size:16px; font-weight:bold; border:none;">确认退出</button>
+    </div>
+  </div>
+
+  <script>
+    const roomCode = "{{ room_code }}";
+    const myUsername = "{{ current_user.username }}";
+    // 用 my_hand，并加上 default('[]') 防止 500 报错
+    let myHand = {{ my_hand | tojson | default('[]', true) }};
+    let myReady = [];
+    let locked = false;
+    let pollTimer = null;
+    let lastPhase = "selecting";
+    let lastRound = 0;
+    
+    // 初始化对手信息 (在挑战逻辑里，对手固定是 AI)
+    const playersData = {{ players | tojson | default('[]', true) }};
+
+    function makeQmarkCard() {
+      const div = document.createElement('div');
+      div.className = 'qmark-card';
+      div.innerHTML = `<div class="qmark-wrap"></div>`;
+      return div;
+    }
+
+    function makeHeroCard(c, extraCls) {
+      const div = document.createElement('div');
+      div.className = 'hero-card ' + (extraCls || '');
+      div.innerHTML = `
+        <div class="oval-wrap" style="border-color:#f0e0a0;">
+          <img src="/static/cards/${c.name}.PNG" alt="${c.name}">
+        </div>
+        <div class="atk-orb">${c.atk}</div>
+        <div class="def-orb">${c.def}</div>
+        <div class="card-name">${c.name}</div>
+      `;
+      return div;
+    }
+
+    // ★ 核心渲染函数
+    function renderPlayedCards(data, elapsed) {
+      const oppContainer = document.getElementById('opponentsContainer');
+      const myArea = document.getElementById('play-myArea');
+      
+      // 1. 初始化对手 DOM（如果是第一次）
+      if (oppContainer.innerHTML === '') {
+        let html = '';
+        playersData.forEach(p => {
+          if (p.username === myUsername) return;
+          html += `
+            <div class="side ai">
+              <div class="player-head">
+                <div class="ai-avatar-placeholder">对手</div>
+                <div>
+                  <div class="pname">${p.nickname}</div>
+                  <div class="hand-count">手牌 <span id="count-${p.username}">${p.hand_count}</span></div>
+                </div>
+              </div>
+              <div class="played-area" id="play-${p.username}"></div>
+            </div>
+          `;
+        });
+        oppContainer.innerHTML = html;
+      }
+
+      // 2. 判断渲染阶段
+      let renderPhase = 'qmark';
+      if (elapsed >= 3 && elapsed < 6) renderPhase = 'face';
+      else if (elapsed >= 6) renderPhase = 'result';
+      if (data.finished) renderPhase = 'result';
+
+      const winnerIds = data.winner_card_ids || [];
+      const allLoser = data.all_loser || false;
+
+      // 3. 渲染对手
+      playersData.forEach(p => {
+        if (p.username === myUsername) return;
+        const area = document.getElementById(`play-${p.username}`);
+        if (!area) return;
+        
+        area.innerHTML = '';
+        if (renderPhase === 'qmark') {
+          area.appendChild(makeQmarkCard());
+        } else {
+          const cards = data.all_played[p.username] || [];
+          const isWin = data.winner_username === p.username;
+          cards.forEach(c => {
+            let cls = '';
+            if (renderPhase === 'result') {
+              cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
+            }
+            area.appendChild(makeHeroCard(c, cls));
+          });
+        }
+        // 更新手牌数
+        const info = data.players_info.find(x => x.username === p.username);
+        if (info) {
+          const countEl = document.getElementById(`count-${p.username}`);
+          if (countEl) countEl.textContent = info.hand_count;
+        }
+      });
+
+      // 4. 渲染自己
+      myArea.innerHTML = '';
+      if (renderPhase === 'qmark') {
+        myArea.appendChild(makeQmarkCard());
+      } else {
+        const cards = data.all_played[myUsername] || [];
+        const isWin = data.winner_username === myUsername;
+        cards.forEach(c => {
+          let cls = '';
+          if (renderPhase === 'result') {
+            cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
+          }
+          myArea.appendChild(makeHeroCard(c, cls));
+        });
+      }
+    }
+
+    function renderHand() {
+      const handArea = document.getElementById('myHandArea');
+      handArea.innerHTML = '';
+      myHand.forEach(c => {
+        const isSel = myReady.find(x => x.id === c.id);
+        const div = makeHeroCard(c, isSel ? 'selected' : '');
+        if (!locked) {
+          div.onclick = () => {
+            const idx = myReady.findIndex(x => x.id === c.id);
+            if (idx >= 0) myReady.splice(idx, 1);
+            else myReady.push(c);
+            renderHand();
+            updatePlayBtn();
+          };
+        }
+        handArea.appendChild(div);
+      });
+      document.getElementById('myHandCount').textContent = myHand.length;
+    }
+
+    function updatePlayBtn() {
+      const btn = document.getElementById('playBtn');
+      btn.disabled = locked || myReady.length === 0;
+      btn.textContent = locked ? '锁定' : '出战';
+    }
+
+    async function submitPlay() {
+      if (myReady.length === 0) return;
+      locked = true;
+      updatePlayBtn();
+      renderHand(); // 蓝框保持，但不可点
+
+      // 立刻在亮卡区显示问号
+      document.getElementById('play-myArea').innerHTML = '';
+      document.getElementById('play-myArea').appendChild(makeQmarkCard());
+
+      const res = await fetch(`/boka/room/${roomCode}/play`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ card_ids: myReady.map(c => c.id) })
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+        locked = false;
+        updatePlayBtn();
+        renderHand();
+      }
+    }
+
+    function startPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(pollState, 1000);
+    }
+
+    async function pollState() {
+      try {
+        const res = await fetch(`/boka/room/${roomCode}/battle_state`);
+        const data = await res.json();
+        if (data.error) return;
+
+        document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
+        document.getElementById('poolInfo').textContent = `卡袋 ${data.pool_count || 0}`;
+        
+        const banner = document.getElementById('centerBanner');
+        banner.textContent = '本轮' + data.round_phase;
+        banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
+
+        const elapsed = data.elapsed_since_reveal || 0;
+
+        if (data.phase === 'selecting') {
+          // 处理初次进入或者切换轮次
+          if (lastPhase !== 'selecting' || lastRound !== data.round_no || myHand.length === 0) {
+            locked = false;
+            myHand = data.my_hand || [];
+            myReady = [];
+            renderHand();
+            updatePlayBtn();
+            document.getElementById('opponentsContainer').innerHTML = ''; // 清空对手 DOM 重建
+            document.getElementById('play-myArea').innerHTML = '';
+          }
+        } 
+        else if (data.phase === 'revealing' || data.phase === 'finished') {
+          locked = true;
+          updatePlayBtn();
+          renderPlayedCards(data, elapsed);
+        }
+
+        lastPhase = data.phase;
+        lastRound = data.round_no;
+
+        if (data.finished) {
+          clearInterval(pollTimer);
+          setTimeout(() => {
+            alert(`游戏结束！你的排名：${data.my_rank}`);
+            window.location.href = `/boka/room/${roomCode}`;
+          }, 1000);
+        }
+      } catch(e) { console.error(e); }
+    }
+
+    // ===== 按钮交互功能 =====
+    let confirmResolve = null;
+    function showCustomConfirm(title, msg) {
+      document.getElementById('confirmMsg').textContent = msg;
+      document.getElementById('confirmModal').style.display = 'flex';
+      return new Promise(resolve => { confirmResolve = resolve; });
+    }
+    function closeCustomConfirm(val) {
+      document.getElementById('confirmModal').style.display = 'none';
+      if (confirmResolve) { confirmResolve(val); confirmResolve = null; }
+    }
+
+    async function temporaryLeave() {
+      if (!confirm("确定暂离？位置将保留")) return;
+      await fetch(`/boka/room/${roomCode}/leave`, { method: 'POST' });
+      window.location.href = '/boka';
+    }
+
+    async function quitGame() {
+      if (!confirm("确定退出房间？")) return;
+      await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' });
+      window.location.href = '/boka';
+    }
+
+    async function discardCards() {
+      const ok = await showCustomConfirm("弃卡认输", "确定弃卡吗？手牌将进入卡袋。");
+      if (!ok) return;
+      const res = await fetch(`/boka/room/${roomCode}/surrender`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+      if (data.finished) {
+        document.getElementById('exitBtn').disabled = false;
+      }
+      window.location.href = `/boka/room/${roomCode}`;
+    }
+
+    // 初始化
+    renderHand();
+    pollState();
+    startPolling();
+  </script>
+</body>
+</html>
