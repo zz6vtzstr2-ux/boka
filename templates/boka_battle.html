@@ -143,19 +143,17 @@
   </style>
 </head>
 <body>
-  <div class="top-bar" style="flex-wrap: nowrap; gap: 6px; padding: 8px 10px;">
-    <!-- 左侧：轮次、卡袋、记录 -->
-    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; flex-shrink: 1;">
-      <div class="top-info" id="roundInfo" style="padding: 6px 8px; font-size: 13px;">第 1 轮</div>
-      <div class="top-info" id="poolInfo" style="padding: 6px 8px; font-size: 13px;">卡袋 0</div>
-      <button class="top-btn" onclick="showRecord()" style="padding: 6px 10px; font-size: 13px;">记录</button>
+  <div class="top-bar" style="flex-wrap: nowrap; gap: 4px; padding: 6px 8px;">
+    <div style="display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; flex-shrink: 1;">
+      <div class="top-info" id="roundInfo" style="padding: 4px 6px; font-size: 13px;">R1</div>
+      <div class="top-info" id="poolInfo" style="padding: 4px 6px; font-size: 13px;">袋 0</div>
+      <button class="top-btn" onclick="showRecord()" style="padding: 4px 8px; font-size: 13px;">记录</button>
     </div>
     
-    <!-- 右侧：暂离、退出、弃卡 -->
-    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; flex-shrink: 1;">
-      <button class="top-btn" onclick="temporaryLeave()" style="padding: 6px 10px; font-size: 13px;">暂离</button>
-      <button class="top-btn danger" id="exitBtn" disabled onclick="quitGame()" style="padding: 6px 10px; font-size: 13px;">退出</button>
-      <button class="top-btn danger" onclick="discardCards()" style="padding: 6px 10px; font-size: 13px;">弃卡</button>
+    <div style="display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; flex-shrink: 1;">
+      <button class="top-btn" onclick="temporaryLeave()" style="padding: 4px 8px; font-size: 13px;">暂离</button>
+      <button class="top-btn danger" id="exitBtn" disabled onclick="quitGame()" style="padding: 4px 8px; font-size: 13px;">退出</button>
+      <button class="top-btn danger" onclick="discardCards()" style="padding: 4px 8px; font-size: 13px;">弃卡</button>
     </div>
   </div>
 
@@ -407,8 +405,8 @@
           lastHistory = data.history;
         }
 
-        document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
-        document.getElementById('poolInfo').textContent = `卡袋 ${data.pool_count || 0}`;
+        document.getElementById('roundInfo').textContent = `R${data.round_no}`;
+        document.getElementById('poolInfo').textContent = `袋 ${data.pool_count || 0}`;
         
         const banner = document.getElementById('centerBanner');
         banner.textContent = '本轮' + data.round_phase;
