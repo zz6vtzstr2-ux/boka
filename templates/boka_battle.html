@@ -9,7 +9,7 @@
     * { box-sizing: border-box; }
     html, body {
       margin: 0; padding: 0;
-      width: 100%; min-height: 100vh;
+      width: 100%; min-height: 100vh; /* 允许滚动 */
       user-select: none; -webkit-tap-highlight-color: transparent;
       font-family: "LXGW WenKai", "Microsoft YaHei", sans-serif;
       background: radial-gradient(ellipse at center, #f5edda 0%, #d8ccb0 100%) fixed;
@@ -162,13 +162,26 @@
   </div>
 
   <div class="arena">
-    <!-- 对手区（2人局只显示一个，多人会被 JS 动态生成） -->
-    <div id="opponentsContainer"></div>
+    <!-- ★ 对手区（2人局固定写死，如果是多人，后面再扩展） -->
+    {% set opponent = players | rejectattr("username", "equalto", current_user.username) | first %}
+    {% if opponent %}
+    <div class="side ai" style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <div class="player-head">
+        <div class="ai-avatar-placeholder" style="padding: 0 14px;">对手</div>
+        <div>
+          <div class="pname">{{ opponent.nickname }}</div>
+          <div class="hand-count">手牌 <span id="count-{{ opponent.username }}">{{ opponent.hand_count }}</span></div>
+        </div>
+      </div>
+      <div class="played-area" id="play-{{ opponent.username }}"></div>
+    </div>
+    {% endif %}
 
-    <div class="center-banner atk" id="centerBanner">等待出牌</div>
+    <!-- 中间横幅 -->
+    <div class="center-banner atk" id="centerBanner" style="margin: 10px 0 20px 0;">等待出牌</div>
 
     <!-- 我的出牌区 -->
-    <div class="side me">
+    <div class="side me" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
       <div class="played-area" id="play-myArea"></div>
     </div>
   </div>
@@ -246,31 +259,8 @@
 
     // ★ 核心渲染函数
     function renderPlayedCards(data, elapsed) {
-      const oppContainer = document.getElementById('opponentsContainer');
       const myArea = document.getElementById('play-myArea');
-      
-      // 1. 初始化对手 DOM（如果是第一次）
-      if (oppContainer.innerHTML === '') {
-        let html = '';
-        playersData.forEach(p => {
-          if (p.username === myUsername) return;
-          html += `
-            <div class="side ai">
-              <div class="player-head">
-                <div class="ai-avatar-placeholder">对手</div>
-                <div>
-                  <div class="pname">${p.nickname}</div>
-                  <div class="hand-count">手牌 <span id="count-${p.username}">${p.hand_count}</span></div>
-                </div>
-              </div>
-              <div class="played-area" id="play-${p.username}"></div>
-            </div>
-          `;
-        });
-        oppContainer.innerHTML = html;
-      }
-
-      // 2. 判断渲染阶段
+      
       let renderPhase = 'qmark';
       if (elapsed >= 3 && elapsed < 6) renderPhase = 'face';
       else if (elapsed >= 6) renderPhase = 'result';
@@ -279,12 +269,12 @@
       const winnerIds = data.winner_card_ids || [];
       const allLoser = data.all_loser || false;
 
-      // 3. 渲染对手
+      // 渲染对手（遍历除了自己的其他人）
       playersData.forEach(p => {
         if (p.username === myUsername) return;
         const area = document.getElementById(`play-${p.username}`);
         if (!area) return;
-        
+        
         area.innerHTML = '';
         if (renderPhase === 'qmark') {
           area.appendChild(makeQmarkCard());
@@ -299,7 +289,7 @@
             area.appendChild(makeHeroCard(c, cls));
           });
         }
-        // 更新手牌数
+        // 更新对手手牌数
         const info = data.players_info.find(x => x.username === p.username);
         if (info) {
           const countEl = document.getElementById(`count-${p.username}`);
@@ -307,7 +297,7 @@
         }
       });
 
-      // 4. 渲染自己
+      // 渲染自己
       myArea.innerHTML = '';
       if (renderPhase === 'qmark') {
         myArea.appendChild(makeQmarkCard());
