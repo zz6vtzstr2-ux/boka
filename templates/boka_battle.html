@@ -393,14 +393,15 @@
         const elapsed = data.elapsed_since_reveal || 0;
 
         if (data.phase === 'selecting') {
-          if (lastPhase !== 'selecting' || lastRound !== data.round_no) {
+          // ★ 核心：myHand.length === 0 是关键，它保证了第一次进页面或者后端重置时能拉到牌
+          if (lastPhase !== 'selecting' || lastRound !== data.round_no || myHand.length === 0) {
             locked = false;
             myHand = data.my_hand || [];
             myReady = [];
             renderHand();
             updatePlayBtn();
             
-            // 新的一轮，清空桌面
+            // 清空桌面
             playersData.forEach(p => {
               const area = document.getElementById(`play-${p.username}`);
               if (area) area.innerHTML = '';
