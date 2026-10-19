@@ -202,7 +202,8 @@
   <script>
     const roomCode = "{{ room_code }}";
     const myUsername = "{{ current_user.username }}";
-    let myHand = {{ hand | tojson }};
+    const level = 1; // 占位
+    let myHand = {{ my_hand | tojson }}; // ★ 用 my_hand，这是后端传给 Jinja 的变量名
     let myReady = [];
     let locked = false;
     let pollTimer = null;
