@@ -257,14 +257,17 @@
       return div;
     }
 
-    // ★ 核心渲染函数    function renderPlayedCards(data, elapsed) {
+    function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
       
-      // ★ 时间轴完美对齐挑战页：0-1s(我出，AI还没出，但后端统一算) 
-      // 1-3s(都有问号) 3-6s(亮牌) 6s+(算分)
+      // ★ 核心：时间轴判定
+      // 0~3秒：问号
+      // 3~6秒：亮牌
+      // 6秒以上：结算（胜负高亮/变暗）
       let renderPhase = 'qmark';
       if (elapsed >= 3 && elapsed < 6) renderPhase = 'face';
       else if (elapsed >= 6) renderPhase = 'result';
+      if (data.finished) renderPhase = 'result';
 
       const winnerIds = data.winner_card_ids || [];
       const allLoser = data.all_loser || false;
@@ -276,11 +279,13 @@
         if (!area) return;
         
         area.innerHTML = '';
+        
         if (renderPhase === 'qmark') {
           area.appendChild(makeQmarkCard());
         } else {
           const cards = data.all_played[p.username] || [];
           const isWin = data.winner_username === p.username;
+          
           cards.forEach(c => {
             let cls = '';
             if (renderPhase === 'result') {
@@ -289,6 +294,7 @@
             area.appendChild(makeHeroCard(c, cls));
           });
         }
+        
         // 更新手牌数
         const info = data.players_info.find(x => x.username === p.username);
         if (info) {
@@ -304,6 +310,7 @@
       } else {
         const cards = data.all_played[myUsername] || [];
         const isWin = data.winner_username === myUsername;
+        
         cards.forEach(c => {
           let cls = '';
           if (renderPhase === 'result') {
