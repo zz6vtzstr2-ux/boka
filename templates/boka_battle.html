@@ -152,7 +152,7 @@
     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
       <div class="top-info" id="roundInfo">第 1 轮</div>
       <div class="top-info" id="poolInfo">卡袋 0</div>
-      <button class="top-btn" onclick="alert('记录功能开发中')">记录</button>
+      <button class="top-btn" onclick="showRecord()">记录</button>
     </div>
     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
       <button class="top-btn" onclick="temporaryLeave()">暂离</button>
@@ -391,7 +391,7 @@
         const data = await res.json();
         if (data.error) return;
         if (data.history) {
-          lastHistory = data.history;
+          window.lastHistory = data.history;
         }
         document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
         document.getElementById('poolInfo').textContent = `卡袋 ${data.pool_count || 0}`;
@@ -571,6 +571,70 @@
     renderHand();
     pollState();
     startPolling();
+
+    // ===== 强制覆盖记录功能 =====
+    window.lastHistory = window.lastHistory || [];
+    const DISPLAY_NAME_MAP = { "扈三娘": "美女", "白胜": "炸弹", "孙二娘": "炸弹" };
+    
+    window.displayName = function(name) {
+      return DISPLAY_NAME_MAP[name] || name;
+    };
+
+    window.renderRecord = function() {
+      const el = document.getElementById('recordContent');
+      if (!window.lastHistory || window.lastHistory.length === 0) {
+        el.innerHTML = '暂无对局记录';
+        return;
+      }
+      let html = `<table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;">
+          <thead><tr>
+              <th style="padding:8px; color:#8a6d1f; background:#fdf6d8;">轮次</th>
+              <th style="padding:8px; color:#8a6d1f; background:#fdf6d8;">我</th>
+              <th style="padding:8px; color:#8a6d1f; background:#fdf6d8;">对手</th>
+              <th style="padding:8px; color:#8a6d1f; background:#fdf6d8;">赢家</th>
+          </tr></thead><tbody>`;
+
+      window.lastHistory.forEach(h => {
+        const dimKey = h.dim === 'atk' ? 'atk' : 'def';
+        const myPlay = h.played.find(p => p.username === myUsername) || {};
+        const oppPlay = h.played.find(p => p.username !== myUsername) || {};
+
+        const formatPlay = (play) => {
+          if (!play || !play.cards || play.cards.length === 0) return '?';
+          if (play.cards.length === 1) return `${window.displayName(play.cards[0].name)} ${play.cards[0][dimKey] ?? '-'}`;
+          return `组合 ${play.value ?? '-'}`;
+        };
+
+        let winnerText = '/';
+        let winnerCls = 'color:#999;';
+        if (myPlay.result === 'win') { winnerText = '我'; winnerCls = 'color:#5cb85c;'; }
+        else if (oppPlay.result === 'win') { winnerText = '对手'; winnerCls = 'color:#d9534f;'; }
+        else if (myPlay.result === 'beauty' || oppPlay.result === 'beauty') { winnerText = '美女'; winnerCls = 'color:#a06cd5;'; }
+        else if (myPlay.result === 'bombed') { winnerText = '炸弹'; winnerCls = 'color:#f5a623;'; }
+
+        html += `<tr style="border-bottom:1px solid #e8e0cc;">
+            <td style="padding:8px;">第 ${h.round} 轮</td>
+            <td style="padding:8px;">${formatPlay(myPlay)}</td>
+            <td style="padding:8px;">${formatPlay(oppPlay)}</td>
+            <td style="padding:8px; font-weight:bold; ${winnerCls}">${winnerText}</td>
+        </tr>`;
+      });
+      el.innerHTML = html + `</tbody></table>`;
+    };
+
+    window.showRecord = function() {
+      window.renderRecord();
+      document.getElementById('recordModal').style.display = 'flex';
+    };
+
+    window.closeRecord = function() {
+      document.getElementById('recordModal').style.display = 'none';
+    };
+
+    // 绑定到全局
+    let showRecord = window.showRecord;
+    let closeRecord = window.closeRecord;
+    
   </script>
 </body>
 </html>
