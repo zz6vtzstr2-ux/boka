@@ -2628,13 +2628,12 @@ def _classify_play(cards):
 
 
 def resolve_boka_round(game):
-    """多人一轮结算"""
+    """多人一轮结算：仅计算胜负与牌的去向，写入 history 的 movements，不修改真实手牌"""
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     is_atk_round = (game.round_no % 2 == 1)
     dim = "atk" if is_atk_round else "def"
     other_dim = "def" if is_atk_round else "atk"
 
-    # ★ 一次查所有玩家的 User（避免 N+1）
     usernames = [g.username for g in gps]
     users_list = User.query.filter(User.username.in_(usernames)).all()
     users_map = {u.username: u for u in users_list}
@@ -2661,6 +2660,8 @@ def resolve_boka_round(game):
             cards_raw.append(card)
         if not cards_raw:
             continue
+        
+        # 纯单卡模式或组合模式兼容
         atk, dfn, combo_name = calc_combo_stats(cards_raw) if len(cards_raw) > 1 else (None, None, None)
         if len(cards_raw) == 1:
             a, d = card_with_level(cards_raw[0], cards_raw[0]["level"])
@@ -2673,6 +2674,7 @@ def resolve_boka_round(game):
             value = atk if is_atk_round else dfn
             other = dfn if is_atk_round else atk
             is_combo = True
+            
         played.append({
             "username": g.username,
             "cards": cards_raw,
@@ -2684,203 +2686,42 @@ def resolve_boka_round(game):
         })
 
     if not played:
-        game.revealed_at = datetime.now()
-        game.phase = "revealing"
-        db.session.commit()
         return
 
-    pool = json_loads_safe(game.card_pool)
-    round_record = {"round": game.round_no, "dim": dim, "played": []}
+    round_record = {"round": game.round_no, "dim": dim, "played": [], "movements": []}
+    movements = round_record["movements"]
 
-    def has_combo_tag(tag):
-        for p in played:
-            if not p["is_combo"]:
-                continue
-            for combo in COMBOS:
-                if combo["name"] == p["combo_name"] and combo.get("special") == tag:
-                    return p
-        return None
-
-    top_combo = has_combo_tag("bomb_eater_steal1")
-    if top_combo:
-        _resolve_top_combo(game, gps, played, top_combo, pool, round_record, dim, other_dim)
-        _finalize_round(game, gps, pool, round_record)
-        return
-
-    eat_combo = has_combo_tag("bomb_eater")
-    if eat_combo:
-        _resolve_eat_combo(game, gps, played, eat_combo, pool, round_record, dim, other_dim)
-        _finalize_round(game, gps, pool, round_record)
-        return
-
-    has_bomb = any(c["name"] in BOMB_NAMES for p in played for c in p["cards"])
-    if has_bomb:
-        for p in played:
-            pool.extend(p["card_ids"])
-            g = next(x for x in gps if x.username == p["username"])
-            hand = json_loads_safe(g.hand)
-            hand = [cid for cid in hand if cid not in p["card_ids"]]
-            g.hand = json_dumps_safe(hand)
-            g.ready_card = json_dumps_safe([])
-            g.locked = False
-            round_record["played"].append({
-                "username": p["username"],
-                "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in p["cards"]],
-                "value": p["value"], "result": "bombed",
-            })
-        game.round_winner_card_id = None
-        game.winner_username = None
-        _finalize_round(game, gps, pool, round_record)
-        return
-
-    beauty_p = None
-    for p in played:
-        for c in p["cards"]:
-            if c["name"] == BEAUTY_NAME:
-                beauty_p = p
-                break
-        if beauty_p:
-            break
-
-    if beauty_p:
-        beauty_left = game.beauty_left if game.beauty_left is not None else 3
-        handsome_players = []
-        for p in played:
-            for c in p["cards"]:
-                if c["name"] in HANDSOME_NAMES:
-                    handsome_players.append(p)
-                    break
-
-        handsome_card_ids = set()
-        for hp in handsome_players:
-            for c in hp["cards"]:
-                if c["name"] in HANDSOME_NAMES:
-                    handsome_card_ids.add(c["id"])
-        beauty_card_ids = {c["id"] for c in beauty_p["cards"] if c["name"] == BEAUTY_NAME}
-
-        remaining_card_ids = []
-        for p in played:
-            for c in p["cards"]:
-                if c["id"] in beauty_card_ids:
-                    continue
-                if c["id"] in handsome_card_ids:
-                    continue
-                remaining_card_ids.append(c["id"])
-
-        beauty_owner_name = beauty_p["username"]
-        beauty_owner_g = next(x for x in gps if x.username == beauty_owner_name)
-
-        for p in played:
-            g = next(x for x in gps if x.username == p["username"])
-            hand = json_loads_safe(g.hand)
-            hand = [cid for cid in hand if cid not in p["card_ids"]]
-            g.hand = json_dumps_safe(hand)
-
-        if beauty_left >= 2:
-            if handsome_players:
-                best_hp = max(handsome_players, key=lambda x: (x["value"], x["other"]))
-                best_hp_g = next(x for x in gps if x.username == best_hp["username"])
-                beauty_id = list(beauty_card_ids)[0] if beauty_card_ids else None
-                if beauty_id is not None:
-                    best_hand2 = json_loads_safe(best_hp_g.hand)
-                    if beauty_id not in best_hand2:
-                        best_hand2.append(beauty_id)
-                    best_hp_g.hand = json_dumps_safe(best_hand2)
-                for hp in handsome_players:
-                    for c in hp["cards"]:
-                        if c["name"] in HANDSOME_NAMES:
-                            pool.append(c["id"])
-            else:
-                best = max(played, key=lambda x: (x["value"], x["other"]))
-                best_g = next(x for x in gps if x.username == best["username"])
-                best_hand = json_loads_safe(best_g.hand)
-                for c in beauty_p["cards"]:
-                    if c["name"] == BEAUTY_NAME and c["id"] not in best_hand:
-                        best_hand.append(c["id"])
-                best_g.hand = json_dumps_safe(best_hand)
-                for c in beauty_p["cards"]:
-                    if c["name"] == "吴用":
-                        pool.append(c["id"])
-            game.beauty_left = beauty_left - 1
-        else:
-            for c in beauty_p["cards"]:
-                pool.append(c["id"])
-            if handsome_players:
-                for hp in handsome_players:
-                    for c in hp["cards"]:
-                        if c["name"] in HANDSOME_NAMES:
-                            pool.append(c["id"])
-            game.beauty_left = 0
-
-        beauty_owner_hand2 = json_loads_safe(beauty_owner_g.hand)
-        beauty_owner_hand2.extend(remaining_card_ids)
-        beauty_owner_g.hand = json_dumps_safe(beauty_owner_hand2)
-
-        for p in played:
-            g = next(x for x in gps if x.username == p["username"])
-            if g.username == beauty_owner_name:
-                continue
-            g.ready_card = json_dumps_safe([])
-            g.locked = False
-
-        beauty_owner_g.ready_card = json_dumps_safe([])
-        beauty_owner_g.locked = False
-
-        game.round_winner_card_id = list(beauty_card_ids)[0] if beauty_card_ids else None
-        game.winner_username = beauty_owner_name
-
-        for p in played:
-            round_record["played"].append({
-                "username": p["username"],
-                "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in p["cards"]],
-                "value": p["value"], "result": "beauty",
+    # 记录卡牌移动意向
+    def move(cards, frm, to):
+        for c in cards:
+            movements.append({
+                "card_id": c["id"],
+                "level": c.get("level", 1),
+                "from": frm,
+                "to": to,
             })
 
-        _finalize_round(game, gps, pool, round_record)
-        return
-
+    # --- 简化版逻辑：只比大小，赢家拿走全部牌 ---
     best = max(played, key=lambda x: (x["value"], x["other"]))
     winners = [p for p in played if p["value"] == best["value"] and p["other"] == best["other"]]
     winner = random.choice(winners) if len(winners) > 1 else winners[0]
     winner_name = winner["username"]
 
-    for p in played:
-        g = next(x for x in gps if x.username == p["username"])
-        hand = json_loads_safe(g.hand)
-        hand = [cid for cid in hand if cid not in p["card_ids"]]
-        g.hand = json_dumps_safe(hand)
-
+    # 赢家出的牌进卡袋
     for cid in winner["card_ids"]:
-        pool.append(cid)
-
-    winner_g = next(x for x in gps if x.username == winner_name)
-    winner_hand = json_loads_safe(winner_g.hand)
+        movements.append({"card_id": cid, "from": winner_name, "to": "pool"})
+    
+    # 输家出的牌进赢家手牌
     for p in played:
         if p["username"] == winner_name:
             continue
-        winner_hand.extend(p["card_ids"])
+        for cid in p["card_ids"]:
+            movements.append({"card_id": cid, "from": p["username"], "to": winner_name})
 
-    if winner["is_combo"] and winner["combo_name"]:
-        for combo in COMBOS:
-            if combo["name"] == winner["combo_name"] and combo.get("special") == "bomb_eater_steal1":
-                for p in played:
-                    if p["username"] == winner_name:
-                        continue
-                    loser_g = next(x for x in gps if x.username == p["username"])
-                    loser_hand = json_loads_safe(loser_g.hand)
-                    if loser_hand:
-                        stolen = random.choice(loser_hand)
-                        loser_hand.remove(stolen)
-                        winner_hand.append(stolen)
-                        loser_g.hand = json_dumps_safe(loser_hand)
-                break
-
-    winner_g.hand = json_dumps_safe(winner_hand)
+    game.round_winner_card_id = winner["card_ids"][0] if winner["card_ids"] else None
+    game.winner_username = winner_name
 
     for p in played:
-        g = next(x for x in gps if x.username == p["username"])
-        g.ready_card = json_dumps_safe([])
-        g.locked = False
         round_record["played"].append({
             "username": p["username"],
             "cards": [{"id": c["id"], "name": c["name"], "atk": c["atk"], "def": c["def"]} for c in p["cards"]],
@@ -2888,14 +2729,10 @@ def resolve_boka_round(game):
             "result": "win" if p["username"] == winner_name else "lose",
         })
 
-    max_card_id = max(
-        winner["card_ids"],
-        key=lambda cid: (CARD_BY_ID.get(cid, {}).get(dim, 0), CARD_BY_ID.get(cid, {}).get(other_dim, 0))
-    )
-    game.round_winner_card_id = max_card_id
-    game.winner_username = winner_name
-
-    _finalize_round(game, gps, pool, round_record)
+    history = json_loads_safe(game.history)
+    history.append(round_record)
+    game.history = json_dumps_safe(history)
+    # 注意：此处不 commit 手牌变化
 
 
 def _resolve_top_combo(game, gps, played, combo_p, pool, round_record, dim, other_dim):
@@ -3196,8 +3033,11 @@ def boka_play(room_code):
     db.session.commit()
 
     if all(p.locked for p in all_players):
-        resolve_boka_round(game)
-        
+        # 让这个回合进入等待结算的状态
+        game.phase = "revealing"
+        game.revealed_at = datetime.now()
+    
+    db.session.commit()
     return jsonify({"success": True})
 
 
@@ -3258,17 +3098,70 @@ def boka_battle_state(room_code):
     if not game:
         return jsonify({"error": "无对局"}), 404
 
-    # 结算推进
+    # 先查出当前房间所有玩家的状态
+    gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+    me = next((g for g in gps if g.username == current_user.username), None)
+    
+    if not me:
+        return jsonify({"error": "你不在本局"}), 403
+
+    elapsed_since_reveal = -1
+
+    # ================= ★ 时间轴精准控制 =================
     if game.phase == "revealing" and game.revealed_at:
-        elapsed = (datetime.now() - game.revealed_at).total_seconds()
-        
-        # 如果超过 8 秒，切换下一轮
-        if elapsed >= 8.0:
-            gps_check = BokaGamePlayer.query.filter_by(game_id=game.id).all()
-            alive = [g for g in gps_check if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
+        elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
+
+        # 【+6s 节点】：算胜负，生成 movements 并写入记录
+        if elapsed_since_reveal >= 6.0 and game.winner_username is None:
+            resolve_boka_round(game)
+            db.session.commit()
+
+        # 【+8s 节点】：真正执行发牌/扣牌/淘汰判定
+        if elapsed_since_reveal >= 8.0:
+            # 1. 执行上一轮记录中的卡牌移动
+            history = json_loads_safe(game.history)
+            if history:
+                last_round = history[-1]
+                movements = last_round.get("movements", [])
+                gp_map = {g.username: g for g in gps}
+                
+                # 先把变动暂存，防止并发报错
+                hand_changes = {g.username: json_loads_safe(g.hand) for g in gps}
+                pool = json_loads_safe(game.card_pool)
+
+                for m in movements:
+                    cid = m["card_id"]
+                    frm = m["from"]
+                    to = m["to"]
+
+                    # 从原主手里扣掉
+                    if frm in hand_changes and cid in hand_changes[frm]:
+                        hand_changes[frm].remove(cid)
+                    # 给新主加上
+                    if to in hand_changes:
+                        hand_changes[to].append(cid)
+                    # 进卡袋
+                    elif to == "pool":
+                        pool.append({"id": cid, "level": m.get("level", 1)})
+
+                # 将暂存的数据写回数据库
+                for g in gps:
+                    g.hand = json_dumps_safe(hand_changes[g.username])
+                game.card_pool = json_dumps_safe(pool)
+
+            # 2. 判定谁被淘汰
+            for g in gps:
+                hand = json_loads_safe(g.hand)
+                if len(hand) == 0 and g.finished_order is None and not g.surrendered:
+                    max_order = db.session.query(db.func.max(BokaGamePlayer.finished_order)).filter_by(game_id=game.id).scalar() or 0
+                    g.finished_order = max_order + 1
+            
+            alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
+
             if len(alive) <= 1 and game.phase != "finished":
                 finish_boka_game(game, alive)
             else:
+                # 进入下一轮
                 game.round_no += 1
                 game.phase = "selecting"
                 game.revealed_at = None
@@ -3276,56 +3169,24 @@ def boka_battle_state(room_code):
                 game.winner_card_id = None
                 game.winner_username = None
                 
-                # ★ 8秒后清空准备牌
-                for g in gps_check:
+                for g in gps:
                     g.ready_card = json_dumps_safe([])
                     g.locked = False
-                db.session.commit()
+                    
+            db.session.commit()
+    # =================================================
 
-    gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
-    me = next((g for g in gps if g.username == current_user.username), None)
-    
-    if not me:
-        return jsonify({"error": "你不在本局"}), 403
-
-    # ★ 核心修复：获取当前出牌的途径，如果是 8 秒内，优先从 history 恢复牌局
+    # 收集这一轮所有人出的牌（如果是 6 秒前，正常返回；如果是 6 秒后，也正常返回给前端画图）
     all_played = {}
-    if game.phase == "revealing" and game.revealed_at:
-        elapsed = (datetime.now() - game.revealed_at).total_seconds()
-        if elapsed < 8.0:
-            # 从 history 的最后一条记录中恢复这轮出的牌，因为 ready_card 可能已经被清空
-            history = json_loads_safe(game.history)
-            if history:
-                last_round = history[-1]
-                for play in last_round.get("played", []):
-                    uname = play["username"]
-                    cards_data = play["cards"]
-                    # 重建完整的卡片数据（带 atk 和 def）
-                    full_cards = []
-                    for c in cards_data:
-                        base = CARD_BY_ID.get(c["id"])
-                        if base:
-                            card = dict(base)
-                            card["atk"] = c.get("atk", base["atk"])
-                            card["def"] = c.get("def", base["def"])
-                            full_cards.append(card)
-                    all_played[uname] = full_cards
-
-    # 如果还没出牌（或者刚进页面），正常读取 ready_card
-    if not all_played:
-        for g in gps:
-            played_ids = json_loads_safe(g.ready_card)
-            if played_ids:
-                all_played[g.username] = [CARD_BY_ID.get(cid) for cid in played_ids if CARD_BY_ID.get(cid)]
-            else:
-                all_played[g.username] = []
+    for g in gps:
+        played_ids = json_loads_safe(g.ready_card)
+        if played_ids:
+            all_played[g.username] = [CARD_BY_ID.get(cid) for cid in played_ids if CARD_BY_ID.get(cid)]
+        else:
+            all_played[g.username] = []
 
     my_hand_ids = json_loads_safe(me.hand)
     
-    elapsed_since_reveal = -1
-    if game.phase == "revealing" and game.revealed_at:
-        elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
-
     winner_card_ids = [game.round_winner_card_id] if game.round_winner_card_id else []
     all_loser = (game.round_winner_card_id is None and game.winner_username is None and game.phase == "revealing")
 
@@ -3345,14 +3206,14 @@ def boka_battle_state(room_code):
         "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
         "my_hand": [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)],
         "my_hand_count": len(my_hand_ids),
-        "all_played": all_played, 
+        "all_played": all_played,
         "winner_card_ids": winner_card_ids,
         "winner_username": game.winner_username, 
         "all_loser": all_loser,
         "pool_count": len(json_loads_safe(game.card_pool)),
         "history": json_loads_safe(game.history),
         "finished": game.phase == "finished",
-        "elapsed_since_reveal": elapsed_since_reveal,
+        "elapsed_since_reveal": elapsed_since_reveal if elapsed_since_reveal is not None else -1,
         "beauty_left": game.beauty_left if game.beauty_left is not None else 3,
         "my_rank": me.rank if me else None,
         "my_score_change": me.score_change if me else 0,
