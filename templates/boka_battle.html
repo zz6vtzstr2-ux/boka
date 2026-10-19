@@ -261,6 +261,7 @@
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
       
+      // ★ 核心：根据经过的时间精准判断阶段
       let renderPhase = 'qmark';
       if (elapsed >= 3 && elapsed < 6) renderPhase = 'face';
       else if (elapsed >= 6) renderPhase = 'result';
@@ -269,7 +270,7 @@
       const winnerIds = data.winner_card_ids || [];
       const allLoser = data.all_loser || false;
 
-      // 渲染对手（遍历除了自己的其他人）
+      // 渲染对手
       playersData.forEach(p => {
         if (p.username === myUsername) return;
         const area = document.getElementById(`play-${p.username}`);
@@ -289,7 +290,7 @@
             area.appendChild(makeHeroCard(c, cls));
           });
         }
-        // 更新对手手牌数
+        // 更新手牌数
         const info = data.players_info.find(x => x.username === p.username);
         if (info) {
           const countEl = document.getElementById(`count-${p.username}`);
@@ -377,28 +378,36 @@
 
         document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
         document.getElementById('poolInfo').textContent = `卡袋 ${data.pool_count || 0}`;
-        
+        
         const banner = document.getElementById('centerBanner');
         banner.textContent = '本轮' + data.round_phase;
         banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
 
+        // 获取从后端返回的真实流逝时间
         const elapsed = data.elapsed_since_reveal || 0;
 
         if (data.phase === 'selecting') {
-          // 处理初次进入或者切换轮次
-          if (lastPhase !== 'selecting' || lastRound !== data.round_no || myHand.length === 0) {
+          if (lastPhase !== 'selecting' || lastRound !== data.round_no) {
             locked = false;
             myHand = data.my_hand || [];
             myReady = [];
             renderHand();
             updatePlayBtn();
-            document.getElementById('opponentsContainer').innerHTML = ''; // 清空对手 DOM 重建
-            document.getElementById('play-myArea').innerHTML = '';
+            
+            // 清空桌面上的所有问号和牌
+            playersData.forEach(p => {
+              const area = document.getElementById(`play-${p.username}`);
+              if (area) area.innerHTML = '';
+            });
+            const myArea = document.getElementById('play-myArea');
+            if (myArea) myArea.innerHTML = '';
           }
-        } 
+        } 
         else if (data.phase === 'revealing' || data.phase === 'finished') {
           locked = true;
           updatePlayBtn();
+          
+          // 渲染卡牌动画
           renderPlayedCards(data, elapsed);
         }
 
