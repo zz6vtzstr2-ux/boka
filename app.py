@@ -1918,15 +1918,16 @@ def boka_reset_all():
 @app.route('/boka/rooms')
 @login_required
 def boka_rooms():
-    rooms = BokaRoom.query.filter_by(status="waiting").order_by(BokaRoom.created_at.desc()).all()
+    # 获取所有等待中或游戏中的房间
+    rooms = BokaRoom.query.order_by(BokaRoom.created_at.desc()).all()
     result = []
     for r in rooms:
         players = BokaPlayer.query.filter_by(room_id=r.id).all()
         result.append({
             "room_id": r.room_code,
-            "status": "准备中",
+            "status": "准备中" if r.status == "waiting" else "游戏中",
             "count": len(players),
-            "max_players": r.max_players,   # ← 新增
+            "max_players": r.max_players,
             "owner": r.owner_username,
             "players": [
                 {"name": p.nickname or p.username, "username": p.username,
@@ -1934,6 +1935,7 @@ def boka_rooms():
                  "is_owner": p.username == r.owner_username}
                 for p in players
             ],
+            # 判断你是否已经在这个房间里
             "joined": any(p.username == current_user.username for p in players),
         })
     return jsonify({"rooms": result})
@@ -2375,12 +2377,9 @@ def boka_leave(room_code):
     if not me:
         return jsonify({"error": "你不在房间"}), 400
     
-    # ★ 核心：暂离时，不改变 ready 状态，也不更新 status_changed_at
-    # 这样后端清理机制就认为你还在原状态下，不会把你当成“闲置”踢掉。
-    # 如果你怕 2 分钟到了被踢，可以用下面这行刷新一下最后操作时间：
+    # ★ 暂离只刷新最后操作时间，防止 2 分钟被清理，其他什么状态都不变
     me.status_changed_at = datetime.now()
     db.session.commit()
-    
     return jsonify({"success": True})
 
 @app.route('/boka/room/<room_code>/quit', methods=['POST'])
