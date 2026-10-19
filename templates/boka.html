@@ -156,15 +156,6 @@
         const res = await fetch('/boka/rooms');
         const data = await res.json();
         renderRooms(data.rooms || []);
-        
-        // ★ 自动拉入机制：如果发现我所在的房间已经开始了，且我不在战斗页，自动跳转
-        const myRoom = (data.rooms || []).find(r => r.joined);
-        if (myRoom && myRoom.status === "游戏中") {
-          // 注意：如果在房间准备页，后端 boka_room 也会跳转，这里主要是在主页时自动跳
-          if (window.location.pathname === '/boka') {
-            window.location.href = '/boka/room/' + myRoom.room_id;
-          }
-        }
       } catch (e) {
         if (manual) showToast('刷新失败');
       }
