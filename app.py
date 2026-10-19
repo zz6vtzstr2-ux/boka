@@ -3241,6 +3241,8 @@ def boka_battle_state(room_code):
     # 结算推进
     if game.phase == "revealing" and game.revealed_at:
         elapsed = (datetime.now() - game.revealed_at).total_seconds()
+        
+        # 如果超过 8 秒，切换下一轮
         if elapsed >= 8.0:
             gps_check = BokaGamePlayer.query.filter_by(game_id=game.id).all()
             alive = [g for g in gps_check if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
@@ -3254,11 +3256,10 @@ def boka_battle_state(room_code):
                 game.winner_card_id = None
                 game.winner_username = None
                 
-                # ★ 8 秒后切轮次，此时才清空所有人出的牌和锁定状态
+                # ★ 8秒后清空准备牌
                 for g in gps_check:
                     g.ready_card = json_dumps_safe([])
                     g.locked = False
-                    
                 db.session.commit()
 
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
@@ -3267,24 +3268,43 @@ def boka_battle_state(room_code):
     if not me:
         return jsonify({"error": "你不在本局"}), 403
 
-    # 收集所有人这轮出的牌
+    # ★ 核心修复：获取当前出牌的途径，如果是 8 秒内，优先从 history 恢复牌局
     all_played = {}
-    for g in gps:
-        played_ids = json_loads_safe(g.ready_card)
-        if played_ids:
-            all_played[g.username] = [CARD_BY_ID.get(cid) for cid in played_ids if CARD_BY_ID.get(cid)]
-        else:
-            all_played[g.username] = []
+    if game.phase == "revealing" and game.revealed_at:
+        elapsed = (datetime.now() - game.revealed_at).total_seconds()
+        if elapsed < 8.0:
+            # 从 history 的最后一条记录中恢复这轮出的牌，因为 ready_card 可能已经被清空
+            history = json_loads_safe(game.history)
+            if history:
+                last_round = history[-1]
+                for play in last_round.get("played", []):
+                    uname = play["username"]
+                    cards_data = play["cards"]
+                    # 重建完整的卡片数据（带 atk 和 def）
+                    full_cards = []
+                    for c in cards_data:
+                        base = CARD_BY_ID.get(c["id"])
+                        if base:
+                            card = dict(base)
+                            card["atk"] = c.get("atk", base["atk"])
+                            card["def"] = c.get("def", base["def"])
+                            full_cards.append(card)
+                    all_played[uname] = full_cards
+
+    # 如果还没出牌（或者刚进页面），正常读取 ready_card
+    if not all_played:
+        for g in gps:
+            played_ids = json_loads_safe(g.ready_card)
+            if played_ids:
+                all_played[g.username] = [CARD_BY_ID.get(cid) for cid in played_ids if CARD_BY_ID.get(cid)]
+            else:
+                all_played[g.username] = []
 
     my_hand_ids = json_loads_safe(me.hand)
     
-    elapsed_since_reveal = None
+    elapsed_since_reveal = -1
     if game.phase == "revealing" and game.revealed_at:
-        try:
-            t = game.revealed_at
-            elapsed_since_reveal = (datetime.now() - t).total_seconds()
-        except Exception:
-            elapsed_since_reveal = 0
+        elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
 
     winner_card_ids = [game.round_winner_card_id] if game.round_winner_card_id else []
     all_loser = (game.round_winner_card_id is None and game.winner_username is None and game.phase == "revealing")
@@ -3305,14 +3325,14 @@ def boka_battle_state(room_code):
         "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
         "my_hand": [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)],
         "my_hand_count": len(my_hand_ids),
-        "all_played": all_played,               # 包含所有人的牌，8秒内一直保留
+        "all_played": all_played, 
         "winner_card_ids": winner_card_ids,
         "winner_username": game.winner_username, 
         "all_loser": all_loser,
         "pool_count": len(json_loads_safe(game.card_pool)),
         "history": json_loads_safe(game.history),
         "finished": game.phase == "finished",
-        "elapsed_since_reveal": elapsed_since_reveal if elapsed_since_reveal is not None else -1,
+        "elapsed_since_reveal": elapsed_since_reveal,
         "beauty_left": game.beauty_left if game.beauty_left is not None else 3,
         "my_rank": me.rank if me else None,
         "my_score_change": me.score_change if me else 0,
