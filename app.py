@@ -2452,27 +2452,35 @@ def _boka_ai_choose_cards(game, gp):
     for c in hand:
         hand_by_name.setdefault(c["name"], []).append(c)
 
-    # 宋江
+    # ===== 1. 宋江特殊处理 =====
     songjiang = hand_by_name.get("宋江", [])
     songjiang_card = songjiang[0] if songjiang else None
+
     pool = json_loads_safe(game.card_pool)
     if pool and songjiang_card:
         pool_powers = []
         for entry in pool:
             if isinstance(entry, dict):
-                pid = entry.get("id"); plevel = entry.get("level", 1)
+                pid = entry.get("id")
+                plevel = entry.get("level", 1)
             else:
-                pid = entry; plevel = 1
+                pid = entry
+                plevel = 1
             pbase = CARD_BY_ID.get(pid)
             if not pbase:
                 continue
             pbonus = plevel - 1
             pool_powers.append(pbase["atk"] + pbonus + pbase["def"] + pbonus)
+            
+        # ★ 修复：必须判断 pool_powers 是否为空，且如果手牌里只有宋江一个人，直接出掉！
         if pool_powers:
             avg_power = sum(pool_powers) / len(pool_powers)
             sj_power = songjiang_card["atk"] + songjiang_card["def"]
             if avg_power > sj_power:
                 return [songjiang_card["id"]]
+        elif len(hand) == 1:
+            # 如果手里只剩一张宋江（且卡袋为空），直接出宋江
+            return [songjiang_card["id"]]
 
     used_ids = set()
     packages = []
