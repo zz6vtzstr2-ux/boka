@@ -222,6 +222,15 @@
     </div>
   </div>
 
+  <!-- ===== 记录弹窗 ===== -->
+  <div class="record-modal" id="recordModal" onclick="if(event.target===this)closeRecord()" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); z-index:400; justify-content:center; align-items:center; padding:16px;">
+    <div class="record-inner" style="background:#fffdf5; border-radius:16px; padding:18px; max-width:520px; width:100%; max-height:80vh; overflow-y:auto; border:4px double #f0e0a0;">
+      <h3 style="margin:0 0 12px 0; color:#8a6d1f; letter-spacing:2px;">对局记录</h3>
+      <div id="recordContent">暂无对局记录</div>
+      <button onclick="closeRecord()" style="width:100%; padding:12px; border:none; border-radius:10px; background:#5bb8e8; color:#fff; font-size:15px; font-weight:bold; cursor:pointer; font-family:inherit; margin-top:14px;">关闭</button>
+    </div>
+  </div>
+  
   <script>
     const roomCode = "{{ room_code }}";
     const myUsername = "{{ current_user.username }}";
@@ -381,7 +390,9 @@
         const res = await fetch(`/boka/room/${roomCode}/battle_state`);
         const data = await res.json();
         if (data.error) return;
-
+        if (data.history) {
+          lastHistory = data.history;
+        }
         document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
         document.getElementById('poolInfo').textContent = `卡袋 ${data.pool_count || 0}`;
         
@@ -431,6 +442,92 @@
       } catch(e) { console.error(e); }
     }
 
+    // ===== 记录功能 =====
+    let lastHistory = [];
+    const DISPLAY_NAME_MAP = {
+      "扈三娘": "美女",
+      "白胜": "炸弹",
+      "孙二娘": "炸弹",
+    };
+    function displayName(name) {
+      return DISPLAY_NAME_MAP[name] || name;
+    }
+
+    function renderRecord() {
+      const el = document.getElementById('recordContent');
+      if (!lastHistory || lastHistory.length === 0) {
+        el.innerHTML = '暂无对局记录';
+        return;
+      }
+
+      let html = `
+        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;">
+          <thead>
+            <tr>
+              <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8; border-bottom:1px solid #e8e0cc;">轮次</th>
+              <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8; border-bottom:1px solid #e8e0cc;">我</th>
+              <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8; border-bottom:1px solid #e8e0cc;">对手</th>
+              <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8; border-bottom:1px solid #e8e0cc;">赢家</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      lastHistory.forEach(h => {
+        const dimKey = h.dim === 'atk' ? 'atk' : 'def';
+        
+        // 解析搏卡的 history 结构（played 数组）
+        const myPlay = h.played.find(p => p.username === myUsername) || {};
+        const oppPlay = h.played.find(p => p.username !== myUsername) || {};
+
+        // 格式化出牌文本
+        const formatPlay = (play) => {
+          if (!play || !play.cards || play.cards.length === 0) return '?';
+          if (play.cards.length === 1) {
+            const c = play.cards[0];
+            return `${displayName(c.name)} ${c[dimKey] ?? '-'}`;
+          }
+          // 如果是多卡组合，显示组合总数值
+          return `组合 ${play.value ?? '-'}`;
+        };
+
+        const myText = formatPlay(myPlay);
+        const aiText = formatPlay(oppPlay);
+
+        // 解析赢家
+        let winnerText = '/';
+        let winnerCls = 'color:#999; font-weight:bold;'; // 平局
+        if (myPlay.result === 'win') {
+          winnerText = '我'; winnerCls = 'color:#5cb85c; font-weight:bold;';
+        } else if (oppPlay.result === 'win') {
+          winnerText = '对手'; winnerCls = 'color:#d9534f; font-weight:bold;';
+        } else if (myPlay.result === 'beauty' || oppPlay.result === 'beauty') {
+          winnerText = '美女'; winnerCls = 'color:#a06cd5; font-weight:bold;';
+        } else if (myPlay.result === 'bombed') {
+          winnerText = '炸弹'; winnerCls = 'color:#f5a623; font-weight:bold;';
+        }
+
+        html += `
+          <tr>
+            <td style="padding:8px 6px; border-bottom:1px solid #e8e0cc;">第 ${h.round} 轮</td>
+            <td style="padding:8px 6px; border-bottom:1px solid #e8e0cc;">${myText}</td>
+            <td style="padding:8px 6px; border-bottom:1px solid #e8e0cc;">${aiText}</td>
+            <td style="padding:8px 6px; border-bottom:1px solid #e8e0cc; ${winnerCls}">${winnerText}</td>
+          </tr>
+        `;
+      });
+      html += `</tbody></table>`;
+      el.innerHTML = html;
+    }
+
+    function showRecord() {
+      renderRecord();
+      document.getElementById('recordModal').style.display = 'flex';
+    }
+    function closeRecord() {
+      document.getElementById('recordModal').style.display = 'none';
+    }
+    
     // ===== 按钮交互功能 =====
     let confirmResolve = null;
     function showCustomConfirm(title, msg) {
