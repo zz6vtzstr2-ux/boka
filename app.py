@@ -3106,7 +3106,7 @@ def boka_battle(room_code):
                            room_code=room_code, room_id=room.id, game_id=game.id,
                            round_no=game.round_no, round_phase=round_phase,
                            phase=game.phase, players=players_view,
-                           layout=layout, hand=my_hand,
+                           layout=layout, my_hand=my_hand,
                            my_ready=json_loads_safe(me.ready_card) if me else [])
 
 
