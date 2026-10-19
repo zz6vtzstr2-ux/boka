@@ -518,7 +518,7 @@
         const elapsed = data.elapsed_since_reveal || 0;
 
         if (data.phase === 'selecting') {
-          if (lastPhase !== 'selecting' || lastRound !== data.round_no) {
+          if (lastPhase !== 'selecting' || lastRound !== data.round_no || myHand.length === 0) {
             locked = false;
             myHand = data.my_hand || [];
             myReady = [];
