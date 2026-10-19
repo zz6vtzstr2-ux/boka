@@ -232,11 +232,13 @@
       padding-bottom: 12px;
       border-bottom: 1px dashed #e8e0cc;
     }
-    
+    
+    /* 房号 + 状态 左侧容器 */
     .room-header-left {
       display: flex;
       align-items: center;
       gap: 10px;
+      flex-wrap: nowrap; /* ★ 强制不换行 */
     }
     .room-code {
       font-family: monospace;
@@ -244,15 +246,20 @@
       font-weight: bold;
       color: #8a6d1f;
       letter-spacing: 2px;
+      white-space: nowrap; /* ★ 强制不换行 */
     }
-    
-    /* 状态标签 */
+    
+    /* 状态标签：圆角胶囊 + 完美居中 */
     .room-status-tag {
+      display: inline-flex; /* ★ 保证文字垂直居中 */
+      align-items: center;
+      justify-content: center;
       font-size: 12px;
       font-weight: bold;
-      padding: 4px 8px;
-      border-radius: 6px;
+      padding: 4px 12px; /* 左右 padding 加大，更像胶囊 */
+      border-radius: 20px; /* ★ 胶囊圆角 */
       letter-spacing: 1px;
+      white-space: nowrap;
     }
     .status-waiting {
       color: #8a6d1f;
