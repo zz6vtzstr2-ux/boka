@@ -391,7 +391,8 @@
         const data = await res.json();
         if (data.error) return;
         if (data.history) {
-          window.lastHistory = data.history;
+        if (data.history) {
+          lastHistory = data.history;
         }
         document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
         document.getElementById('poolInfo').textContent = `卡袋 ${data.pool_count || 0}`;
@@ -572,17 +573,14 @@
     pollState();
     startPolling();
 
-    // ===== 强制覆盖记录功能 =====
-    window.lastHistory = window.lastHistory || [];
-    const DISPLAY_NAME_MAP = { "扈三娘": "美女", "白胜": "炸弹", "孙二娘": "炸弹" };
-    
-    window.displayName = function(name) {
-      return DISPLAY_NAME_MAP[name] || name;
-    };
+    function displayName(name) {
+      const map = { "扈三娘": "美女", "白胜": "炸弹", "孙二娘": "炸弹" };
+      return map[name] || name;
+    }
 
-    window.renderRecord = function() {
+    function renderRecord() {
       const el = document.getElementById('recordContent');
-      if (!window.lastHistory || window.lastHistory.length === 0) {
+      if (!lastHistory || lastHistory.length === 0) {
         el.innerHTML = '暂无对局记录';
         return;
       }
@@ -594,14 +592,14 @@
               <th style="padding:8px; color:#8a6d1f; background:#fdf6d8;">赢家</th>
           </tr></thead><tbody>`;
 
-      window.lastHistory.forEach(h => {
+      lastHistory.forEach(h => {
         const dimKey = h.dim === 'atk' ? 'atk' : 'def';
         const myPlay = h.played.find(p => p.username === myUsername) || {};
         const oppPlay = h.played.find(p => p.username !== myUsername) || {};
 
         const formatPlay = (play) => {
           if (!play || !play.cards || play.cards.length === 0) return '?';
-          if (play.cards.length === 1) return `${window.displayName(play.cards[0].name)} ${play.cards[0][dimKey] ?? '-'}`;
+          if (play.cards.length === 1) return `${displayName(play.cards[0].name)} ${play.cards[0][dimKey] ?? '-'}`;
           return `组合 ${play.value ?? '-'}`;
         };
 
@@ -620,21 +618,17 @@
         </tr>`;
       });
       el.innerHTML = html + `</tbody></table>`;
-    };
+    }
 
-    window.showRecord = function() {
-      window.renderRecord();
+    function showRecord() {
+      renderRecord();
       document.getElementById('recordModal').style.display = 'flex';
-    };
+    }
 
-    window.closeRecord = function() {
+    function closeRecord() {
       document.getElementById('recordModal').style.display = 'none';
-    };
+    }
 
-    // 绑定到全局
-    let showRecord = window.showRecord;
-    let closeRecord = window.closeRecord;
-    
   </script>
 </body>
 </html>
