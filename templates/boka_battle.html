@@ -20,13 +20,16 @@
     .top-bar {
       position: sticky; top: 0;
       display: flex; justify-content: space-between; align-items: center;
-      padding: 8px 12px; background: rgba(245,237,218,0.92);
+      padding: 8px 10px; background: rgba(245,237,218,0.92);
       backdrop-filter: blur(6px); z-index: 100;
+      width: 100%;
+      box-sizing: border-box;
     }
     .top-btn, .top-info {
       background: rgba(255,255,255,0.95); border: 1px solid #d8d0bc;
-      border-radius: 8px; padding: 6px 12px; font-size: 13px;
+      border-radius: 8px; padding: 6px 8px; font-size: 13px;
       font-weight: bold; color: #4a4a4a; font-family: inherit;
+      white-space: nowrap; /* ★ 强制文字不换行 */
     }
     .top-info { color: #8a6d1f; }
     .top-btn.danger { background: #fce8ec; color: #b85a6a; }
@@ -140,16 +143,19 @@
   </style>
 </head>
 <body>
-  <div class="top-bar">
-    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-      <div class="top-info" id="roundInfo">第 1 轮</div>
-      <div class="top-info" id="poolInfo">卡袋 0</div>
-      <button class="top-btn" onclick="showRecord()">记录</button>
+  <div class="top-bar" style="flex-wrap: nowrap; gap: 6px; padding: 8px 10px;">
+    <!-- 左侧：轮次、卡袋、记录 -->
+    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; flex-shrink: 1;">
+      <div class="top-info" id="roundInfo" style="padding: 6px 8px; font-size: 13px;">第 1 轮</div>
+      <div class="top-info" id="poolInfo" style="padding: 6px 8px; font-size: 13px;">卡袋 0</div>
+      <button class="top-btn" onclick="showRecord()" style="padding: 6px 10px; font-size: 13px;">记录</button>
     </div>
-    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-      <button class="top-btn" onclick="temporaryLeave()">暂离</button>
-      <button class="top-btn danger" id="exitBtn" disabled onclick="quitGame()">退出</button>
-      <button class="top-btn danger" onclick="discardCards()">弃卡</button>
+    
+    <!-- 右侧：暂离、退出、弃卡 -->
+    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; flex-shrink: 1;">
+      <button class="top-btn" onclick="temporaryLeave()" style="padding: 6px 10px; font-size: 13px;">暂离</button>
+      <button class="top-btn danger" id="exitBtn" disabled onclick="quitGame()" style="padding: 6px 10px; font-size: 13px;">退出</button>
+      <button class="top-btn danger" onclick="discardCards()" style="padding: 6px 10px; font-size: 13px;">弃卡</button>
     </div>
   </div>
 
