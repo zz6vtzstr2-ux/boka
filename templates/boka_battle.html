@@ -195,36 +195,36 @@
 
   <!-- 确认弹窗 (用于弃卡) -->
   <div id="confirmModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); z-index:999; justify-content:center; align-items:center;">
-    <div style="background:#fffdf5; padding:24px; border-radius:16px; border:4px double #f0e0a0; text-align:center; max-width:400px; width:90%;">
-      <h3 style="margin:0 0 14px 0; color:#8a6d1f;">提示</h3>
-      <div id="confirmMsg" style="font-size:15px; color:#555; margin-bottom:20px;">确认操作？</div>
+    <div style="background:#fffdf5; border-radius:16px; padding:24px; width:90%; max-width:400px; border:4px double #f0e0a0; text-align:center; animation: confirmPop 0.18s ease-out;">
+      <h3 style="margin:0 0 14px 0; color:#8a6d1f; font-size:20px; font-weight:bold; letter-spacing:3px;">提示</h3>
+      <div id="confirmMsg" style="font-size:15px; color:#555; line-height:1.7; margin-bottom:20px; white-space:pre-wrap;">确认操作？</div>
       <div style="display:flex; gap:10px;">
-        <button onclick="closeCustomConfirm(false)" style="flex:1; padding:12px; border-radius:12px; background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; font-weight:bold;">取消</button>
-        <button onclick="closeCustomConfirm(true)" style="flex:1; padding:12px; border-radius:12px; background:#5bb8e8; color:#fff; border:none; font-weight:bold;">确定</button>
+        <button onclick="closeCustomConfirm(false)" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; font-family:'Microsoft YaHei', sans-serif; background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; cursor:pointer;">取消</button>
+        <button onclick="closeCustomConfirm(true)" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; font-family:'Microsoft YaHei', sans-serif; background:#5bb8e8; color:#fff; border:none; box-shadow:0 2px 6px rgba(91,184,232,0.3); cursor:pointer;">确定</button>
       </div>
     </div>
   </div>
 
   <!-- 暂离专用弹窗 -->
   <div id="leaveModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); z-index:1001; justify-content:center; align-items:center;">
-    <div style="background:#fffdf5; padding:24px; border-radius:16px; border:4px double #f0e0a0; text-align:center; max-width:400px; width:90%;">
-      <h3 style="margin:0 0 14px 0; color:#8a6d1f; font-size:18px; font-weight:bold; letter-spacing:3px;">暂离房间</h3>
-      <div style="font-size:15px; color:#555; line-height:1.7; margin-bottom:20px; white-space:pre-wrap;">确定要暂离吗？你的位置将被保留。</div>
+    <div style="background:#fffdf5; border-radius:16px; padding:24px; width:90%; max-width:400px; border:4px double #f0e0a0; text-align:center; animation: confirmPop 0.18s ease-out;">
+      <h3 style="margin:0 0 14px 0; color:#8a6d1f; font-size:20px; font-weight:bold; letter-spacing:3px;">暂离房间</h3>
+      <div style="font-size:15px; color:#555; line-height:1.7; margin-bottom:20px; white-space:pre-wrap;">确定要暂离吗？\n你的位置将被保留。</div>
       <div style="display:flex; gap:10px;">
-        <button onclick="doLeave()" style="flex:1; padding:12px; border-radius:12px; background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; font-weight:bold; cursor:pointer;">暂离</button>
-        <button onclick="closeLeaveModal()" style="flex:1; padding:12px; border-radius:12px; background:#5bb8e8; color:#fff; border:none; font-weight:bold; cursor:pointer;">取消</button>
+        <button onclick="doLeave()" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; font-family:'Microsoft YaHei', sans-serif; background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; cursor:pointer;">暂离</button>
+        <button onclick="closeLeaveModal()" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; font-family:'Microsoft YaHei', sans-serif; background:#5bb8e8; color:#fff; border:none; box-shadow:0 2px 6px rgba(91,184,232,0.3); cursor:pointer;">取消</button>
       </div>
     </div>
   </div>
 
   <!-- 退出专用弹窗 -->
   <div id="quitModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); z-index:1001; justify-content:center; align-items:center;">
-    <div style="background:#fffdf5; padding:24px; border-radius:16px; border:4px double #f0e0a0; text-align:center; max-width:400px; width:90%;">
-      <h3 style="margin:0 0 14px 0; color:#8a6d1f; font-size:18px; font-weight:bold; letter-spacing:3px;">退出房间</h3>
-      <div style="font-size:15px; color:#555; line-height:1.7; margin-bottom:20px; white-space:pre-wrap;">确定要退出房间吗？退出将直接离开本局。</div>
+    <div style="background:#fffdf5; border-radius:16px; padding:24px; width:90%; max-width:400px; border:4px double #f0e0a0; text-align:center; animation: confirmPop 0.18s ease-out;">
+      <h3 style="margin:0 0 14px 0; color:#8a6d1f; font-size:20px; font-weight:bold; letter-spacing:3px;">退出房间</h3>
+      <div style="font-size:15px; color:#555; line-height:1.7; margin-bottom:20px; white-space:pre-wrap;">确定要退出房间吗？\n退出将直接离开本局。</div>
       <div style="display:flex; gap:10px;">
-        <button onclick="closeQuitModal()" style="flex:1; padding:12px; border-radius:12px; background:#5bb8e8; color:#fff; border:none; font-weight:bold; cursor:pointer;">取消</button>
-        <button onclick="doQuit()" style="flex:1; padding:12px; border-radius:12px; background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; font-weight:bold; cursor:pointer;">退出</button>
+        <button onclick="doQuit()" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; font-family:'Microsoft YaHei', sans-serif; background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; cursor:pointer;">退出</button>
+        <button onclick="closeQuitModal()" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; font-family:'Microsoft YaHei', sans-serif; background:#5bb8e8; color:#fff; border:none; box-shadow:0 2px 6px rgba(91,184,232,0.3); cursor:pointer;">取消</button>
       </div>
     </div>
   </div>
