@@ -229,6 +229,8 @@
     let pollTimer = null;
     let lastPhase = "selecting";
     let lastRound = 0;
+    let currentPhase = "selecting";
+    let currentElapsed = 0;
     let lastHistory = []; // ★ 统一在这里声明
     const playersData = {{ players | tojson | default('[]', true) }};
 
@@ -379,7 +381,8 @@
         banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
 
         const elapsed = data.elapsed_since_reveal || 0;
-
+        currentPhase = data.phase;
+        currentElapsed = elapsed;
         if (data.phase === 'selecting') {
           if (lastPhase !== 'selecting' || lastRound !== data.round_no || myHand.length === 0) {
             locked = false;
@@ -428,6 +431,17 @@
         return;
       }
 
+      // ★ 关键拦截：如果当前在 revealing 阶段且时间 < 6 秒，就把最后一条历史记录屏蔽掉
+      let displayHistory = lastHistory;
+      if (currentPhase === 'revealing' && currentElapsed < 6) {
+        displayHistory = lastHistory.slice(0, -1);
+      }
+
+      if (displayHistory.length === 0) {
+        el.innerHTML = '暂无对局记录';
+        return;
+      }
+
       let html = `
         <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;">
           <thead>
@@ -441,7 +455,7 @@
           <tbody>
       `;
 
-      lastHistory.forEach(h => {
+      displayHistory.forEach(h => {
         const dimKey = h.dim === 'atk' ? 'atk' : 'def';
         const myPlay = h.played.find(p => p.username === myUsername) || {};
         const oppPlay = h.played.find(p => p.username !== myUsername) || {};
