@@ -266,7 +266,10 @@
     let currentPhase = "selecting";
     let currentElapsed = 0;
     const playersData = {{ players | tojson | default('[]', true) }};
-
+    const TIME_REVEAL = {{ TIME_REVEAL | default(3.0) }};
+    const TIME_RESOLVE = {{ TIME_RESOLVE | default(6.0) }};
+    const TIME_UPDATE = {{ TIME_UPDATE_CARDS | default(8.0) }};
+   
     function makeQmarkCard() {
       const div = document.createElement('div');
       div.className = 'qmark-card';
@@ -292,8 +295,8 @@
       const myArea = document.getElementById('play-myArea');
       
       let renderPhase = 'qmark';
-      if (elapsed >= 3 && elapsed < 6) renderPhase = 'face';
-      else if (elapsed >= 6) renderPhase = 'result';
+      if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) renderPhase = 'face';
+      else if (elapsed >= TIME_RESOLVE) renderPhase = 'result';
       if (data.finished) renderPhase = 'result';
 
       const winnerIds = data.winner_card_ids || [];
@@ -417,7 +420,6 @@
         currentElapsed = elapsed;
 
         if (data.phase === 'selecting') {
-          // 如果是刚切到 selecting，说明 8 秒结算完了，此时才真正更新我的手牌（包括打出去没打出去的）
           if (lastPhase !== 'selecting' || lastRound !== data.round_no || myHand.length === 0) {
             locked = false;
             myHand = data.my_hand || [];
@@ -440,8 +442,8 @@
           // 渲染卡牌动画
           renderPlayedCards(data, elapsed);
           
-          // ★ 关键：8 秒之前，不更新手牌数；8 秒之后，直接使用后端通过 players_info 传过来的真实数量
-          if (elapsed >= 8.0) {
+          // ★ 关键：8 秒之后（TIME_UPDATE），才真正更新手牌数
+          if (elapsed >= TIME_UPDATE) {
             if (data.players_info) {
               data.players_info.forEach(p => {
                 if (p.is_me) {
@@ -458,15 +460,15 @@
         lastPhase = data.phase;
         lastRound = data.round_no;
 
-        // ★ 核心修复：如果后端判定结束了，不管 elapsed 是多少，只要是 finished 就弹窗
+        // ★ 修改：如果游戏结束了，必须等 8 秒的动画播完，才弹窗跳转
         if (data.finished) {
-          clearInterval(pollTimer);
-          // 为了确保 8 秒动画播完，可以加个延迟
-          setTimeout(() => {
-            alert(`游戏结束！你的排名：${data.my_rank}`);
-            window.location.href = `/boka/room/${roomCode}`;
-          }, 1000);
-          return; // 停止后续渲染，防止覆盖
+          if (elapsed >= TIME_UPDATE) {
+            clearInterval(pollTimer);
+            setTimeout(() => {
+              alert(`游戏结束！你的排名：${data.my_rank}`);
+              window.location.href = `/boka/room/${roomCode}`;
+            }, 1000);
+          }
         }
       } catch(e) { console.error(e); }
     }
