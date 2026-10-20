@@ -252,7 +252,17 @@
       <button onclick="closeRecord()" style="width:100%; padding:12px; border:none; border-radius:10px; background:#5bb8e8; color:#fff; font-size:15px; font-weight:bold; cursor:pointer; font-family:inherit; margin-top:14px;">关闭</button>
     </div>
   </div>
-
+  <!-- 宋江抽卡弹窗 -->
+  <div class="confirm-modal" id="songjiangModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); z-index:1001; justify-content:center; align-items:center;">
+    <div style="background:#fffdf5; border-radius:16px; padding:24px; width:90%; max-width:400px; border:4px double #f0e0a0; text-align:center;">
+      <h3 style="margin:0 0 14px 0; color:#8a6d1f; font-size:20px; font-weight:bold; letter-spacing:3px;">智多星 · 宋江</h3>
+      <div style="font-size:15px; color:#555; line-height:1.7; margin-bottom:20px;">是否抽卡？（将宋江放入卡袋，随机抽取一张新卡）</div>
+      <div style="display:flex; gap:10px;">
+        <button onclick="songjiangChoose(false)" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; font-family:inherit; background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; cursor:pointer;">取消</button>
+        <button onclick="songjiangChoose(true)" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; font-family:inherit; background:#5bb8e8; color:#fff; border:none; box-shadow:0 2px 6px rgba(91,184,232,0.3); cursor:pointer;">抽卡</button>
+      </div>
+    </div>
+  </div>
   <script>
     const roomCode = "{{ room_code }}";
     const myUsername = "{{ current_user.username }}";
@@ -357,6 +367,9 @@
             else myReady.push(c);
             renderHand();
             updatePlayBtn();
+            
+            // ★ 加上这行，每次选卡后检查一下是不是选了宋江
+            checkSongjiangTrigger();
           };
         }
         handArea.appendChild(div);
@@ -370,6 +383,40 @@
       btn.textContent = locked ? '锁定' : '出战';
     }
 
+    let songjiangShownForCurrentSelection = false;
+
+    // 检查是否触发宋江抽卡
+    function checkSongjiangTrigger() {
+      if (myReady.length !== 1) return;
+      if (myReady[0].name !== '宋江') return;
+      if (songjiangShownForCurrentSelection) return;
+      if (poolCount <= 0) return; // 如果卡袋没牌，不能抽
+      
+      songjiangShownForCurrentSelection = true;
+      document.getElementById('songjiangModal').style.display = 'flex';
+    }
+
+    // 玩家确认抽卡
+    async function songjiangChoose(ok) {
+      document.getElementById('songjiangModal').style.display = 'none';
+      if (!ok) return;
+
+      const res = await fetch(`/boka/room/${roomCode}/songjiang_draw`, { method: 'POST' });
+      const data = await res.json();
+      
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+      
+      // 抽卡成功，取消宋江的选中状态
+      myReady = [];
+      songjiangShownForCurrentSelection = false;
+      
+      // 立即刷新状态（此函数在 pollState 里定义过）
+      pollState(); 
+    }
+    
     async function submitPlay() {
       if (myReady.length === 0) return;
       locked = true;
