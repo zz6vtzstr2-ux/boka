@@ -1065,15 +1065,15 @@ def challenge_state():
         except Exception:
             elapsed_since_reveal = 0
 
-        # T0+3s：结算数据（只算不改 phase）
-        if elapsed_since_reveal >= 3.0 and not game.get("_resolved"):
+        # ★ 替换：T0 + 6s 结算数据
+        if elapsed_since_reveal >= TIME_RESOLVE and not game.get("_resolved"):
             _resolve_challenge_round(game)
             game["_resolved"] = True
             current_user.challenge_active_game = json_dumps_safe(game)
             db.session.commit()
 
-        # T0+8s：切下一轮 or 结束
-        if elapsed_since_reveal >= 8.0 and not game.get("finished"):
+        # ★ 替换：T0 + 8s 切下一轮 or 结束
+        if elapsed_since_reveal >= TIME_UPDATE_CARDS and not game.get("finished"):
             if len(game.get("my_hand", [])) == 0 or len(game.get("ai_hand", [])) == 0:
                 _finish_challenge(game, current_user, level)
             else:
@@ -1087,6 +1087,8 @@ def challenge_state():
                 game["_resolved"] = False
                 current_user.challenge_active_game = json_dumps_safe(game)
                 db.session.commit()
+
+    # ... 下方 return 的代码不变 ...
 
     round_phase = "比攻" if game.get("round_no", 1) % 2 == 1 else "比防"
     my_lv_map = game.get("my_level_map", {})
@@ -3130,12 +3132,13 @@ def boka_battle_state(room_code):
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
 
         # 【+6s 节点】：算胜负，生成 movements 并写入记录
-        if elapsed_since_reveal >= 6.0 and game.winner_username is None:
+        if elapsed_since_reveal >= TIME_RESOLVE and game.winner_username is None:
             resolve_boka_round(game)
             db.session.commit()
 
         # 【+8s 节点】：真正执行发牌/扣牌/淘汰判定
-        if elapsed_since_reveal >= 8.0:
+        if elapsed_since_reveal >= TIME_UPDATE_CARDS:
+            # ... 原有逻辑不变 ...
             # 1. 执行上一轮记录中的卡牌移动
             history = json_loads_safe(game.history)
             if history:
