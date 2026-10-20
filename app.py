@@ -90,6 +90,24 @@ BOSS_DAILY_LIMIT = 2
 
 ROOMS = {}
 
+# ========== 战斗时间轴配置（单位：秒） ==========
+# a: 真人出牌 -> AI出牌
+BATTLE_TIME_A = 1.0
+# b: AI出牌 -> 亮牌
+BATTLE_TIME_B = 2.0
+# c: 亮牌 -> 显示胜负高亮
+BATTLE_TIME_C = 3.0
+# d: 显示胜负 -> 更新卡牌归属（手牌数变动）
+BATTLE_TIME_D = 2.0
+# e: 更新卡牌 -> 淘汰判定与下一轮
+BATTLE_TIME_E = 0.0
+
+# 计算绝对时间节点，供后端 if 判断使用
+TIME_REVEAL = BATTLE_TIME_A + BATTLE_TIME_B  # 3.0
+TIME_RESOLVE = TIME_REVEAL + BATTLE_TIME_C   # 6.0
+TIME_UPDATE_CARDS = TIME_RESOLVE + BATTLE_TIME_D # 8.0
+TIME_NEXT_ROUND = TIME_UPDATE_CARDS + BATTLE_TIME_E # 8.0
+
 # ★ 搏卡房间内存缓存（房号 -> 玩家状态列表）
 BOKA_ROOM_CACHE = {}
 # ★ 挑战对局内存缓存（user_id -> game dict）
