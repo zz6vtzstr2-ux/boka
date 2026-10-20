@@ -60,7 +60,16 @@
     .hero-card.selected .oval-wrap { outline: 4px solid #5bb8e8; outline-offset: -4px; box-shadow: 0 0 0 4px rgba(91,184,232,0.35), 0 3px 8px rgba(0,0,0,0.2); }
     .hero-card.winner .oval-wrap { border-color: #f5c542; box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6); }
     .hero-card.loser .oval-wrap { opacity: 0.5; filter: grayscale(0.5); }
-
+    /* ★ 宋江抽卡短暂金框（复用挑战页的闪烁） */
+    .hero-card.new-drawn .oval-wrap {
+      border-color: #f5c542 !important;
+      box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6);
+      animation: winnerBlink 1s ease-in-out 3;
+    }
+    @keyframes winnerBlink {
+      0%, 100% { box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6); }
+      50% { box-shadow: 0 0 24px #f5c542, 0 0 48px rgba(245,197,66,0.9); }
+    }
     .qmark-card { position: relative; width: 100px; height: 140px; flex-shrink: 0; }
     .qmark-card .qmark-wrap { width: 100%; height: calc(100% - 22px); border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%; background: radial-gradient(circle at 30% 30%, #3a4a5a, #1a2a3a); border: 4px solid #c8b878; display: flex; align-items: center; justify-content: center; }
     .qmark-card .qmark-wrap::before { content: "?"; font-size: 56px; color: #e8d8a0; font-weight: bold; }
@@ -293,7 +302,12 @@
       handArea.innerHTML = '';
       myHand.forEach(c => {
         const isSel = myReady.find(x => x.id === c.id);
-        const div = makeHeroCard(c, isSel ? 'selected' : '');
+        // ★ 加上高亮判断
+        let extraCls = isSel ? 'selected ' : '';
+        if (window.newDrawnCards && window.newDrawnCards.has(c.id)) {
+          extraCls += 'new-drawn';
+        }
+        const div = makeHeroCard(c, extraCls); // 传入 extraCls
         if (!locked) {
           div.onclick = () => {
             songjiangShownForCurrentSelection = false; // ★ 每次点击重置
@@ -330,17 +344,49 @@
       document.getElementById('songjiangModal').style.display = 'none';
       if (!ok) return;
 
+      // ★ 1. 在中央亮卡区展示宋江 2 秒（金边）
+      const songjiangCard = myHand.find(c => c.name === '宋江');
+      if (songjiangCard) {
+        renderPlayedCards({ 
+          all_played: { [myUsername]: [songjiangCard] }, 
+          winner_username: null, 
+          finished: false 
+        }, TIME_REVEAL); // 传入一个处于 face 阶段的假数据
+        
+        if (window.songjiangShowTimer) clearTimeout(window.songjiangShowTimer);
+        window.songjiangShowTimer = setTimeout(() => {
+          const myArea = document.getElementById('play-myArea');
+          if (myArea) myArea.innerHTML = '';
+          window.songjiangShowTimer = null;
+        }, 2000);
+      }
+
       const res = await fetch(`/boka/room/${roomCode}/songjiang_draw`, { method: 'POST' });
       const data = await res.json();
-      
+      
       if (data.error) {
         alert(data.error);
         return;
       }
-      
+      
+      // 2. 记录抽到的新卡ID，用于 3 秒金框闪烁
+      if (data.picked_id) {
+        if (!window.newDrawnCards) window.newDrawnCards = new Set();
+        window.newDrawnCards.add(data.picked_id);
+        
+        setTimeout(() => {
+          if (window.newDrawnCards) {
+            window.newDrawnCards.delete(data.picked_id);
+            renderHand(); // 3秒后取消闪烁
+          }
+        }, 3000);
+      }
+
       myReady = [];
       songjiangShownForCurrentSelection = false;
-      await pollState(); 
+      
+      // 3. 立即刷新手牌状态
+      await pollState(); 
     }
     
     async function submitPlay() {
