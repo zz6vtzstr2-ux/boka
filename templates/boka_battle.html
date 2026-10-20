@@ -517,13 +517,18 @@
         lastPhase = data.phase;
         lastRound = data.round_no;
 
-        // ★ 修复：结束判断也使用 TIME_UPDATE 变量
-        if (data.finished && elapsed >= TIME_UPDATE) {
+        // ★ 核心修复：如果游戏结束了，必须确保前端能弹窗跳转
+        if (data.finished) {
           clearInterval(pollTimer);
-          setTimeout(() => {
-            alert(`游戏结束！你的排名：${data.my_rank}`);
-            window.location.href = `/boka/room/${roomCode}`;
-          }, 1000);
+          // 防止被多次调用，直接给个标记
+          if (!window.resultShown) {
+            window.resultShown = true;
+            setTimeout(() => {
+              alert(`游戏结束！你的排名：${data.my_rank}`);
+              window.location.href = `/boka/room/${roomCode}`;
+            }, 1000);
+          }
+          return; // 直接终止当前轮询后续渲染，防止被覆盖
         }
       } catch(e) { console.error(e); }
     }
