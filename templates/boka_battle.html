@@ -413,8 +413,20 @@
       myReady = [];
       songjiangShownForCurrentSelection = false;
       
-      // 立即刷新状态（此函数在 pollState 里定义过）
-      pollState(); 
+      // 记录抽到的新卡ID，用于闪烁提示
+      if (!window.newDrawnCards) window.newDrawnCards = new Set();
+      if (data.picked_id) window.newDrawnCards.add(data.picked_id);
+      
+      // 立即刷新状态
+      await pollState(); 
+      
+      // 3秒后移除特效并重绘
+      if (data.picked_id) {
+        setTimeout(() => {
+          window.newDrawnCards.delete(data.picked_id);
+          renderHand();
+        }, 3000);
+      }
     }
     
     async function submitPlay() {
