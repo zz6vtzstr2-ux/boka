@@ -407,7 +407,7 @@
 
         document.getElementById('roundInfo').textContent = `R${data.round_no}`;
         document.getElementById('poolInfo').textContent = `袋 ${data.pool_count || 0}`;
-        
+        
         const banner = document.getElementById('centerBanner');
         banner.textContent = '本轮' + data.round_phase;
         banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
@@ -417,13 +417,14 @@
         currentElapsed = elapsed;
 
         if (data.phase === 'selecting') {
+          // 如果是刚切到 selecting，说明 8 秒结算完了，此时才真正更新我的手牌（包括打出去没打出去的）
           if (lastPhase !== 'selecting' || lastRound !== data.round_no || myHand.length === 0) {
             locked = false;
             myHand = data.my_hand || [];
             myReady = [];
             renderHand();
             updatePlayBtn();
-            
+            
             playersData.forEach(p => {
               const area = document.getElementById(`play-${p.username}`);
               if (area) area.innerHTML = '';
@@ -431,17 +432,33 @@
             const myArea = document.getElementById('play-myArea');
             if (myArea) myArea.innerHTML = '';
           }
-        } 
+        } 
         else if (data.phase === 'revealing' || data.phase === 'finished') {
           locked = true;
           updatePlayBtn();
+          
+          // 渲染卡牌动画
           renderPlayedCards(data, elapsed);
+          
+          // ★ 关键：8 秒之前，不更新手牌数；8 秒之后，直接使用后端通过 players_info 传过来的真实数量
+          if (elapsed >= 8.0) {
+            if (data.players_info) {
+              data.players_info.forEach(p => {
+                if (p.is_me) {
+                  document.getElementById('myHandCount').textContent = p.hand_count;
+                } else {
+                  const countEl = document.getElementById(`count-${p.username}`);
+                  if (countEl) countEl.textContent = p.hand_count;
+                }
+              });
+            }
+          }
         }
 
         lastPhase = data.phase;
         lastRound = data.round_no;
 
-        if (data.finished) {
+        if (data.finished && elapsed >= 8.0) {
           clearInterval(pollTimer);
           setTimeout(() => {
             alert(`游戏结束！你的排名：${data.my_rank}`);
