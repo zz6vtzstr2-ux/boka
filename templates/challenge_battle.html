@@ -730,6 +730,10 @@
 
   <script>
     const level = {{ level }};
+    // ★ 注入时间轴配置
+    const TIME_REVEAL = {{ TIME_REVEAL | default(3.0) }};
+    const TIME_RESOLVE = {{ TIME_RESOLVE | default(6.0) }};
+    const TIME_UPDATE = {{ TIME_UPDATE_CARDS | default(8.0) }};
     let myHand = {{ my_hand | tojson }};
     let myReady = [];
     let locked = false;
@@ -1109,9 +1113,10 @@
         roundNo = data.round_no;
         document.getElementById('roundInfo').textContent = '第 ' + roundNo + ' 轮';
 
-        const elapsedForPool = data.elapsed_since_reveal || 0;
-        if (data.phase === 'revealing' && elapsedForPool < 6.0) {
-          // 展示结算前旧值
+        // 卡袋数量（只在非亮牌或亮牌结束 8 秒后更新）
+        const elapsed = data.elapsed_since_reveal || 0;
+        if (data.phase === 'revealing' && elapsed < TIME_RESOLVE) {
+          // 亮牌结算前，保持旧值
         } else {
           displayedPoolCount = data.card_pool_count || 0;
         }
@@ -1123,19 +1128,21 @@
         banner.classList.remove('atk', 'def');
         banner.classList.add(data.round_phase === '比攻' ? 'atk' : 'def');
 
-        const elapsed = data.elapsed_since_reveal || 0;
-
         if (data.phase === 'revealing' || data.phase === 'finished') {
           let step;
-          if (elapsed < 1.0) {
-            step = "my_qmark";
-          } else if (elapsed < 3.0) {
-            step = "both_qmark";
-          } else if (elapsed < 6.0) {
+          
+          // ★ 核心：使用全局时间变量替换写死的秒数
+          if (elapsed < TIME_REVEAL) {
+            // 0 ~ 3秒（a+b）：双方问号
+            step = "both_qmark"; 
+          } else if (elapsed < TIME_RESOLVE) {
+            // 3 ~ 6秒（+c）：亮牌
             step = "face";
           } else {
+            // 6秒以上（+d+e）：显示胜负结果
             step = "result";
           }
+          
           const winnerIds = (step === "result") ? (data.winner_card_ids || []) : [];
           const allLoser = (step === "result") ? (data.all_loser || false) : false;
           renderPlayed(data.my_played || [], data.ai_played || [], step, winnerIds, allLoser);
@@ -1168,9 +1175,12 @@
           }
         }
 
+        // ★ 结束弹窗：同样等动画播完（TIME_UPDATE）
         if (data.finished) {
-          if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-          setTimeout(() => showResult(data), 500);
+          if (elapsed >= TIME_UPDATE) {
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            setTimeout(() => showResult(data), 500);
+          }
         }
       } catch (e) {
         console.error(e);
