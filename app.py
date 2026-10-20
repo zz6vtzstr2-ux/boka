@@ -3125,7 +3125,6 @@ def boka_battle_state(room_code):
                 movements = last_round.get("movements", [])
                 gp_map = {g.username: g for g in gps}
                 
-                # 先把变动暂存，防止并发报错
                 hand_changes = {g.username: json_loads_safe(g.hand) for g in gps}
                 pool = json_loads_safe(game.card_pool)
 
@@ -3134,17 +3133,13 @@ def boka_battle_state(room_code):
                     frm = m["from"]
                     to = m["to"]
 
-                    # 从原主手里扣掉
                     if frm in hand_changes and cid in hand_changes[frm]:
                         hand_changes[frm].remove(cid)
-                    # 给新主加上
                     if to in hand_changes:
                         hand_changes[to].append(cid)
-                    # 进卡袋
                     elif to == "pool":
                         pool.append({"id": cid, "level": m.get("level", 1)})
 
-                # 将暂存的数据写回数据库
                 for g in gps:
                     g.hand = json_dumps_safe(hand_changes[g.username])
                 game.card_pool = json_dumps_safe(pool)
@@ -3158,10 +3153,14 @@ def boka_battle_state(room_code):
             
             alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
 
-            if len(alive) <= 1 and game.phase != "finished":
-                finish_boka_game(game, alive)
+            # ★ 核心修复：如果只剩 1 个人（或 0 个人），直接结束游戏
+            if len(alive) <= 1:
+                if game.phase != "finished":
+                    finish_boka_game(game, alive)
+                    # finish_boka_game 会把 room 状态改回 waiting，为了前端能收到 finished 提示，我们这里稍微延迟一下
+                    # 但不影响，因为前端看到 finished 就会弹窗
             else:
-                # 进入下一轮
+                # 没结束，进入下一轮
                 game.round_no += 1
                 game.phase = "selecting"
                 game.revealed_at = None
