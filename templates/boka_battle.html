@@ -368,8 +368,8 @@
             renderHand();
             updatePlayBtn();
             
-            // ★ 加上这行，每次选卡后检查一下是不是选了宋江
-            checkSongjiangTrigger();
+            // ★ 加上这行
+            checkSongjiangTrigger(); 
           };
         }
         handArea.appendChild(div);
@@ -390,7 +390,7 @@
       if (myReady.length !== 1) return;
       if (myReady[0].name !== '宋江') return;
       if (songjiangShownForCurrentSelection) return;
-      if (poolCount <= 0) return; // 如果卡袋没牌，不能抽
+      if (poolCount <= 0) return; // 卡袋没牌不能抽
       
       songjiangShownForCurrentSelection = true;
       document.getElementById('songjiangModal').style.display = 'flex';
@@ -409,24 +409,12 @@
         return;
       }
       
-      // 抽卡成功，取消宋江的选中状态
+      // 抽卡成功，取消选中，重置状态
       myReady = [];
       songjiangShownForCurrentSelection = false;
       
-      // 记录抽到的新卡ID，用于闪烁提示
-      if (!window.newDrawnCards) window.newDrawnCards = new Set();
-      if (data.picked_id) window.newDrawnCards.add(data.picked_id);
-      
-      // 立即刷新状态
+      // 抽到新卡后立即刷新（这会让手牌重新渲染）
       await pollState(); 
-      
-      // 3秒后移除特效并重绘
-      if (data.picked_id) {
-        setTimeout(() => {
-          window.newDrawnCards.delete(data.picked_id);
-          renderHand();
-        }, 3000);
-      }
     }
     
     async function submitPlay() {
