@@ -478,6 +478,20 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
+        // ★ 修复：使用配置的 TIME_UPDATE 变量，不再写死 8.0
+        if (data.phase === 'selecting' || (data.phase === 'revealing' && elapsed >= TIME_UPDATE)) {
+          if (data.players_info) {
+            data.players_info.forEach(p => {
+              if (p.is_me) {
+                document.getElementById('myHandCount').textContent = p.hand_count;
+              } else {
+                const countEl = document.getElementById(`count-${p.username}`);
+                if (countEl) countEl.textContent = p.hand_count;
+              }
+            });
+          }
+        }
+
         if (data.phase === 'selecting') {
           if (lastPhase !== 'selecting' || lastRound !== data.round_no || myHand.length === 0) {
             locked = false;
@@ -497,37 +511,19 @@
         else if (data.phase === 'revealing' || data.phase === 'finished') {
           locked = true;
           updatePlayBtn();
-          
-          // 渲染卡牌动画
           renderPlayedCards(data, elapsed);
-          
-          // ★ 关键：8 秒之后（TIME_UPDATE），才真正更新手牌数
-          if (elapsed >= TIME_UPDATE) {
-            if (data.players_info) {
-              data.players_info.forEach(p => {
-                if (p.is_me) {
-                  document.getElementById('myHandCount').textContent = p.hand_count;
-                } else {
-                  const countEl = document.getElementById(`count-${p.username}`);
-                  if (countEl) countEl.textContent = p.hand_count;
-                }
-              });
-            }
-          }
         }
 
         lastPhase = data.phase;
         lastRound = data.round_no;
 
-        // ★ 修改：如果游戏结束了，必须等 8 秒的动画播完，才弹窗跳转
-        if (data.finished) {
-          if (elapsed >= TIME_UPDATE) {
-            clearInterval(pollTimer);
-            setTimeout(() => {
-              alert(`游戏结束！你的排名：${data.my_rank}`);
-              window.location.href = `/boka/room/${roomCode}`;
-            }, 1000);
-          }
+        // ★ 修复：结束判断也使用 TIME_UPDATE 变量
+        if (data.finished && elapsed >= TIME_UPDATE) {
+          clearInterval(pollTimer);
+          setTimeout(() => {
+            alert(`游戏结束！你的排名：${data.my_rank}`);
+            window.location.href = `/boka/room/${roomCode}`;
+          }, 1000);
         }
       } catch(e) { console.error(e); }
     }
