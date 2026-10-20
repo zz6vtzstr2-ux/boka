@@ -1275,14 +1275,14 @@ def _ai_pick_card(game):
             packages.append({"type": "combo", "cards": combo})
             break
 
-    # 智多星（最后，配战斗力最低的非功能非宋江卡）
+    # 智多星（最后，配战斗力最低的非功能卡，允许配宋江）
     wu = hand_by_name.get("吴用", [])
     if wu and wu[0]["id"] not in used_ids:
         wu_card = wu[0]
         candidates = [c for c in hand
                       if c["id"] not in used_ids
                       and c["name"] != "吴用"
-                      and c["name"] != "宋江"
+                      # ★ 删除了 c["name"] != "宋江" 的限制
                       and c["name"] not in ("扈三娘", "白胜", "孙二娘")]
         if candidates:
             lowest = min(candidates, key=lambda c: c["atk"] + c["def"])
@@ -1291,12 +1291,11 @@ def _ai_pick_card(game):
             packages.append({"type": "combo", "cards": combo})
 
     # ===== 3. 剩余卡处理 =====
-    FUNCTIONAL_NAMES = {"白胜", "孙二娘", "扈三娘"}
+        FUNCTIONAL_NAMES = {"白胜", "孙二娘", "扈三娘"}
     for c in hand:
         if c["id"] in used_ids:
             continue
-        if c["name"] == "宋江":
-            continue
+        # ★ 删除了跳过宋江的代码，让宋江如果没被抽走，也能加入单卡包
         if c["name"] in FUNCTIONAL_NAMES:
             packages.append({"type": "func", "cards": [c]})
         else:
