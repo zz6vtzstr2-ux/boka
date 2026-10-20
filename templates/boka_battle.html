@@ -458,12 +458,15 @@
         lastPhase = data.phase;
         lastRound = data.round_no;
 
-        if (data.finished && elapsed >= 8.0) {
+        // ★ 核心修复：如果后端判定结束了，不管 elapsed 是多少，只要是 finished 就弹窗
+        if (data.finished) {
           clearInterval(pollTimer);
+          // 为了确保 8 秒动画播完，可以加个延迟
           setTimeout(() => {
             alert(`游戏结束！你的排名：${data.my_rank}`);
             window.location.href = `/boka/room/${roomCode}`;
           }, 1000);
+          return; // 停止后续渲染，防止覆盖
         }
       } catch(e) { console.error(e); }
     }
