@@ -478,7 +478,7 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        // ★ 修复：使用配置的 TIME_UPDATE 变量，不再写死 8.0
+        // ★ 1. 更新手牌数量（严格控制在 selecting 或 8秒后）
         if (data.phase === 'selecting' || (data.phase === 'revealing' && elapsed >= TIME_UPDATE)) {
           if (data.players_info) {
             data.players_info.forEach(p => {
@@ -492,6 +492,7 @@
           }
         }
 
+        // ★ 2. 阶段切换与桌面渲染
         if (data.phase === 'selecting') {
           if (lastPhase !== 'selecting' || lastRound !== data.round_no || myHand.length === 0) {
             locked = false;
@@ -517,18 +518,25 @@
         lastPhase = data.phase;
         lastRound = data.round_no;
 
-        // ★ 核心修复：如果游戏结束了，必须确保前端能弹窗跳转
+        // ★ 3. 游戏结束的终极兜底（废弃 alert，使用自定义弹窗）
         if (data.finished) {
           clearInterval(pollTimer);
-          // 防止被多次调用，直接给个标记
           if (!window.resultShown) {
             window.resultShown = true;
+            
+            // 延迟1秒等动画播完
             setTimeout(() => {
-              alert(`游戏结束！你的排名：${data.my_rank}`);
-              window.location.href = `/boka/room/${roomCode}`;
+              document.getElementById('resultTitle').textContent = data.my_rank === 1 ? "恭喜获胜！" : "对局结束";
+              document.getElementById('resultLine').textContent = `你的最终排名：第 ${data.my_rank} 名`;
+              document.getElementById('resultRanks').innerHTML = `
+                <div style="text-align:center; font-weight:bold; color:#b85a6a; font-size:18px;">
+                  积分变动：${data.my_score_change > 0 ? '+' : ''}${data.my_score_change}
+                </div>
+              `;
+              document.getElementById('resultModal').style.display = 'flex';
             }, 1000);
           }
-          return; // 直接终止当前轮询后续渲染，防止被覆盖
+          return; // 阻止后续逻辑
         }
       } catch(e) { console.error(e); }
     }
@@ -676,5 +684,16 @@
     pollState();
     startPolling();
   </script>
+
+  <!-- 结算弹窗 -->
+  <div id="resultModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
+    <div style="background:#fffdf5; padding:24px; border-radius:20px; border:4px double #f0e0a0; text-align:center; max-width:400px; width:90%;">
+      <h2 style="margin:0 0 16px 0; color:#8a6d1f;" id="resultTitle">对局结束</h2>
+      <div style="font-size:15px; color:#555; margin-bottom:10px;" id="resultLine"></div>
+      <div style="font-size:15px; color:#333; margin-bottom:20px; text-align:left; line-height:1.8;" id="resultRanks"></div>
+      <button onclick="window.location.href='/boka/room/{{ room_code }}'" style="width:100%; padding:14px; border-radius:12px; background:#5bb8e8; color:#fff; font-size:16px; font-weight:bold; border:none;">确认退出</button>
+    </div>
+  </div>
+  
 </body>
 </html>
