@@ -92,15 +92,15 @@ ROOMS = {}
 
 # ========== 战斗时间轴配置（单位：秒） ==========
 # a: 真人出牌 -> AI出牌
-BATTLE_TIME_A = 1.0
+BATTLE_TIME_A = 0.5
 # b: AI出牌 -> 亮牌
-BATTLE_TIME_B = 2.0
+BATTLE_TIME_B = 1.5
 # c: 亮牌 -> 显示胜负高亮
-BATTLE_TIME_C = 3.0
+BATTLE_TIME_C = 1.5
 # d: 显示胜负 -> 更新卡牌归属（手牌数变动）
-BATTLE_TIME_D = 2.0
+BATTLE_TIME_D = 1.5
 # e: 更新卡牌 -> 淘汰判定与下一轮
-BATTLE_TIME_E = 0.0
+BATTLE_TIME_E = 0.5
 
 # 计算绝对时间节点，供后端 if 判断使用
 TIME_REVEAL = BATTLE_TIME_A + BATTLE_TIME_B  # 3.0
@@ -2361,7 +2361,6 @@ def boka_start(room_code):
     db.session.commit()
     return jsonify({"success": True})
 
-
 @app.route('/boka/room/<room_code>/dissolve', methods=['POST'])
 @login_required
 def boka_dissolve(room_code):
@@ -2434,7 +2433,6 @@ BOMB_NAMES = {"白胜", "孙二娘"}
 BEAUTY_NAME = "扈三娘"
 SONGJIANG_NAME = "宋江"
 
-
 def _is_combo_with_special(cards, special_tag):
     if len(cards) < 2:
         return False
@@ -2446,15 +2444,15 @@ def _is_combo_with_special(cards, special_tag):
             return True
     return False
 
-
 def _boka_ai_choose_cards(game, gp):
-    """搏卡里给一个 AI 玩家选牌。返回 card_ids 列表。"""
+    """搏卡 AI 出牌。"""
     hand_ids = json_loads_safe(gp.hand)
     if not hand_ids:
         return None
 
     is_atk_round = (game.round_no % 2 == 1)
 
+    # 1. 构建手牌字典
     hand = []
     for cid in hand_ids:
         base = CARD_BY_ID.get(cid)
@@ -2471,36 +2469,44 @@ def _boka_ai_choose_cards(game, gp):
     for c in hand:
         hand_by_name.setdefault(c["name"], []).append(c)
 
-    # ===== 1. 宋江特殊处理 =====
+    # ===== 宋江抽卡逻辑 =====
     songjiang = hand_by_name.get("宋江", [])
     songjiang_card = songjiang[0] if songjiang else None
-
     pool = json_loads_safe(game.card_pool)
-    if pool and songjiang_card:
+    
+    if songjiang_card and pool:
         pool_powers = []
         for entry in pool:
-            if isinstance(entry, dict):
-                pid = entry.get("id")
-                plevel = entry.get("level", 1)
-            else:
-                pid = entry
-                plevel = 1
+            pid = entry.get("id") if isinstance(entry, dict) else entry
             pbase = CARD_BY_ID.get(pid)
-            if not pbase:
-                continue
-            pbonus = plevel - 1
-            pool_powers.append(pbase["atk"] + pbonus + pbase["def"] + pbonus)
-            
-        # ★ 修复：必须判断 pool_powers 是否为空，且如果手牌里只有宋江一个人，直接出掉！
+            if pbase:
+                pool_powers.append(pbase["atk"] + pbase["def"])
         if pool_powers:
             avg_power = sum(pool_powers) / len(pool_powers)
             sj_power = songjiang_card["atk"] + songjiang_card["def"]
+            
+            # 如果卡袋战力大于宋江，立即发动抽卡
             if avg_power > sj_power:
-                return [songjiang_card["id"]]
-        elif len(hand) == 1:
-            # 如果手里只剩一张宋江（且卡袋为空），直接出宋江
-            return [songjiang_card["id"]]
+                # AI 抽卡：从卡袋抽一张
+                idx = random.randrange(len(pool))
+                picked = pool.pop(idx)
+                picked_id = picked["id"] if isinstance(picked, dict) else picked
+                
+                # 把手里的宋江放进卡袋
+                pool.append({"id": songjiang_card["id"], "level": 1})
+                
+                # 更新 AI 的手牌（把宋江踢掉，加入抽到的新卡）
+                new_hand_ids = [cid for cid in hand_ids if cid != songjiang_card["id"]]
+                new_hand_ids.append(picked_id)
+                
+                gp.hand = json_dumps_safe(new_hand_ids)
+                game.card_pool = json_dumps_safe(pool)
+                db.session.commit()
+                
+                # 抽完卡后，用最新的手牌重新调用自己进行出牌选择
+                return _boka_ai_choose_cards(game, gp)
 
+    # ===== 以下为正常组牌逻辑（宋江没走抽卡，或者抽完卡后的新牌） =====
     used_ids = set()
     packages = []
 
@@ -2521,6 +2527,8 @@ def _boka_ai_choose_cards(game, gp):
         for c in cards:
             used_ids.add(c["id"])
 
+    # 优先级：五虎将 → 八虎骑 → 水军三兄弟 → 风流威猛
+    # → 黑白双煞 → 打猎兄弟 → 水军2兄弟 → 智多星
     for names in [
         ["关胜", "林冲", "秦明", "呼延灼", "董平"],
         ["阮小二", "阮小五", "阮小七"],
@@ -2547,13 +2555,13 @@ def _boka_ai_choose_cards(game, gp):
             packages.append({"type": "combo", "cards": combo})
             break
 
+    # 智多星（吴用 + 某卡，包括了吴用+宋江的情况）
     wu = hand_by_name.get("吴用", [])
     if wu and wu[0]["id"] not in used_ids:
         wu_card = wu[0]
         candidates = [c for c in hand
                       if c["id"] not in used_ids
                       and c["name"] != "吴用"
-                      and c["name"] != "宋江"
                       and c["name"] not in ("扈三娘", "白胜", "孙二娘")]
         if candidates:
             lowest = min(candidates, key=lambda c: c["atk"] + c["def"])
@@ -2561,15 +2569,15 @@ def _boka_ai_choose_cards(game, gp):
             consume(combo)
             packages.append({"type": "combo", "cards": combo})
 
+    # ===== 剩余卡处理（这里解决宋江被丢弃的问题） =====
     FUNCTIONAL_NAMES = {"白胜", "孙二娘", "扈三娘"}
     for c in hand:
         if c["id"] in used_ids:
             continue
-        if c["name"] == "宋江":
-            continue
         if c["name"] in FUNCTIONAL_NAMES:
             packages.append({"type": "func", "cards": [c]})
         else:
+            # ★ 宋江如果没被抽走，也没和吴用组队，在这里作为单卡包参与出牌！
             packages.append({"type": "single", "cards": [c]})
 
     def package_stats(pkg):
@@ -2616,7 +2624,6 @@ def _boka_ai_choose_cards(game, gp):
         chosen = all_pkgs[0]
 
     return [c["id"] for c in chosen["cards"]]
-
 
 def _classify_play(cards):
     names = [c["name"] for c in cards]
