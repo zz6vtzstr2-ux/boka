@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>搏卡对战 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; min-height: 100vh;
+      user-select: none; -webkit-tap-highlight-color: transparent;
+      font-family: "LXGW WenKai", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(ellipse at center, #f5edda 0%, #d8ccb0 100%) fixed;
+      color: #333;
+    }
+
+    /* ===== 顶部状态栏 ===== */
+    .top-bar {
+      position: sticky; top: 0;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 10px; background: rgba(245,237,218,0.92);
+      backdrop-filter: blur(6px); z-index: 100;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .top-btn, .top-info {
+      background: rgba(255,255,255,0.95); border: 1px solid #d8d0bc;
+      border-radius: 8px; padding: 6px 8px; font-size: 13px;
+      font-weight: bold; color: #4a4a4a; font-family: inherit;
+      white-space: nowrap;
+    }
+    .top-info { color: #8a6d1f; }
+    .top-btn.danger { background: #fce8ec; color: #b85a6a; }
+    .top-btn:disabled { background: #e8e8e8 !important; color: #aaa !important; }
+
+    /* ===== 战斗区域 ===== */
+    .arena { padding: 0px 12px; display: flex; flex-direction: column; align-items: center; }
+    .side { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; }
+    .side .player-head { display: flex; align-items: center; gap: 10px; }
+    .side .player-head img { width: 40px; height: 40px; border-radius: 10px; border: 2px solid #5bb8e8; background: #fff; object-fit: cover; }
+    .ai-avatar-placeholder { height: 40px; min-width: 40px; border-radius: 10px; border: 2px solid #e8c8d0; background: #fce8ec; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; color: #b85a6a; }
+    .side .pname { font-size: 15px; font-weight: bold; color: #4a4a4a; }
+    .side .hand-count { font-size: 12px; color: #888; }
+
+    .played-area { position: relative; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; height: 160px; padding-top: 20px; margin: 0; }
+    .center-banner { font-size: 20px; font-weight: bold; color: #fff; letter-spacing: 6px; text-indent: 6px; padding: 6px 24px; border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); white-space: nowrap; margin: 10px 0 20px 0; }
+    .center-banner.atk { background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b); border: 2px solid #8a4a1f; }
+    .center-banner.def { background: radial-gradient(circle at 30% 30%, #8bc0e8, #4a7db8); border: 2px solid #2a4a7a; }
+
+    /* ===== 卡牌样式 ===== */
+    .hero-card { position: relative; width: 100px; height: 140px; flex-shrink: 0; transition: transform 0.15s; }
+    .hero-card .oval-wrap { width: 100%; height: calc(100% - 22px); border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%; overflow: hidden; background: #fffdf5; border: 4px solid #f0e0a0; box-shadow: 0 3px 8px rgba(0,0,0,0.2); position: relative; transition: box-shadow 0.3s, border-color 0.3s, opacity 0.3s; }
+    .hero-card .oval-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .hero-card .atk-orb, .hero-card .def-orb { position: absolute; bottom: 20px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.6); z-index: 2; }
+    .hero-card .atk-orb { left: -4px; background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b); border: 2px solid #8a4a1f; }
+    .hero-card .def-orb { right: -4px; background: radial-gradient(circle at 30% 30%, #8bc0e8, #4a7db8); border: 2px solid #2a4a7a; }
+    .hero-card .card-name { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 12px; font-weight: bold; color: #4a4a4a; white-space: nowrap; }
+    .hero-card.selected .oval-wrap { outline: 4px solid #5bb8e8; outline-offset: -4px; box-shadow: 0 0 0 4px rgba(91,184,232,0.35), 0 3px 8px rgba(0,0,0,0.2); }
+    .hero-card.winner .oval-wrap { border-color: #f5c542; box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6); }
+    .hero-card.loser .oval-wrap { opacity: 0.5; filter: grayscale(0.5); }
+
+    .qmark-card { position: relative; width: 100px; height: 140px; flex-shrink: 0; }
+    .qmark-card .qmark-wrap { width: 100%; height: calc(100% - 22px); border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%; background: radial-gradient(circle at 30% 30%, #3a4a5a, #1a2a3a); border: 4px solid #c8b878; display: flex; align-items: center; justify-content: center; }
+    .qmark-card .qmark-wrap::before { content: "?"; font-size: 56px; color: #e8d8a0; font-weight: bold; }
+
+    /* ===== 底部手牌区 ===== */
+    .bottom-area { display: flex; flex-direction: column; margin-top: 0; }
+    .ready-row { display: flex; align-items: stretch; justify-content: space-between; padding: 2px 12px; min-height: 56px; }
+    .my-avatar-block { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 64px; }
+    .my-avatar-block img { width: 40px; height: 40px; border-radius: 10px; border: 2px solid #5bb8e8; }
+    .my-avatar-block .pname { font-size: 14px; font-weight: bold; margin-top: 4px; }
+    .combo-info { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #666; }
+    .play-btn { padding: 0 20px; border-radius: 12px; border: none; background: #5bb8e8; color: #fff; font-size: 15px; font-weight: bold; cursor: pointer; font-family: inherit; }
+    .play-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+    .my-hand-area { padding: 2px 16px 8px 16px; display: flex; flex-direction: column; background: rgba(255,255,255,0.94); }
+    .hand-label { font-size: 12px; color: #888; padding-left: 4px; margin-bottom: 0; }
+    .hand-scroll { display: flex; flex-wrap: wrap; gap: 12px; align-content: flex-start; justify-content: center; padding: 4px 0; }
+  </style>
+</head>
+<body>
+  <div class="top-bar" style="flex-wrap: nowrap; gap: 4px; padding: 6px 8px;">
+    <div style="display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; flex-shrink: 1;">
+      <div class="top-info" id="roundInfo" style="padding: 4px 6px; font-size: 13px;">R1</div>
+      <div class="top-info" id="poolInfo" style="padding: 4px 6px; font-size: 13px;">袋 0</div>
+      <button class="top-btn" onclick="showRecord()" style="padding: 4px 8px; font-size: 13px;">记录</button>
+    </div>
+    
+    <div style="display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; flex-shrink: 1;">
+      <button class="top-btn" onclick="temporaryLeave()" style="padding: 4px 8px; font-size: 13px;">暂离</button>
+      <button class="top-btn danger" id="exitBtn" disabled onclick="quitGame()" style="padding: 4px 8px; font-size: 13px;">退出</button>
+      <button class="top-btn danger" onclick="discardCards()" style="padding: 4px 8px; font-size: 13px;">弃卡</button>
+    </div>
+  </div>
+
+  <div class="arena">
+    {% set opponent = players | rejectattr("username", "equalto", current_user.username) | first %}
+    {% if opponent %}
+    <div class="side ai" style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <div class="player-head">
+        <div class="ai-avatar-placeholder" style="padding: 0 14px;">对手</div>
+        <div>
+          <div class="pname">{{ opponent.nickname }}</div>
+          <div class="hand-count">手牌 <span id="count-{{ opponent.username }}">{{ opponent.hand_count }}</span></div>
+        </div>
+      </div>
+      <div class="played-area" id="play-{{ opponent.username }}"></div>
+    </div>
+    {% endif %}
+
+    <div class="center-banner atk" id="centerBanner" style="margin: 10px 0 20px 0;">等待出牌</div>
+
+    <div class="side me" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+      <div class="played-area" id="play-myArea"></div>
+    </div>
+  </div>
+
+  <div class="bottom-area">
+    <div class="ready-row">
+      <div class="my-avatar-block">
+        <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'">
+        <div class="pname">{{ current_user.nickname or current_user.username }}</div>
+      </div>
+      <div class="combo-info" id="comboInfo">请选择卡牌</div>
+      <button class="play-btn" id="playBtn" onclick="submitPlay()" disabled>出战</button>
+    </div>
+    <div class="my-hand-area">
+      <div class="hand-label">手牌 <span id="myHandCount" style="font-weight:bold; color:#b85a6a; font-size:14px;">0</span></div>
+      <div class="hand-scroll" id="myHandArea"></div>
+    </div>
+  </div>
+
+  <!-- 确认弹窗 -->
+  <div id="confirmModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); z-index:999; justify-content:center; align-items:center;">
+    <div style="background:#fffdf5; border-radius:16px; padding:24px; width:90%; max-width:400px; border:4px double #f0e0a0; text-align:center;">
+      <h3 style="margin:0 0 14px 0; color:#8a6d1f; font-size:20px; font-weight:bold;">提示</h3>
+      <div id="confirmMsg" style="font-size:15px; color:#555; margin-bottom:20px;">确认操作？</div>
+      <div style="display:flex; gap:10px;">
+        <button onclick="closeCustomConfirm(false)" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; font-family:inherit; background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; cursor:pointer;">取消</button>
+        <button onclick="closeCustomConfirm(true)" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; font-family:inherit; background:#5bb8e8; color:#fff; border:none; cursor:pointer;">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 暂离弹窗 -->
+  <div id="leaveModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); z-index:1001; justify-content:center; align-items:center;">
+    <div style="background:#fffdf5; border-radius:16px; padding:24px; width:90%; max-width:400px; border:4px double #f0e0a0; text-align:center;">
+      <h3 style="margin:0 0 14px 0; color:#8a6d1f; font-size:20px; font-weight:bold;">暂离房间</h3>
+      <div style="font-size:15px; color:#555; margin-bottom:20px;">确定要暂离吗？你的位置将被保留。</div>
+      <div style="display:flex; gap:10px;">
+        <button onclick="doLeave()" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; cursor:pointer;">暂离</button>
+        <button onclick="closeLeaveModal()" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; background:#5bb8e8; color:#fff; border:none; cursor:pointer;">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 退出弹窗 -->
+  <div id="quitModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); z-index:1001; justify-content:center; align-items:center;">
+    <div style="background:#fffdf5; border-radius:16px; padding:24px; width:90%; max-width:400px; border:4px double #f0e0a0; text-align:center;">
+      <h3 style="margin:0 0 14px 0; color:#8a6d1f; font-size:20px; font-weight:bold;">退出房间</h3>
+      <div style="font-size:15px; color:#555; margin-bottom:20px;">确定要退出房间吗？</div>
+      <div style="display:flex; gap:10px;">
+        <button onclick="doQuit()" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; cursor:pointer;">退出</button>
+        <button onclick="closeQuitModal()" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; background:#5bb8e8; color:#fff; border:none; cursor:pointer;">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 游戏结算弹窗（只有这一个） -->
+  <div id="resultModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
+    <div style="background:#fffdf5; padding:24px; border-radius:20px; border:4px double #f0e0a0; text-align:center; max-width:400px; width:90%;">
+      <h2 style="margin:0 0 16px 0; color:#8a6d1f;" id="resultTitle">对局结束</h2>
+      <div style="font-size:15px; color:#555; margin-bottom:10px;" id="resultLine"></div>
+      <div style="font-size:15px; color:#333; margin-bottom:20px; text-align:left; line-height:1.8;" id="resultRanks"></div>
+      <button onclick="window.location.href='/boka/room/{{ room_code }}'" style="width:100%; padding:14px; border-radius:12px; background:#5bb8e8; color:#fff; font-size:16px; font-weight:bold; border:none; cursor:pointer;">确认退出</button>
+    </div>
+  </div>
+
+  <!-- 记录弹窗 -->
+  <div class="record-modal" id="recordModal" onclick="if(event.target===this)closeRecord()" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); z-index:400; justify-content:center; align-items:center; padding:16px;">
+    <div class="record-inner" style="background:#fffdf5; border-radius:16px; padding:18px; max-width:520px; width:100%; max-height:80vh; overflow-y:auto; border:4px double #f0e0a0;">
+      <h3 style="margin:0 0 12px 0; color:#8a6d1f;">对局记录</h3>
+      <div id="recordContent">暂无对局记录</div>
+      <button onclick="closeRecord()" style="width:100%; padding:12px; border:none; border-radius:10px; background:#5bb8e8; color:#fff; font-size:15px; font-weight:bold; cursor:pointer; margin-top:14px;">关闭</button>
+    </div>
+  </div>
+
+  <!-- 宋江抽卡弹窗 -->
+  <div class="confirm-modal" id="songjiangModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); z-index:1001; justify-content:center; align-items:center;">
+    <div style="background:#fffdf5; border-radius:16px; padding:24px; width:90%; max-width:400px; border:4px double #f0e0a0; text-align:center;">
+      <h3 style="margin:0 0 14px 0; color:#8a6d1f; font-size:20px; font-weight:bold;">智多星 · 宋江</h3>
+      <div style="font-size:15px; color:#555; margin-bottom:20px;">是否抽卡？</div>
+      <div style="display:flex; gap:10px;">
+        <button onclick="songjiangChoose(false)" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; cursor:pointer;">取消</button>
+        <button onclick="songjiangChoose(true)" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; background:#5bb8e8; color:#fff; border:none; cursor:pointer;">抽卡</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const roomCode = "{{ room_code }}";
+    const myUsername = "{{ current_user.username }}";
+    let myHand = {{ my_hand | tojson | default('[]', true) }};
+    let myReady = [];
+    let locked = false;
+    let pollTimer = null;
+    let lastPhase = "selecting";
+    let lastRound = 0;
+    let lastHistory = []; 
+    let currentPhase = "selecting";
+    let currentElapsed = 0;
+    let poolCount = {{ pool_count | default(0) }}; // ★ 补充全局变量
+    const playersData = {{ players | tojson | default('[]', true) }};
+    const TIME_REVEAL = {{ TIME_REVEAL | default(3.0) }};
+    const TIME_RESOLVE = {{ TIME_RESOLVE | default(6.0) }};
+    const TIME_UPDATE = {{ TIME_UPDATE_CARDS | default(8.0) }};
+
+    let songjiangShownForCurrentSelection = false;
+
+    function makeQmarkCard() {
+      const div = document.createElement('div');
+      div.className = 'qmark-card';
+      div.innerHTML = `<div class="qmark-wrap"></div>`;
+      return div;
+    }
+
+    function makeHeroCard(c, extraCls) {
+      const div = document.createElement('div');
+      div.className = 'hero-card ' + (extraCls || '');
+      div.innerHTML = `
+        <div class="oval-wrap" style="border-color:#f0e0a0;">
+          <img src="/static/cards/${c.name}.PNG" alt="${c.name}">
+        </div>
+        <div class="atk-orb">${c.atk}</div>
+        <div class="def-orb">${c.def}</div>
+        <div class="card-name">${c.name}</div>
+      `;
+      return div;
+    }
+
+    function renderPlayedCards(data, elapsed) {
+      const myArea = document.getElementById('play-myArea');
+      
+      let renderPhase = 'qmark';
+      if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) renderPhase = 'face';
+      else if (elapsed >= TIME_RESOLVE) renderPhase = 'result';
+      if (data.finished) renderPhase = 'result';
+
+      const winnerIds = data.winner_card_ids || [];
+      const allLoser = data.all_loser || false;
+
+      playersData.forEach(p => {
+        if (p.username === myUsername) return;
+        const area = document.getElementById(`play-${p.username}`);
+        if (!area) return;
+        
+        area.innerHTML = '';
+        if (renderPhase === 'qmark') {
+          area.appendChild(makeQmarkCard());
+        } else {
+          const cards = data.all_played[p.username] || [];
+          const isWin = data.winner_username === p.username;
+          cards.forEach(c => {
+            let cls = '';
+            if (renderPhase === 'result') {
+              cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
+            }
+            area.appendChild(makeHeroCard(c, cls));
+          });
+        }
+      });
+
+      myArea.innerHTML = '';
+      if (renderPhase === 'qmark') {
+        myArea.appendChild(makeQmarkCard());
+      } else {
+        const cards = data.all_played[myUsername] || [];
+        const isWin = data.winner_username === myUsername;
+        cards.forEach(c => {
+          let cls = '';
+          if (renderPhase === 'result') {
+            cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
+          }
+          myArea.appendChild(makeHeroCard(c, cls));
+        });
+      }
+    }
+
+    function renderHand() {
+      const handArea = document.getElementById('myHandArea');
+      handArea.innerHTML = '';
+      myHand.forEach(c => {
+        const isSel = myReady.find(x => x.id === c.id);
+        const div = makeHeroCard(c, isSel ? 'selected' : '');
+        if (!locked) {
+          div.onclick = () => {
+            songjiangShownForCurrentSelection = false; // ★ 每次点击重置
+            const idx = myReady.findIndex(x => x.id === c.id);
+            if (idx >= 0) myReady.splice(idx, 1);
+            else myReady.push(c);
+            renderHand();
+            updatePlayBtn();
+            checkSongjiangTrigger();
+          };
+        }
+        handArea.appendChild(div);
+      });
+      document.getElementById('myHandCount').textContent = myHand.length;
+    }
+
+    function updatePlayBtn() {
+      const btn = document.getElementById('playBtn');
+      btn.disabled = locked || myReady.length === 0;
+      btn.textContent = locked ? '锁定' : '出战';
+    }
+
+    function checkSongjiangTrigger() {
+      if (myReady.length !== 1) return;
+      if (myReady[0].name !== '宋江') return;
+      if (songjiangShownForCurrentSelection) return;
+      if (poolCount <= 0) return; // ★ 不会报错了
+      
+      songjiangShownForCurrentSelection = true;
+      document.getElementById('songjiangModal').style.display = 'flex';
+    }
+
+    async function songjiangChoose(ok) {
+      document.getElementById('songjiangModal').style.display = 'none';
+      if (!ok) return;
+
+      const res = await fetch(`/boka/room/${roomCode}/songjiang_draw`, { method: 'POST' });
+      const data = await res.json();
+      
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+      
+      myReady = [];
+      songjiangShownForCurrentSelection = false;
+      await pollState(); 
+    }
+    
+    async function submitPlay() {
+      if (myReady.length === 0) return;
+      locked = true;
+      updatePlayBtn();
+      renderHand();
+
+      document.getElementById('play-myArea').innerHTML = '';
+      document.getElementById('play-myArea').appendChild(makeQmarkCard());
+
+      const res = await fetch(`/boka/room/${roomCode}/play`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ card_ids: myReady.map(c => c.id) })
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+        locked = false;
+        updatePlayBtn();
+        renderHand();
+      }
+    }
+
+    function startPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(pollState, 1000);
+    }
+
+    async function pollState() {
+      try {
+        const res = await fetch(`/boka/room/${roomCode}/battle_state`);
+        const data = await res.json();
+        if (data.error) return;
+
+        if (data.history) lastHistory = data.history;
+        
+        poolCount = data.pool_count || 0; // ★ 同步卡袋数量
+
+        document.getElementById('roundInfo').textContent = `R${data.round_no}`;
+        document.getElementById('poolInfo').textContent = `袋 ${poolCount}`;
+        
+        const banner = document.getElementById('centerBanner');
+        banner.textContent = '本轮' + data.round_phase;
+        banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
+
+        const elapsed = data.elapsed_since_reveal || 0;
+        currentPhase = data.phase;
+        currentElapsed = elapsed;
+
+        if (data.phase === 'selecting' || (data.phase === 'revealing' && elapsed >= TIME_UPDATE)) {
+          if (data.players_info) {
+            data.players_info.forEach(p => {
+              if (p.is_me) {
+                document.getElementById('myHandCount').textContent = p.hand_count;
+              } else {
+                const countEl = document.getElementById(`count-${p.username}`);
+                if (countEl) countEl.textContent = p.hand_count;
+              }
+            });
+          }
+        }
+
+        if (data.phase === 'selecting') {
+          if (lastPhase !== 'selecting' || lastRound !== data.round_no || myHand.length === 0) {
+            locked = false;
+            myHand = data.my_hand || [];
+            myReady = [];
+            renderHand();
+            updatePlayBtn();
+            
+            playersData.forEach(p => {
+              const area = document.getElementById(`play-${p.username}`);
+              if (area) area.innerHTML = '';
+            });
+            const myArea = document.getElementById('play-myArea');
+            if (myArea) myArea.innerHTML = '';
+          }
+        } 
+        else if (data.phase === 'revealing' || data.phase === 'finished') {
+          locked = true;
+          updatePlayBtn();
+          renderPlayedCards(data, elapsed);
+        }
+
+        lastPhase = data.phase;
+        lastRound = data.round_no;
+
+        if (data.finished) {
+          clearInterval(pollTimer);
+          if (!window.resultShown) {
+            window.resultShown = true;
+            setTimeout(() => {
+              document.getElementById('resultTitle').textContent = data.my_rank === 1 ? "恭喜获胜！" : "对局结束";
+              document.getElementById('resultLine').textContent = `你的最终排名：第 ${data.my_rank} 名`;
+              document.getElementById('resultRanks').innerHTML = `
+                <div style="text-align:center; font-weight:bold; color:#b85a6a; font-size:18px;">
+                  积分变动：${data.my_score_change > 0 ? '+' : ''}${data.my_score_change}
+                </div>
+              `;
+              document.getElementById('resultModal').style.display = 'flex';
+            }, 1000);
+          }
+          return; 
+        }
+      } catch(e) { console.error(e); }
+    }
+
+    // ===== 记录功能 =====
+    const DISPLAY_NAME_MAP = { "扈三娘": "美女", "白胜": "炸弹", "孙二娘": "炸弹" };
+    function displayName(name) {
+      return DISPLAY_NAME_MAP[name] || name;
+    }
+
+    function renderRecord() {
+      const el = document.getElementById('recordContent');
+      if (!lastHistory || lastHistory.length === 0) {
+        el.innerHTML = '暂无对局记录';
+        return;
+      }
+
+      let displayHistory = lastHistory;
+      if (currentPhase === 'revealing' && currentElapsed < 6) {
+        displayHistory = lastHistory.slice(0, -1);
+      }
+
+      if (displayHistory.length === 0) {
+        el.innerHTML = '暂无对局记录';
+        return;
+      }
+
+      let html = `
+        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;">
+          <thead>
+            <tr>
+              <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8; border-bottom:1px solid #e8e0cc;">轮次</th>
+              <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8; border-bottom:1px solid #e8e0cc;">我</th>
+              <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8; border-bottom:1px solid #e8e0cc;">对手</th>
+              <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8; border-bottom:1px solid #e8e0cc;">赢家</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      displayHistory.forEach(h => {
+        const dimKey = h.dim === 'atk' ? 'atk' : 'def';
+        const myPlay = h.played.find(p => p.username === myUsername) || {};
+        const oppPlay = h.played.find(p => p.username !== myUsername) || {};
+
+        const formatPlay = (play) => {
+          if (!play || !play.cards || play.cards.length === 0) return '?';
+          if (play.cards.length === 1) {
+            const c = play.cards[0];
+            return `${displayName(c.name)} ${c[dimKey] ?? '-'}`;
+          }
+          return `组合 ${play.value ?? '-'}`;
+        };
+
+        let winnerText = '/';
+        let winnerCls = 'color:#999; font-weight:bold;';
+        if (myPlay.result === 'win') { winnerText = '我'; winnerCls = 'color:#5cb85c; font-weight:bold;'; }
+        else if (oppPlay.result === 'win') { winnerText = '对手'; winnerCls = 'color:#d9534f; font-weight:bold;'; }
+        else if (myPlay.result === 'beauty' || oppPlay.result === 'beauty') { winnerText = '美女'; winnerCls = 'color:#a06cd5; font-weight:bold;'; }
+        else if (myPlay.result === 'bombed') { winnerText = '炸弹'; winnerCls = 'color:#f5a623; font-weight:bold;'; }
+
+        html += `
+          <tr>
+            <td style="padding:8px 6px; border-bottom:1px solid #e8e0cc;">第 ${h.round} 轮</td>
+            <td style="padding:8px 6px; border-bottom:1px solid #e8e0cc;">${formatPlay(myPlay)}</td>
+            <td style="padding:8px 6px; border-bottom:1px solid #e8e0cc;">${formatPlay(oppPlay)}</td>
+            <td style="padding:8px 6px; border-bottom:1px solid #e8e0cc; ${winnerCls}">${winnerText}</td>
+          </tr>
+        `;
+      });
+      html += `</tbody></table>`;
+      el.innerHTML = html;
+    }
+
+    function showRecord() { renderRecord(); document.getElementById('recordModal').style.display = 'flex'; }
+    function closeRecord() { document.getElementById('recordModal').style.display = 'none'; }
+
+    // ===== 弹窗控制 =====
+    let confirmResolve = null;
+    function showCustomConfirm(title, msg) {
+      document.getElementById('confirmMsg').textContent = msg;
+      document.getElementById('confirmModal').style.display = 'flex';
+      return new Promise(resolve => { confirmResolve = resolve; });
+    }
+    function closeCustomConfirm(val) {
+      document.getElementById('confirmModal').style.display = 'none';
+      if (confirmResolve) { confirmResolve(val); confirmResolve = null; }
+    }
+
+    function temporaryLeave() { document.getElementById('leaveModal').style.display = 'flex'; }
+    function closeLeaveModal() { document.getElementById('leaveModal').style.display = 'none'; }
+    async function doLeave() { closeLeaveModal(); await fetch(`/boka/room/${roomCode}/leave`, { method: 'POST' }); window.location.href = '/boka'; }
+
+    function quitGame() { document.getElementById('quitModal').style.display = 'flex'; }
+    function closeQuitModal() { document.getElementById('quitModal').style.display = 'none'; }
+    async function doQuit() { closeQuitModal(); await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' }); window.location.href = '/boka'; }
+
+    async function discardCards() {
+      const ok = await showCustomConfirm("弃卡认输", "确定弃卡吗？手牌将进入卡袋。");
+      if (!ok) return;
+      const res = await fetch(`/boka/room/${roomCode}/surrender`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      if (data.finished) document.getElementById('exitBtn').disabled = false;
+      window.location.href = `/boka/room/${roomCode}`;
+    }
+
+    renderHand();
+    pollState();
+    startPolling();
+  </script>
+</body>
+</html>
