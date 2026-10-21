@@ -2464,7 +2464,6 @@ def _classify_play(cards):
 
     return {"kind": "single", "cards": cards}
 
-
 def resolve_boka_round(game):
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     is_atk_round = (game.round_no % 2 == 1)
@@ -2561,39 +2560,34 @@ def resolve_boka_round(game):
             "result": "win" if p["username"] == winner_name else "lose",
         })
 
-    history = json_loads_safe(game.history)
-    history.append(round_record)
-    game.history = json_dumps_safe(history)
-    # ★ 这里的 movements 已经算好了。
-    # 我们在这里“虚拟推演”一下，看看谁没牌了，把淘汰名次提前定好
-    virtual_hands = {g.username: json_loads_safe(g.hand) for g in gps}
+    # ★ 虚拟推演：在 0 秒就把 8 秒后谁会出局、谁剩多少牌算得清清楚楚
+    virtual_hands = {g.username: len(json_loads_safe(g.hand)) for g in gps}
     for m in movements:
-        cid = m["card_id"]
         frm = m["from"]
         to = m["to"]
-        if frm in virtual_hands and cid in virtual_hands[frm]:
-            virtual_hands[frm].remove(cid)
+        if frm in virtual_hands:
+            virtual_hands[frm] -= 1
         if to in virtual_hands:
-            virtual_hands[to].append(cid)
-        # 进卡袋的不影响手牌
+            virtual_hands[to] += 1
 
     eliminated = []
     for g in gps:
-        if len(virtual_hands[g.username]) == 0 and g.finished_order is None and not g.surrendered:
+        if virtual_hands[g.username] == 0 and g.finished_order is None and not g.surrendered:
             max_order = db.session.query(db.func.max(BokaGamePlayer.finished_order)).filter_by(game_id=game.id).scalar() or 0
             g.finished_order = max_order + 1
             eliminated.append(g.username)
             
-    # 把这一轮的淘汰名单也存进 history 的 round_record 里，方便 8 秒后直接读
     round_record["eliminated"] = eliminated
-    
-    # 判断游戏是不是在 0 秒就已经结束了（比如把淘汰的人算上后，只剩下 1 人）
-    alive_count = sum(1 for g in gps if len(virtual_hands[g.username]) > 0 and not g.surrendered)
+    round_record["virtual_hands"] = virtual_hands
+
+    # 判断这轮结束后，是不是只剩 1 个人
+    alive_count = sum(1 for count in virtual_hands.values() if count > 0)
     if alive_count <= 1:
-        # 标记这局马上要结束（但不在这里调 finish_boka_game，等 8 秒再调）
-        game.winner_username = winner_name
-        # 用一个隐藏标记告诉 boka_battle_state 到 8 秒后结算
-        game.winner_card_id = -999  # 临时借用这个字段做个标记
+        game.winner_card_id = -999
+
+    history = json_loads_safe(game.history)
+    history.append(round_record)
+    game.history = json_dumps_safe(history)
 
 def _resolve_top_combo(game, gps, played, combo_p, pool, round_record, dim, other_dim):
     winner_name = combo_p["username"]
@@ -2961,7 +2955,6 @@ def boka_songjiang_draw(room_code):
     db.session.commit()
     return jsonify({"success": True, "picked_id": picked_id, "picked_level": picked_level})
 
-
 @app.route('/boka/room/<room_code>/battle_state')
 @login_required
 def boka_battle_state(room_code):
@@ -2984,10 +2977,12 @@ def boka_battle_state(room_code):
     if game.phase == "revealing" and game.revealed_at:
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
 
+        # 如果 6 秒到了还没算过胜负，补算一次
         if elapsed_since_reveal >= TIME_RESOLVE and game.winner_username is None:
             resolve_boka_round(game)
             db.session.commit()
 
+        # 8 秒到了，执行真正的扣牌逻辑
         if elapsed_since_reveal >= TIME_UPDATE_CARDS:
             history = json_loads_safe(game.history)
             if history:
@@ -3013,12 +3008,12 @@ def boka_battle_state(room_code):
                     g.hand = json_dumps_safe(hand_changes[g.username])
                 game.card_pool = json_dumps_safe(pool)
 
-            # ★ 核心修复 1：判定是否结束
+            # ★ 核心：检查是不是在 0 秒就标记了游戏结束
             if game.winner_card_id == -999:
                 if game.phase != "finished":
                     alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
                     finish_boka_game(game, alive)
-                    game.phase = "finished" # ★ 补上这一句！让前端能收到信号
+                    game.phase = "finished"
                     db.session.commit()
             else:
                 # 没结束，正常进入下一轮
