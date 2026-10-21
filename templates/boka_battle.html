@@ -9,7 +9,11 @@
     * { box-sizing: border-box; }
     html, body {
       margin: 0; padding: 0;
-      width: 100%; min-height: 100vh;
+      width: 100%; 
+      height: 100vh; /* ★ 改回固定高度，不让它无限长 */
+      display: flex;
+      flex-direction: column;
+      overflow: hidden; /* ★ 禁止整页滚动，内部自己安排 */
       user-select: none; -webkit-tap-highlight-color: transparent;
       font-family: "LXGW WenKai", "Microsoft YaHei", sans-serif;
       background: radial-gradient(ellipse at center, #f5edda 0%, #d8ccb0 100%) fixed;
@@ -21,8 +25,30 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      /* ★ 移除 flex: 1，给一个固定的最小高度支撑起骨架 */
-      min-height: 450px; 
+      flex: 1; /* ★ 核心：吃掉中间所有剩余空间 */
+      justify-content: space-between; /* ★ 对手在上面，你在下面 */
+    }
+
+    .bottom-area { 
+      display: flex; 
+      flex-direction: column; 
+      margin-top: 0;
+      /* ★ 不要固定高度，跟着内容走 */
+    }
+
+    .ready-row { /* 头像、提示、出战按钮 */
+      display: flex; 
+      align-items: stretch; 
+      justify-content: space-between;
+      padding: 6px 12px; 
+      min-height: 56px;
+    }
+
+    .my-hand-area { 
+      padding: 4px 16px 20px 16px; 
+      display: flex; 
+      flex-direction: column; 
+      background: rgba(255,255,255,0.94); /* 只有手牌区是白底 */
     }
 
     /* ===== 顶部状态栏 ===== */
@@ -89,32 +115,6 @@
     .qmark-card { position: relative; width: 100px; height: 140px; flex-shrink: 0; }
     .qmark-card .qmark-wrap { width: 100%; height: calc(100% - 22px); border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%; background: radial-gradient(circle at 30% 30%, #3a4a5a, #1a2a3a); border: 4px solid #c8b878; display: flex; align-items: center; justify-content: center; }
     .qmark-card .qmark-wrap::before { content: "?"; font-size: 56px; color: #e8d8a0; font-weight: bold; }
-
-    /* 底部总容器：不要白底！让它透明，这样上面的头像区就能透出黄色背景 */
-    .bottom-area { 
-      display: flex; 
-      flex-direction: column; 
-      margin-top: 0;
-      /* 绝对不要在这里写 background: white; */
-    }
-    
-    /* 头像那行：透明背景 */
-    .ready-row {
-      display: flex; 
-      align-items: center; 
-      justify-content: space-between;
-      padding: 10px 16px; 
-      min-height: 64px;
-      /* 保持透明，融入背景 */
-    }
-
-    /* 手牌区：单独给它白底 */
-    .my-hand-area { 
-      padding: 8px 16px 20px 16px; 
-      display: flex; 
-      flex-direction: column; 
-      background: rgba(255,255,255,0.94); /* ★ 只有这里加白底 */
-    }
     
     /* 小细节修复：确保头像和名字垂直排列，按钮宽度正常 */
     .my-avatar-block { 
