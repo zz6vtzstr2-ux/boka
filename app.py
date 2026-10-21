@@ -2564,7 +2564,41 @@ def resolve_boka_round(game):
     history = json_loads_safe(game.history)
     history.append(round_record)
     game.history = json_dumps_safe(history)
+    # ★ 这里的 movements 已经算好了。
+    # 我们在这里“虚拟推演”一下，看看谁没牌了，把淘汰名次提前定好
+    virtual_hands = {g.username: json_loads_safe(g.hand) for g in gps}
+    for m in movements:
+        cid = m["card_id"]
+        frm = m["from"]
+        to = m["to"]
+        if frm in virtual_hands and cid in virtual_hands[frm]:
+            virtual_hands[frm].remove(cid)
+        if to in virtual_hands:
+            virtual_hands[to].append(cid)
+        # 进卡袋的不影响手牌
 
+    eliminated = []
+    for g in gps:
+        if len(virtual_hands[g.username]) == 0 and g.finished_order is None and not g.surrendered:
+            max_order = db.session.query(db.func.max(BokaGamePlayer.finished_order)).filter_by(game_id=game.id).scalar() or 0
+            g.finished_order = max_order + 1
+            eliminated.append(g.username)
+            
+    # 把这一轮的淘汰名单也存进 history 的 round_record 里，方便 8 秒后直接读
+    round_record["eliminated"] = eliminated
+    
+    # 判断游戏是不是在 0 秒就已经结束了（比如把淘汰的人算上后，只剩下 1 人）
+    alive_count = sum(1 for g in gps if len(virtual_hands[g.username]) > 0 and not g.surrendered)
+    if alive_count <= 1:
+        # 标记这局马上要结束（但不在这里调 finish_boka_game，等 8 秒再调）
+        game.winner_username = winner_name
+        # 用一个隐藏标记告诉 boka_battle_state 到 8 秒后结算
+        game.winner_card_id = -999  # 临时借用这个字段做个标记
+
+    # 更新 history
+    history = json_loads_safe(game.history)
+    history.append(round_record)
+    game.history = json_dumps_safe(history)
 
 def _resolve_top_combo(game, gps, played, combo_p, pool, round_record, dim, other_dim):
     winner_name = combo_p["username"]
@@ -2864,10 +2898,12 @@ def boka_play(room_code):
     if all(p.locked for p in all_players):
         game.phase = "revealing"
         game.revealed_at = datetime.now()
+        
+        # ★ 核心：0 秒立刻演算胜负、牌的去向，并在内存中推演哪些人会被淘汰
+        resolve_boka_round(game)
     
     db.session.commit()
     return jsonify({"success": True})
-
 
 @app.route('/boka/room/<room_code>/songjiang_draw', methods=['POST'])
 @login_required
@@ -2951,11 +2987,11 @@ def boka_battle_state(room_code):
                 hand_changes = {g.username: json_loads_safe(g.hand) for g in gps}
                 pool = json_loads_safe(game.card_pool)
 
+                # 真正扣牌、发牌
                 for m in movements:
                     cid = m["card_id"]
                     frm = m["from"]
                     to = m["to"]
-
                     if frm in hand_changes and cid in hand_changes[frm]:
                         hand_changes[frm].remove(cid)
                     if to in hand_changes:
@@ -2967,18 +3003,13 @@ def boka_battle_state(room_code):
                     g.hand = json_dumps_safe(hand_changes[g.username])
                 game.card_pool = json_dumps_safe(pool)
 
-            for g in gps:
-                hand = json_loads_safe(g.hand)
-                if len(hand) == 0 and g.finished_order is None and not g.surrendered:
-                    max_order = db.session.query(db.func.max(BokaGamePlayer.finished_order)).filter_by(game_id=game.id).scalar() or 0
-                    g.finished_order = max_order + 1
-            
-            alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
-
-            if len(alive) <= 1:
+            # ★ 核心：查一下是不是 0 秒就标记了结束
+            if game.winner_card_id == -999:
                 if game.phase != "finished":
+                    alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
                     finish_boka_game(game, alive)
             else:
+                # 没结束，正常进入下一轮
                 game.round_no += 1
                 game.phase = "selecting"
                 game.revealed_at = None
