@@ -2739,10 +2739,26 @@ def finish_boka_game(game, alive):
     game.phase = "finished"
     game.finished_at = datetime.now()
     room = BokaRoom.query.get(game.room_id)
-    if room:
-        room.status = "waiting"
-        BokaPlayer.query.filter_by(room_id=room.id).update({"ready": False})
+    
+    # ★ 核心：先提交 finished 状态，让前端能立刻查到并弹窗
     db.session.commit()
+
+    if room:
+        room_id = room.id
+        import threading
+        import time
+        
+        # ★ 延迟 3 秒再把房间切回等待状态
+        def reset_room_later():
+            with app.app_context():
+                time.sleep(3)
+                r = BokaRoom.query.get(room_id)
+                if r and r.status == "playing":
+                    r.status = "waiting"
+                    BokaPlayer.query.filter_by(room_id=room_id).update({"ready": False})
+                    db.session.commit()
+        
+        threading.Thread(target=reset_room_later).start()
 
 
 def calc_boka_score_change(my_score, rank, total_players, avg_score):
