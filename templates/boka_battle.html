@@ -9,16 +9,11 @@
     * { box-sizing: border-box; }
     html, body {
       margin: 0; padding: 0;
-      width: 100%;
-      min-height: 100vh; /* 允许自然撑开 */
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    body {
+      width: 100%; min-height: 100vh;
+      user-select: none; -webkit-tap-highlight-color: transparent;
       font-family: "LXGW WenKai", "Microsoft YaHei", sans-serif;
       background: radial-gradient(ellipse at center, #f5edda 0%, #d8ccb0 100%) fixed;
       color: #333;
-      position: relative;
     }
 
     .arena {
@@ -26,7 +21,8 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      min-height: 400px; /* 保证亮卡区足够大 */
+      /* ★ 移除 flex: 1，给一个固定的最小高度支撑起骨架 */
+      min-height: 450px; 
     }
 
     /* ===== 顶部状态栏 ===== */
@@ -87,13 +83,29 @@
     .qmark-card .qmark-wrap::before { content: "?"; font-size: 56px; color: #e8d8a0; font-weight: bold; }
 
     /* ===== 底部手牌区 ===== */
-    .bottom-area {
-      display: flex;
-      flex-direction: column;
-      background: rgba(255,255,255,0.94); /* 纯白底 */
-      /* 不要加 flex: 1，不要加固定高度 */
+    .bottom-area { 
+      display: flex; 
+      flex-direction: column; 
+      margin-top: 0;
+      background: rgba(255,255,255,0.94); 
+      /* ★ 去掉 flex: 1 和任何绝对定位 */
     }
-    .ready-row { display: flex; align-items: stretch; justify-content: space-between; padding: 2px 12px; min-height: 56px; }
+
+    /* 操作栏：头像、提示文字、出战按钮 */
+    .ready-row {
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between;
+      padding: 10px 12px; 
+      min-height: 56px;
+    }
+
+    /* 手牌区：独立在操作栏下方 */
+    .my-hand-area { 
+      padding: 4px 16px 20px 16px; 
+      display: flex; 
+      flex-direction: column; 
+    }
     .my-avatar-block { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 64px; }
     .my-avatar-block img { width: 40px; height: 40px; border-radius: 10px; border: 2px solid #5bb8e8; }
     .my-avatar-block .pname { font-size: 14px; font-weight: bold; margin-top: 4px; }
@@ -101,7 +113,6 @@
     .play-btn { padding: 0 20px; border-radius: 12px; border: none; background: #5bb8e8; color: #fff; font-size: 15px; font-weight: bold; cursor: pointer; font-family: inherit; }
     .play-btn:disabled { background: #ccc; cursor: not-allowed; }
 
-    .my-hand-area { padding: 4px 16px 20px 16px; display: flex; flex-direction: column; }
     .hand-label { font-size: 12px; color: #888; padding-left: 4px; margin-bottom: 0; }
     .hand-scroll { display: flex; flex-wrap: wrap; gap: 12px; align-content: flex-start; justify-content: center; padding: 4px 0; }
   </style>
@@ -419,8 +430,8 @@
         else if (names.includes('扈三娘') || names.includes('宋江')) {
           isValid = false;
         } else {
-          // 其他合法组合（如水军两兄弟）
-          infoEl.textContent = '组合';
+          // ★ 如果不在上面所有合法组合的名单里，直接判定为非法组合！
+          isValid = false; 
         }
       }
 
