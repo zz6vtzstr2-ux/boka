@@ -29,20 +29,28 @@
     .top-bar {
       position: sticky; top: 0;
       display: flex; justify-content: space-between; align-items: center;
-      padding: 8px 10px; background: rgba(245,237,218,0.92);
+      /* 缩小间距和 padding，确保不换行 */
+      padding: 6px 8px; 
+      background: rgba(245,237,218,0.92);
       backdrop-filter: blur(6px); z-index: 100;
       width: 100%;
       box-sizing: border-box;
+      flex-wrap: nowrap; 
+      gap: 4px; 
     }
     .top-btn, .top-info {
       background: rgba(255,255,255,0.95); border: 1px solid #d8d0bc;
-      border-radius: 8px; padding: 6px 8px; font-size: 13px;
+      border-radius: 10px; 
+      padding: 6px 10px; 
+      font-size: 13px; 
       font-weight: bold; color: #4a4a4a; font-family: inherit;
-      white-space: nowrap;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      white-space: nowrap; /* ★ 文字绝不断行 */
     }
-    .top-info { color: #8a6d1f; }
-    .top-btn.danger { background: #fce8ec; color: #b85a6a; }
-    .top-btn:disabled { background: #e8e8e8 !important; color: #aaa !important; }
+    .top-info { color: #8a6d1f; cursor: default; }
+    .top-btn.danger { background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; }
+    .top-btn:disabled { background: #e8e8e8 !important; color: #aaa !important; box-shadow: none; }
 
     /* ===== 战斗区域 ===== */
     .side { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; }
@@ -120,8 +128,8 @@
 <body>
   <div class="top-bar" style="flex-wrap: nowrap; gap: 4px; padding: 6px 8px;">
     <div style="display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; flex-shrink: 1;">
-      <div class="top-info" id="roundInfo" style="padding: 4px 6px; font-size: 13px;">R1</div>
-      <div class="top-info" id="poolInfo" style="padding: 4px 6px; font-size: 13px;">袋 0</div>
+      <div class="top-info" id="roundInfo">第 1 轮</div>
+      <div class="top-info" id="poolInfo">卡袋 0</div>
       <button class="top-btn" onclick="showRecord()" style="padding: 4px 8px; font-size: 13px;">记录</button>
     </div>
     
@@ -155,14 +163,17 @@
   </div>
 
   <div class="bottom-area">
+    <!-- 操作行（头像+出战按钮） -->
     <div class="ready-row">
       <div class="my-avatar-block">
-        <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'">
+        <img src="/static/avatars/{{ current_user.username }}.jpg">
         <div class="pname">{{ current_user.nickname or current_user.username }}</div>
       </div>
       <div class="combo-info" id="comboInfo">请选择卡牌</div>
       <button class="play-btn" id="playBtn" onclick="submitPlay()" disabled>出战</button>
     </div>
+    
+    <!-- 手牌区 -->
     <div class="my-hand-area">
       <div class="hand-label">手牌 <span id="myHandCount" style="font-weight:bold; color:#b85a6a; font-size:14px;">0</span></div>
       <div class="hand-scroll" id="myHandArea"></div>
@@ -544,8 +555,8 @@
         
         poolCount = data.pool_count || 0; // ★ 同步卡袋数量
 
-        document.getElementById('roundInfo').textContent = `R${data.round_no}`;
-        document.getElementById('poolInfo').textContent = `袋 ${poolCount}`;
+        document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
+        document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
         
         const banner = document.getElementById('centerBanner');
         banner.textContent = '本轮' + data.round_phase;
