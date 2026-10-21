@@ -327,12 +327,15 @@
         const div = makeHeroCard(c, extraCls); // 传入 extraCls
         if (!locked) {
           div.onclick = () => {
-            songjiangShownForCurrentSelection = false; // ★ 每次点击重置
+            songjiangShownForCurrentSelection = false; // 每次点击重置
             const idx = myReady.findIndex(x => x.id === c.id);
             if (idx >= 0) myReady.splice(idx, 1);
             else myReady.push(c);
             renderHand();
-            updatePlayBtn();
+            
+            // ★ 调用校验并更新按钮
+            updateComboInfo();
+            
             checkSongjiangTrigger();
           };
         }
@@ -343,10 +346,96 @@
 
     function updatePlayBtn() {
       const btn = document.getElementById('playBtn');
-      btn.disabled = locked || myReady.length === 0;
+      btn.disabled = locked || myReady.length === 0 || !window.lastComboValid;
       btn.textContent = locked ? '锁定' : '出战';
     }
 
+    // ===== 本地组合校验（防止出非法组合） =====
+    function updateComboInfo() {
+      if (locked) return;
+      const infoEl = document.getElementById('comboInfo');
+      if (!infoEl) return;
+
+      if (myReady.length === 0) {
+        infoEl.textContent = '请选择卡牌';
+        window.lastComboValid = true;
+        updatePlayBtn();
+        return;
+      }
+
+      const names = myReady.map(c => c.name);
+      let isValid = true;
+
+      // 1 张卡
+      if (myReady.length === 1) {
+        const c = myReady[0];
+        if (c.name === '扈三娘') infoEl.textContent = '美女';
+        else if (['白胜', '孙二娘'].includes(c.name)) infoEl.textContent = '炸弹';
+        else if (['林冲', '柴进', '燕青', '花荣', '徐宁'].includes(c.name)) infoEl.textContent = '帅哥';
+        else infoEl.textContent = '';
+      } 
+      // 多张卡
+      else {
+        // 双炸
+        if (names.includes('白胜') && names.includes('孙二娘') && names.length === 2) {
+          infoEl.textContent = '双炸';
+        }
+        // 智多星
+        else if (names.includes('吴用') && names.length === 2) {
+          const other = myReady.find(c => c.name !== '吴用');
+          if (['林冲', '柴进', '燕青', '花荣', '徐宁'].includes(other.name)) {
+            infoEl.textContent = '智多星 帅哥';
+          } else if (!['扈三娘', '白胜', '孙二娘', '宋江'].includes(other.name)) {
+            infoEl.textContent = '智多星';
+          } else {
+            isValid = false;
+          }
+        }
+        // 五虎将
+        else if (['关胜', '林冲', '秦明', '呼延灼', '董平'].every(n => names.includes(n)) && names.length === 5) {
+          infoEl.textContent = '五虎将';
+        }
+        // 八虎骑
+        else if (['花荣', '徐宁', '杨志', '索超', '张清', '朱仝', '史进', '穆弘'].every(n => names.includes(n)) && names.length === 8) {
+          infoEl.textContent = '八虎骑';
+        }
+        // 风流威猛
+        else if (names.length === 2 && names.includes('花荣') && names.includes('徐宁')) {
+          infoEl.textContent = '风流威猛';
+        }
+        // 水军三兄弟
+        else if (names.length === 3 && names.includes('阮小二') && names.includes('阮小五') && names.includes('阮小七')) {
+          infoEl.textContent = '水军三兄弟';
+        }
+        // 黑白双煞
+        else if (names.length === 2 && names.includes('张顺') && names.includes('李逵')) {
+          infoEl.textContent = '黑白双煞';
+        }
+        // 打猎兄弟
+        else if (names.length === 2 && names.includes('解珍') && names.includes('解宝')) {
+          infoEl.textContent = '打猎兄弟';
+        }
+        // 非法组合拦截（多卡带美女/宋江）
+        else if (names.includes('扈三娘') || names.includes('宋江')) {
+          isValid = false;
+        } else {
+          // 其他合法组合（如水军两兄弟）
+          infoEl.textContent = '组合';
+        }
+      }
+
+      if (!isValid) {
+        infoEl.textContent = '无效的组合';
+        infoEl.style.color = '#b85a6a'; // 红色警告
+        window.lastComboValid = false;
+      } else {
+        infoEl.style.color = '#666'; // 正常颜色
+        window.lastComboValid = true;
+      }
+      
+      updatePlayBtn();
+    }
+    
     function checkSongjiangTrigger() {
       if (myReady.length !== 1) return;
       if (myReady[0].name !== '宋江') return;
