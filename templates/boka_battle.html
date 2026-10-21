@@ -10,10 +10,7 @@
     html, body {
       margin: 0; padding: 0;
       width: 100%; 
-      height: 100vh; /* ★ 改回固定高度，不让它无限长 */
-      display: flex;
-      flex-direction: column;
-      overflow: hidden; /* ★ 禁止整页滚动，内部自己安排 */
+      min-height: 100vh; /* ★ 核心：用 min-height 保证能自然撑开 */
       user-select: none; -webkit-tap-highlight-color: transparent;
       font-family: "LXGW WenKai", "Microsoft YaHei", sans-serif;
       background: radial-gradient(ellipse at center, #f5edda 0%, #d8ccb0 100%) fixed;
@@ -25,15 +22,14 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      flex: 1; /* ★ 核心：吃掉中间所有剩余空间 */
-      justify-content: space-between; /* ★ 对手在上面，你在下面 */
+      min-height: 450px; /* ★ 给一个固定高度即可，不要写 flex: 1 */
     }
 
     .bottom-area { 
       display: flex; 
       flex-direction: column; 
       margin-top: 0;
-      /* ★ 不要固定高度，跟着内容走 */
+      /* 绝对不要在这里写 background: white，让它透出黄色背景 */
     }
 
     .ready-row { /* 头像、提示、出战按钮 */
@@ -48,7 +44,8 @@
       padding: 4px 16px 20px 16px; 
       display: flex; 
       flex-direction: column; 
-      background: rgba(255,255,255,0.94); /* 只有手牌区是白底 */
+      background: rgba(255,255,255,0.94); /* ★ 只有这里是白底 */
+      /* ★ 绝对不要写 height、max-height 或者 overflow-y */
     }
 
     /* ===== 顶部状态栏 ===== */
