@@ -9,13 +9,16 @@
     * { box-sizing: border-box; }
     html, body {
       margin: 0; padding: 0;
-      width: 100%; 
-      min-height: 100vh; /* ★ 用 min-height 即可，不要写 height: 100vh */
-      /* ★ 删掉 overflow: hidden; 允许页面自然下拉 */
-      user-select: none; -webkit-tap-highlight-color: transparent;
+      width: 100%;
+      min-height: 100vh; /* 允许自然撑开 */
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
       font-family: "LXGW WenKai", "Microsoft YaHei", sans-serif;
       background: radial-gradient(ellipse at center, #f5edda 0%, #d8ccb0 100%) fixed;
       color: #333;
+      position: relative;
     }
 
     .arena {
@@ -23,9 +26,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      /* ★ 不需要 flex: 1，直接给它固定一个大致的高度即可（大概是上下两个出牌区的高度） */
-      min-height: 450px; 
-      justify-content: space-between;
+      min-height: 400px; /* 保证亮卡区足够大 */
     }
 
     /* ===== 顶部状态栏 ===== */
@@ -86,12 +87,11 @@
     .qmark-card .qmark-wrap::before { content: "?"; font-size: 56px; color: #e8d8a0; font-weight: bold; }
 
     /* ===== 底部手牌区 ===== */
-    .bottom-area { 
-      display: flex; 
-      flex-direction: column; 
-      margin-top: 0;
-      background: #ffffff; /* ★ 保证整个手牌区是纯白底 */
-      /* ★ 不需要任何 flex 或者固定高度，让它跟着手牌数量自己长高 */
+    .bottom-area {
+      display: flex;
+      flex-direction: column;
+      background: rgba(255,255,255,0.94); /* 纯白底 */
+      /* 不要加 flex: 1，不要加固定高度 */
     }
     .ready-row { display: flex; align-items: stretch; justify-content: space-between; padding: 2px 12px; min-height: 56px; }
     .my-avatar-block { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 64px; }
@@ -101,7 +101,7 @@
     .play-btn { padding: 0 20px; border-radius: 12px; border: none; background: #5bb8e8; color: #fff; font-size: 15px; font-weight: bold; cursor: pointer; font-family: inherit; }
     .play-btn:disabled { background: #ccc; cursor: not-allowed; }
 
-    .my-hand-area { padding: 2px 16px 8px 16px; display: flex; flex-direction: column; }
+    .my-hand-area { padding: 4px 16px 20px 16px; display: flex; flex-direction: column; }
     .hand-label { font-size: 12px; color: #888; padding-left: 4px; margin-bottom: 0; }
     .hand-scroll { display: flex; flex-wrap: wrap; gap: 12px; align-content: flex-start; justify-content: center; padding: 4px 0; }
   </style>
