@@ -26,12 +26,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      min-height: 40px;
       font-size: 14px;
       color: #666;
       padding: 0 8px;
       text-align: center;
+      /* 确保没有其他干扰高度或居中的样式 */
     }
     .combo-info .combo-name {
       font-weight: bold;
@@ -332,11 +331,11 @@
       background: rgba(255,255,255,0.94);
     }
     .hand-label {
-      font-size: 12px;
+      font-size: 12px; /* 跟搏卡一样 12px */
       color: #888;
       letter-spacing: 2px;
       padding-left: 4px;
-      margin-bottom: 0px; /* ★ 去掉底部的 4px */
+      margin-bottom: 0;
     }
     .hand-scroll {
       display: flex;
@@ -373,7 +372,7 @@
       object-fit: cover;
     }
     .my-avatar-block .pname {
-      font-size: 14px;
+      font-size: 14px; /* ★ 从 11px 放大到 14px */
       font-weight: bold;
       color: #4a4a4a;
       text-align: center;
@@ -381,7 +380,7 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      margin-top: 4px; /* 增加一点上方间距，视觉更稳 */
+      margin-top: 4px;
     }
     .my-avatar-block .hand-count {
       font-size: 10px;
@@ -980,7 +979,8 @@
       if (!infoEl) return;
 
       if (myReady.length === 0) {
-        infoEl.innerHTML = '';
+        // 挑战页原本是 infoEl.innerHTML = ''; 现在改成这样：
+        infoEl.innerHTML = '请选择卡牌'; 
         lastComboValid = true;
         updatePlayBtn();
         return;
