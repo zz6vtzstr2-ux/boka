@@ -90,30 +90,56 @@
     .qmark-card .qmark-wrap { width: 100%; height: calc(100% - 22px); border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%; background: radial-gradient(circle at 30% 30%, #3a4a5a, #1a2a3a); border: 4px solid #c8b878; display: flex; align-items: center; justify-content: center; }
     .qmark-card .qmark-wrap::before { content: "?"; font-size: 56px; color: #e8d8a0; font-weight: bold; }
 
-    /* ===== 底部手牌区 ===== */
+    /* 底部总容器：不要白底！让它透明，这样上面的头像区就能透出黄色背景 */
     .bottom-area { 
       display: flex; 
       flex-direction: column; 
       margin-top: 0;
-      background: rgba(255,255,255,0.94); 
-      /* ★ 去掉 flex: 1 和任何绝对定位 */
+      /* 绝对不要在这里写 background: white; */
     }
-
-    /* 操作栏：头像、提示文字、出战按钮 */
+    
+    /* 头像那行：透明背景 */
     .ready-row {
       display: flex; 
       align-items: center; 
       justify-content: space-between;
-      padding: 10px 12px; 
-      min-height: 56px;
+      padding: 10px 16px; 
+      min-height: 64px;
+      /* 保持透明，融入背景 */
     }
 
-    /* 手牌区：独立在操作栏下方 */
+    /* 手牌区：单独给它白底 */
     .my-hand-area { 
-      padding: 4px 16px 20px 16px; 
+      padding: 8px 16px 20px 16px; 
       display: flex; 
       flex-direction: column; 
+      background: rgba(255,255,255,0.94); /* ★ 只有这里加白底 */
     }
+    
+    /* 小细节修复：确保头像和名字垂直排列，按钮宽度正常 */
+    .my-avatar-block { 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      width: 64px; 
+    }
+    .my-avatar-block img { 
+      width: 40px; height: 40px; border-radius: 10px; 
+      border: 2px solid #5bb8e8; background: #fff; object-fit: cover;
+    }
+    .my-avatar-block .pname { 
+      font-size: 14px; font-weight: bold; margin-top: 4px; text-align: center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 64px;
+    }
+    .combo-info { 
+      flex: 1; text-align: center; font-size: 14px; color: #666; 
+    }
+    .play-btn {
+      width: 80px; padding: 10px 0; border-radius: 12px; border: none;
+      background: #5bb8e8; color: #fff; font-size: 15px; font-weight: bold;
+      cursor: pointer; flex-shrink: 0;
+    }
+    .play-btn:disabled { background: #ccc; cursor: not-allowed; }
     .my-avatar-block { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 64px; }
     .my-avatar-block img { width: 40px; height: 40px; border-radius: 10px; border: 2px solid #5bb8e8; }
     .my-avatar-block .pname { font-size: 14px; font-weight: bold; margin-top: 4px; }
@@ -163,17 +189,17 @@
   </div>
 
   <div class="bottom-area">
-    <!-- 操作行（头像+出战按钮） -->
+    <!-- 头像、提示、出战按钮（背景透明，跟上面亮卡区连成一体） -->
     <div class="ready-row">
       <div class="my-avatar-block">
-        <img src="/static/avatars/{{ current_user.username }}.jpg">
+        <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'">
         <div class="pname">{{ current_user.nickname or current_user.username }}</div>
       </div>
       <div class="combo-info" id="comboInfo">请选择卡牌</div>
       <button class="play-btn" id="playBtn" onclick="submitPlay()" disabled>出战</button>
     </div>
     
-    <!-- 手牌区 -->
+    <!-- 手牌区（纯白底） -->
     <div class="my-hand-area">
       <div class="hand-label">手牌 <span id="myHandCount" style="font-weight:bold; color:#b85a6a; font-size:14px;">0</span></div>
       <div class="hand-scroll" id="myHandArea"></div>
