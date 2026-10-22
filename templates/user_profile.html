@@ -150,13 +150,21 @@
 </head>
 <body>
   <div class="container">
-    
-    <!-- 头像、昵称、积分强制在一行 -->
-    <div class="user-bar">
-      <img src="/static/avatars/{{ profile_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'">
-      <div class="nickname">{{ profile_user.nickname or profile_user.username }}</div>
-      <div class="score-capsule">
-        <span class="swords">⚔️</span>
+    
+    <!-- 头像、昵称、积分强制同一行 -->
+    <div style="display: flex; flex-direction: row; align-items: center; gap: 12px; margin-bottom: 16px; width: 100%; overflow: hidden;">
+      <!-- 头像 -->
+      <img src="/static/avatars/{{ profile_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'" 
+           style="width: 56px; height: 56px; border-radius: 12px; border: 2px solid #d8d0bc; background: #fff; object-fit: cover; flex-shrink: 0;">
+      
+      <!-- 昵称 -->
+      <div style="font-size: 20px; font-weight: bold; color: #2c3e50; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%;">
+        {{ profile_user.nickname or profile_user.username }}
+      </div>
+      
+      <!-- 积分胶囊 -->
+      <div style="display: flex; align-items: center; gap: 4px; background: #f0ece1; border: 1px solid #d8d0bc; padding: 4px 12px; border-radius: 20px; font-size: 16px; font-weight: bold; color: #2c3e50; flex-shrink: 0; white-space: nowrap;">
+        <span style="font-size: 18px; color: #666;">⚔️</span>
         <span>{{ score }}</span>
       </div>
     </div>
@@ -167,7 +175,7 @@
         <div class="panel-title">玩家荣誉</div>
         <div class="honor-text">搏卡月度冠军 × {{ trophies|length }}</div>
       </div>
-      
+      
       <div class="trophies-wrap">
         {% for t in trophies %}
           <div class="trophy-item">
@@ -180,14 +188,14 @@
 
     <!-- 数据区 -->
     <div class="panel">
-      <div class="panel-title">玩家数据</div>
+      <div class="panel-title" style="margin-bottom: 20px;">玩家数据</div>
       <div class="data-btns">
         <a href="/boka" class="data-btn">搏卡</a>
         <a href="/challenge" class="data-btn">个人挑战</a>
         <a href="/world_boss" class="data-btn">世界Boss</a>
       </div>
     </div>
-    
+    
   </div>
 </body>
 </html>
