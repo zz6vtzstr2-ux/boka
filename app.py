@@ -3562,7 +3562,8 @@ def user_profile(username):
                            boka_best=user.boka_best_score,
                            boka_best_time=user.boka_best_time,
                            boss_best=user.boss_best_damage,
-                           boss_best_time=user.boss_best_time)
+                           boss_best_time=user.boss_best_time,
+                           score=user.score or 0) # ★ 新增：传积分
 
 @app.route('/player_profile')
 @login_required
