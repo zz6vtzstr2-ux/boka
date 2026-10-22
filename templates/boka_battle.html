@@ -167,13 +167,25 @@
     {% set opponent = players | rejectattr("username", "equalto", current_user.username) | first %}
     {% if opponent %}
     <div class="side ai" style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px;">
-      <div class="player-head">
-        <div class="ai-avatar-placeholder" style="padding: 0 14px;">对手</div>
+      
+      <!-- ★ 点击触发 JS 函数，不再直接跳转网页 -->
+      <div onclick="showProfile('{{ opponent.username }}')" 
+           style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px; cursor: pointer;"
+           onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
+        
+        {% if opponent.username.startswith('ai_') %}
+          <div class="ai-avatar-placeholder" style="padding: 0 14px;">对手</div>
+        {% else %}
+          <img src="/static/avatars/{{ opponent.username }}.jpg" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" style="width: 40px; height: 40px; border-radius: 10px; border: 2px solid #e8c8d0; background: #fff; object-fit: cover;">
+          <div class="ai-avatar-placeholder" style="display: none; padding: 0 14px;">对手</div>
+        {% endif %}
+        
         <div>
           <div class="pname">{{ opponent.nickname }}</div>
           <div class="hand-count">手牌 <span id="count-{{ opponent.username }}">{{ opponent.hand_count }}</span></div>
         </div>
       </div>
+      
       <div class="played-area" id="play-{{ opponent.username }}"></div>
     </div>
     {% endif %}
@@ -647,6 +659,18 @@
       }
     }
 
+    // ★ 显示玩家资料弹窗
+    function showProfile(username) {
+      if (username.startsWith('ai_')) {
+        alert("这是电脑玩家，没有资料哦~");
+        return;
+      }
+      // 把 iframe 的地址设为该玩家的资料页
+      document.getElementById('profileIframe').src = '/user/' + username;
+      // 显示弹窗
+      document.getElementById('profileModal').style.display = 'flex';
+    }
+
     async function exitResult() {
       // 玩家点击确认后，主动发请求让后端重置房间
       await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' });
@@ -761,5 +785,22 @@
     pollState();
     startPolling();
   </script>
+
+  <!-- 玩家资料弹窗 -->
+  <div id="profileModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
+    <div style="background:#e8e0cc; width:95%; max-width:500px; height:85vh; border-radius:20px; border:4px double #f0e0a0; position:relative; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.5); display:flex; flex-direction:column;">
+      
+      <!-- 弹窗头部 -->
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#fffdf5; border-bottom:1px solid #d8d0bc; z-index:10;">
+        <h3 style="margin:0; color:#8a6d1f; font-size:18px;">玩家资料</h3>
+        <button onclick="document.getElementById('profileModal').style.display='none'" style="background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; padding:6px 16px; border-radius:8px; font-weight:bold; font-family:inherit; cursor:pointer;">关闭</button>
+      </div>
+
+      <!-- 内嵌资料页 (使用 iframe 加载原页面) -->
+      <iframe id="profileIframe" src="" style="flex:1; width:100%; border:none; background:#e8e0cc;"></iframe>
+      
+    </div>
+  </div>
+  
 </body>
 </html>
