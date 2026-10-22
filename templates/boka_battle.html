@@ -245,7 +245,7 @@
       <h2 style="margin:0 0 16px 0; color:#8a6d1f;" id="resultTitle">对局结束</h2>
       <div style="font-size:15px; color:#555; margin-bottom:10px;" id="resultLine"></div>
       <div style="font-size:15px; color:#333; margin-bottom:20px; text-align:left; line-height:1.8;" id="resultRanks"></div>
-      <button onclick="window.location.href='/boka/room/{{ room_code }}'" style="width:100%; padding:14px; border-radius:12px; background:#5bb8e8; color:#fff; font-size:16px; font-weight:bold; border:none; cursor:pointer;">确认退出</button>
+      <button onclick="exitResult()" style="width:100%; padding:14px; border-radius:12px; background:#5bb8e8; color:#fff; font-size:16px; font-weight:bold; border:none; cursor:pointer;">确认退出</button>
     </div>
   </div>
 
@@ -574,13 +574,15 @@
         const data = await res.json();
         if (data.error) return;
 
-        if (data.history) lastHistory = data.history;
-        
-        poolCount = data.pool_count || 0; // ★ 同步卡袋数量
+        if (data.history) {
+          lastHistory = data.history;
+        }
+        
+        poolCount = data.pool_count || 0;
 
         document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
         document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
-        
+        
         const banner = document.getElementById('centerBanner');
         banner.textContent = '本轮' + data.round_phase;
         banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
@@ -589,6 +591,7 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
+        // 1. 更新手牌数量
         if (data.phase === 'selecting' || (data.phase === 'revealing' && elapsed >= TIME_UPDATE)) {
           if (data.players_info) {
             data.players_info.forEach(p => {
@@ -602,18 +605,16 @@
           }
         }
 
+        // 2. 阶段渲染
         if (data.phase === 'selecting') {
           if (lastPhase !== 'selecting' || lastRound !== data.round_no || myHand.length === 0) {
-            // ★ 加上这一行，重置弹窗标记
-            window.resultShown = false;
-
+            window.resultShown = false; // 重置弹窗标记
             locked = false;
             myHand = data.my_hand || [];
-            // ...
             myReady = [];
             renderHand();
             updatePlayBtn();
-            
+            
             playersData.forEach(p => {
               const area = document.getElementById(`play-${p.username}`);
               if (area) area.innerHTML = '';
@@ -621,7 +622,7 @@
             const myArea = document.getElementById('play-myArea');
             if (myArea) myArea.innerHTML = '';
           }
-        } 
+        } 
         else if (data.phase === 'revealing' || data.phase === 'finished') {
           locked = true;
           updatePlayBtn();
@@ -631,12 +632,12 @@
         lastPhase = data.phase;
         lastRound = data.round_no;
 
-        // ★ 核心修复：收到信号立刻弹窗，绝不延迟
-        if (data.finished) {
-          clearInterval(pollTimer);
+        // 3. 游戏结束弹窗（前端控时，8秒准时弹出）
+        if (data.phase === 'revealing' && elapsed >= TIME_UPDATE && data.finished) {
+          clearInterval(pollTimer); // 切断轮询
           if (!window.resultShown) {
             window.resultShown = true;
-            
+            // 直接弹窗，没有延迟
             document.getElementById('resultTitle').textContent = data.my_rank === 1 ? "恭喜获胜！" : "对局结束";
             document.getElementById('resultLine').textContent = `你的最终排名：第 ${data.my_rank} 名`;
             document.getElementById('resultRanks').innerHTML = `
@@ -646,11 +647,21 @@
             `;
             document.getElementById('resultModal').style.display = 'flex';
           }
-          return; 
+          return;
         }
-      } catch(e) { console.error(e); }
+
+      } catch(e) { 
+        console.error(e); 
+      }
     }
 
+    async function exitResult() {
+      // 玩家点击确认后，主动发请求让后端重置房间
+      await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' });
+      // 跳回房间准备页
+      window.location.href = '/boka/room/' + roomCode;
+    }
+    
     // ===== 记录功能 =====
     const DISPLAY_NAME_MAP = { "扈三娘": "美女", "白胜": "炸弹", "孙二娘": "炸弹" };
     function displayName(name) {
