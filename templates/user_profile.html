@@ -20,13 +20,13 @@
     .user-bar {
       display: flex;
       align-items: center;
-      flex-wrap: nowrap; /* 强制不换行 */
+      flex-wrap: nowrap; /* ★ 核心：绝对不换行 */
       gap: 12px;
       margin-bottom: 16px;
-      padding: 10px 0; /* 移除左右 padding，让内容更贴边 */
+      padding: 10px 0; 
     }
     .user-bar img {
-      width: 56px;  /* 稍微缩小一点头像，防止挤爆 */
+      width: 56px;  
       height: 56px;
       border-radius: 12px;
       border: 2px solid #d8d0bc;
@@ -38,9 +38,10 @@
       font-size: 20px;
       font-weight: bold;
       color: #2c3e50;
+      flex: 1; /* ★ 核心：占据中间所有剩余空间 */
       white-space: nowrap;
       overflow: hidden;
-      text-overflow: ellipsis;
+      text-overflow: ellipsis; /* 名字太长会变成... */
     }
     .score-capsule {
       display: inline-flex;
@@ -53,8 +54,7 @@
       font-size: 16px;
       font-weight: bold;
       color: #2c3e50;
-      margin-left: auto; /* 自动靠右，或者设为固定距离 */
-      flex-shrink: 0;
+      flex-shrink: 0; /* ★ 核心：积分胶囊绝不缩小 */
     }
     .score-capsule .swords { font-size: 18px; color: #666; }
 
