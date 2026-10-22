@@ -164,19 +164,18 @@
   </div>
 
   <div class="arena">
+    <!-- 对手区 -->
     {% set opponent = players | rejectattr("username", "equalto", current_user.username) | first %}
     {% if opponent %}
     <div class="side ai" style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px;">
       
-      <!-- ★ 点击触发 JS 函数，不再直接跳转网页 -->
-      <div onclick="showProfile('{{ opponent.username }}')" 
-           style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px; cursor: pointer;"
-           onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
+      <!-- ★ 加上 onclick，点击整个头部弹出资料 -->
+      <div class="player-head" onclick="showProfile('{{ opponent.username }}')" style="cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
         
         {% if opponent.username.startswith('ai_') %}
           <div class="ai-avatar-placeholder" style="padding: 0 14px;">对手</div>
         {% else %}
-          <img src="/static/avatars/{{ opponent.username }}.jpg" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" style="width: 40px; height: 40px; border-radius: 10px; border: 2px solid #e8c8d0; background: #fff; object-fit: cover;">
+          <img src="/static/avatars/{{ opponent.username }}.jpg" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
           <div class="ai-avatar-placeholder" style="display: none; padding: 0 14px;">对手</div>
         {% endif %}
         
@@ -186,6 +185,7 @@
         </div>
       </div>
       
+      <!-- 对手出牌区 -->
       <div class="played-area" id="play-{{ opponent.username }}"></div>
     </div>
     {% endif %}
@@ -200,7 +200,7 @@
   <div class="bottom-area">
     <!-- 头像、提示、出战按钮（背景透明，跟上面亮卡区连成一体） -->
     <div class="ready-row">
-      <div class="my-avatar-block">
+      <div class="my-avatar-block" onclick="showProfile('{{ current_user.username }}')" style="cursor: pointer;">
         <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'">
         <div class="pname">{{ current_user.nickname or current_user.username }}</div>
       </div>
@@ -665,9 +665,8 @@
         alert("这是电脑玩家，没有资料哦~");
         return;
       }
-      // 把 iframe 的地址设为该玩家的资料页
+      // 统一用 /user/ 路由。因为你的资料页如果是自己的，也会显示
       document.getElementById('profileIframe').src = '/user/' + username;
-      // 显示弹窗
       document.getElementById('profileModal').style.display = 'flex';
     }
 
