@@ -16,14 +16,17 @@
     }
     .container { max-width: 800px; margin: 0 auto; }
     
-    /* 1. 顶部用户信息栏：强制在一行显示 */
+    /* 1. 顶部用户信息栏：最强硬的一行布局 */
     .user-bar {
-      display: flex;
-      align-items: center;
-      flex-wrap: nowrap; /* ★ 核心：绝对不换行 */
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      flex-wrap: nowrap !important; /* ★ 绝对不换行 */
       gap: 12px;
       margin-bottom: 16px;
       padding: 10px 0; 
+      width: 100%;
     }
     .user-bar img {
       width: 56px;  
@@ -38,14 +41,16 @@
       font-size: 20px;
       font-weight: bold;
       color: #2c3e50;
-      flex: 1; /* ★ 核心：占据中间所有剩余空间 */
       white-space: nowrap;
       overflow: hidden;
-      text-overflow: ellipsis; /* 名字太长会变成... */
+      text-overflow: ellipsis; 
+      flex-shrink: 0; /* ★ 防止昵称被压缩成0宽度 */
+      max-width: 50%; /* 防止超长名字把积分挤出屏幕 */
     }
     .score-capsule {
-      display: inline-flex;
-      align-items: center;
+      display: flex !important; /* 确保是 flex */
+      align-items: center !important;
+      justify-content: center !important;
       gap: 4px;
       background: #f0ece1;
       border: 1px solid #d8d0bc;
@@ -54,7 +59,9 @@
       font-size: 16px;
       font-weight: bold;
       color: #2c3e50;
-      flex-shrink: 0; /* ★ 核心：积分胶囊绝不缩小 */
+      flex-shrink: 0; /* ★ 积分胶囊绝不换行绝不压缩 */
+      margin-left: 0; /* 取消之前加的自动靠右 */
+      white-space: nowrap;
     }
     .score-capsule .swords { font-size: 18px; color: #666; }
 
