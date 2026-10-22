@@ -2682,6 +2682,7 @@ def finish_boka_game(game, alive):
     survivors = [g for g in gps if g.username in [a.username for a in alive]]
     finished = [g for g in gps if g.finished_order is not None]
     surrendered = [g for g in gps if g.surrendered]
+    
     finished.sort(key=lambda g: g.finished_order, reverse=True)
     rank_order = []
     for s in survivors:
@@ -2691,18 +2692,34 @@ def finish_boka_game(game, alive):
     for s in surrendered:
         if s not in rank_order:
             rank_order.append(s)
+            
     n = len(rank_order)
-    all_scores = [User.query.filter_by(username=g.username).first().score or 0 for g in rank_order]
-    avg_score = sum(all_scores) / n if n else 0
+    
+    # ★ 核心修复：只统计真人的分数，且防 None 崩溃
+    real_scores = []
+    for g in rank_order:
+        u = User.query.filter_by(username=g.username).first()
+        # 有 User 记录且不是 AI，才算进平均分
+        if u and not g.username.startswith("ai_"):
+            real_scores.append(u.score or 0)
+            
+    avg_score = sum(real_scores) / len(real_scores) if real_scores else 0
+
     for idx, g in enumerate(rank_order, start=1):
         g.rank = idx
-    for g in rank_order:
+        # 如果是 AI，不改变分数，直接跳过
+        if g.username.startswith("ai_"):
+            g.score_change = 0
+            continue
+            
         u = User.query.filter_by(username=g.username).first()
         if not u:
             continue
+            
         old_score = u.score or 0
         change = calc_boka_score_change(old_score, g.rank, n, avg_score)
         new_score = old_score + change
+        
         if u.max_score is None:
             u.max_score = 0
         floor = (u.max_score // 1000) * 1000
@@ -2712,8 +2729,10 @@ def finish_boka_game(game, alive):
             new_score = 0
         if new_score > u.max_score:
             u.max_score = new_score
+            
         g.score_change = new_score - old_score
         u.score = new_score
+        
         rec = BokaGameRecord(
             username=g.username, game_id=game.id, room_code=None,
             rank=g.rank, player_count=n,
@@ -2725,7 +2744,7 @@ def finish_boka_game(game, alive):
     game.phase = "finished"
     game.finished_at = datetime.now()
     
-    # ★ 核心改动：彻底干掉后台线程，只把房间状态改为 finished，绝不自动重置！
+    # 房间状态挂起，不自动重置
     room = BokaRoom.query.get(game.room_id)
     if room:
         room.status = "finished"
