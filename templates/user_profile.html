@@ -137,6 +137,40 @@
     .data-content.active { display: block; }
     .data-content .row { margin: 10px 0; color: #555; line-height: 1.6; }
     .data-content .best { color: #b8952f; font-weight: bold; }
+  
+    /* ★ 专属荣誉行，绝对不换行 */
+    .honor-header {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      margin-bottom: 16px;
+      width: 100%;
+      flex-wrap: nowrap; /* 强制同行 */
+    }
+
+    /* ★ 专属荣誉标题 */
+    .honor-title {
+      background: #fdf6d8;
+      color: #8a6d1f;
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 1px solid #f0e0a0;
+      font-size: 16px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      white-space: nowrap;
+    }
+
+    /* ★ 专属右侧文字 */
+    .honor-subtitle {
+      font-size: 15px;
+      color: #4a4a4a;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+  
   </style>
 </head>
 <body>
@@ -154,8 +188,9 @@
 
     <!-- 荣誉面板 -->
     <div class="panel">
-      <div class="honor-row">
-        <div class="panel-title">玩家荣誉</div>
+      <!-- ★ 这里换成了专属的 honor-header -->
+      <div class="honor-header">
+        <div class="honor-title">玩家荣誉</div>
         <div class="honor-subtitle">搏卡月度冠军 × {{ trophies|length }}</div>
       </div>
       <div class="trophies-wrap">
