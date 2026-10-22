@@ -2232,24 +2232,21 @@ def boka_quit(room_code):
     room = BokaRoom.query.filter_by(room_code=room_code).first()
     if not room:
         return jsonify({"error": "房间不存在"}), 404
-    if room.owner_username == current_user.username:
-        players = BokaPlayer.query.filter_by(room_id=room.id).all()
-        for p in players:
-            u = User.query.filter_by(username=p.username).first()
-            if u:
-                u.boka_room_id = None
-        games = BokaGame.query.filter_by(room_id=room.id).all()
-        for g in games:
-            BokaGamePlayer.query.filter_by(game_id=g.id).delete()
-            db.session.delete(g)
-        BokaPlayer.query.filter_by(room_id=room.id).delete()
-        db.session.delete(room)
-    else:
-        BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).delete()
-        current_user.boka_room_id = None
-    BOKA_ROOM_CACHE.pop(room_code, None)
-    db.session.commit()
-    return jsonify({"success": True})
+
+    # ★ 核心拦截：如果游戏已经结束，任何人点退出，都把房间恢复成准备中
+    if room.status == "finished":
+        room.status = "waiting"
+        # 把所有玩家的准备状态重置
+        BokaPlayer.query.filter_by(room_id=room.id).update({"ready": False})
+        # 清除玩家之前的手牌状态
+        game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
+        if game:
+            BokaGamePlayer.query.filter_by(game_id=game.id).delete()
+            db.session.delete(game)
+        db.session.commit()
+        return jsonify({"success": True})
+        
+    # ... 下面保留你原本的房主解散 / 普通玩家退出逻辑 ...
 
 # ========== 战斗页 ==========
 # ========== 搏卡战斗核心 ==========
@@ -2680,7 +2677,6 @@ def _finalize_round(game, gps, pool, round_record):
         game.revealed_at = datetime.now()
     db.session.commit()
 
-
 def finish_boka_game(game, alive):
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     survivors = [g for g in gps if g.username in [a.username for a in alive]]
@@ -2725,30 +2721,16 @@ def finish_boka_game(game, alive):
             score_after=new_score, played_at=datetime.now(),
         )
         db.session.add(rec)
+        
     game.phase = "finished"
     game.finished_at = datetime.now()
-    room = BokaRoom.query.get(game.room_id)
     
-    # ★ 核心：先提交 finished 状态，让前端能立刻查到并弹窗
-    db.session.commit()
-
+    # ★ 核心改动：彻底干掉后台线程，只把房间状态改为 finished，绝不自动重置！
+    room = BokaRoom.query.get(game.room_id)
     if room:
-        room_id = room.id
-        import threading
-        import time
+        room.status = "finished"
         
-        # ★ 延迟 3 秒再把房间切回等待状态
-        def reset_room_later():
-            with app.app_context():
-                time.sleep(3)
-                r = BokaRoom.query.get(room_id)
-                if r and r.status == "playing":
-                    r.status = "waiting"
-                    BokaPlayer.query.filter_by(room_id=room_id).update({"ready": False})
-                    db.session.commit()
-        
-        threading.Thread(target=reset_room_later).start()
-
+    db.session.commit()
 
 def calc_boka_score_change(my_score, rank, total_players, avg_score):
     base_table = {
@@ -2982,53 +2964,56 @@ def boka_battle_state(room_code):
             resolve_boka_round(game)
             db.session.commit()
 
-        # 8 秒到了，执行真正的扣牌逻辑
         if elapsed_since_reveal >= TIME_UPDATE_CARDS:
-            history = json_loads_safe(game.history)
-            if history:
-                last_round = history[-1]
-                movements = last_round.get("movements", [])
-                gp_map = {g.username: g for g in gps}
-                
-                hand_changes = {g.username: json_loads_safe(g.hand) for g in gps}
-                pool = json_loads_safe(game.card_pool)
-
-                for m in movements:
-                    cid = m["card_id"]
-                    frm = m["from"]
-                    to = m["to"]
-                    if frm in hand_changes and cid in hand_changes[frm]:
-                        hand_changes[frm].remove(cid)
-                    if to in hand_changes:
-                        hand_changes[to].append(cid)
-                    elif to == "pool":
-                        pool.append({"id": cid, "level": m.get("level", 1)})
-
-                for g in gps:
-                    g.hand = json_dumps_safe(hand_changes[g.username])
-                game.card_pool = json_dumps_safe(pool)
-
-            # ★ 核心：检查是不是在 0 秒就标记了游戏结束
-            if game.winner_card_id == -999:
-                if game.phase != "finished":
-                    alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
-                    finish_boka_game(game, alive)
-                    game.phase = "finished"
-                    db.session.commit()
-            else:
-                # 没结束，正常进入下一轮
-                game.round_no += 1
-                game.phase = "selecting"
-                game.revealed_at = None
-                game.round_winner_card_id = None
-                game.winner_card_id = None
-                game.winner_username = None
-                
-                for g in gps:
-                    g.ready_card = json_dumps_safe([])
-                    g.locked = False
+            try:
+                history = json_loads_safe(game.history)
+                if history:
+                    last_round = history[-1]
+                    movements = last_round.get("movements", [])
                     
-                db.session.commit()
+                    hand_changes = {g.username: json_loads_safe(g.hand) for g in gps}
+                    pool = json_loads_safe(game.card_pool)
+                    if not isinstance(pool, list): pool = [] # 终极防崩
+
+                    for m in movements:
+                        cid = m["card_id"]
+                        frm = m["from"]
+                        to = m["to"]
+                        if frm in hand_changes and cid in hand_changes[frm]:
+                            hand_changes[frm].remove(cid)
+                        if to in hand_changes:
+                            hand_changes[to].append(cid)
+                        elif to == "pool":
+                            pool.append({"id": cid, "level": m.get("level", 1)})
+
+                    for g in gps:
+                        g.hand = json_dumps_safe(hand_changes[g.username])
+                    game.card_pool = json_dumps_safe(pool)
+
+                # 判断是否结束
+                if game.winner_card_id == -999:
+                    if game.phase != "finished":
+                        alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
+                        finish_boka_game(game, alive)
+                        game.phase = "finished"
+                        db.session.commit()
+                else:
+                    # 没结束，进入下一轮
+                    game.round_no += 1
+                    game.phase = "selecting"
+                    game.revealed_at = None
+                    game.round_winner_card_id = None
+                    game.winner_card_id = None
+                    game.winner_username = None
+                    
+                    for g in gps:
+                        g.ready_card = json_dumps_safe([])
+                        g.locked = False
+                        
+                    db.session.commit()
+            except Exception as e:
+                print(f"8秒结算报错: {e}")
+                db.session.rollback()
 
     all_played = {}
     for g in gps:
