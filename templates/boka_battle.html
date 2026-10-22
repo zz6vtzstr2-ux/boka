@@ -574,10 +574,7 @@
         const data = await res.json();
         if (data.error) return;
 
-        if (data.history) {
-          lastHistory = data.history;
-        }
-        
+        if (data.history) lastHistory = data.history;
         poolCount = data.pool_count || 0;
 
         document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
@@ -591,21 +588,7 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        // 1. 更新手牌数量
-        if (data.phase === 'selecting' || (data.phase === 'revealing' && elapsed >= TIME_UPDATE)) {
-          if (data.players_info) {
-            data.players_info.forEach(p => {
-              if (p.is_me) {
-                document.getElementById('myHandCount').textContent = p.hand_count;
-              } else {
-                const countEl = document.getElementById(`count-${p.username}`);
-                if (countEl) countEl.textContent = p.hand_count;
-              }
-            });
-          }
-        }
-
-        // 2. 阶段渲染
+        // 1. 常规状态渲染（手牌数、桌面等）
         if (data.phase === 'selecting') {
           if (lastPhase !== 'selecting' || lastRound !== data.round_no || myHand.length === 0) {
             window.resultShown = false; // 重置弹窗标记
@@ -622,31 +605,40 @@
             const myArea = document.getElementById('play-myArea');
             if (myArea) myArea.innerHTML = '';
           }
-        } 
-        else if (data.phase === 'revealing' || data.phase === 'finished') {
+        } else if (data.phase === 'revealing' || data.phase === 'finished') {
           locked = true;
           updatePlayBtn();
           renderPlayedCards(data, elapsed);
+          
+          if (data.players_info) {
+            data.players_info.forEach(p => {
+              if (p.is_me) {
+                document.getElementById('myHandCount').textContent = p.hand_count;
+              } else {
+                const countEl = document.getElementById(`count-${p.username}`);
+                if (countEl) countEl.textContent = p.hand_count;
+              }
+            });
+          }
         }
 
         lastPhase = data.phase;
         lastRound = data.round_no;
 
-        // 3. 游戏结束弹窗（前端控时，8秒准时弹出）
-        if (data.phase === 'revealing' && elapsed >= TIME_UPDATE && data.finished) {
-          clearInterval(pollTimer); // 切断轮询
-          if (!window.resultShown) {
-            window.resultShown = true;
-            // 直接弹窗，没有延迟
-            document.getElementById('resultTitle').textContent = data.my_rank === 1 ? "恭喜获胜！" : "对局结束";
-            document.getElementById('resultLine').textContent = `你的最终排名：第 ${data.my_rank} 名`;
-            document.getElementById('resultRanks').innerHTML = `
-              <div style="text-align:center; font-weight:bold; color:#b85a6a; font-size:18px;">
-                积分变动：${data.my_score_change > 0 ? '+' : ''}${data.my_score_change}
-              </div>
-            `;
-            document.getElementById('resultModal').style.display = 'flex';
-          }
+        // 2. ★ 绝杀：不管什么状态，只要后端发 finished 了，立刻弹窗！
+        if (data.finished && !window.resultShown) {
+          window.resultShown = true;
+          clearInterval(pollTimer); // 停止轮询
+          
+          // 立刻弹出结算面板
+          document.getElementById('resultTitle').textContent = data.my_rank === 1 ? "恭喜获胜！" : "对局结束";
+          document.getElementById('resultLine').textContent = `你的最终排名：第 ${data.my_rank || '未知'} 名`;
+          document.getElementById('resultRanks').innerHTML = `
+            <div style="text-align:center; font-weight:bold; color:#b85a6a; font-size:18px;">
+              积分变动：${data.my_score_change > 0 ? '+' : ''}${data.my_score_change || 0}
+            </div>
+          `;
+          document.getElementById('resultModal').style.display = 'flex';
           return;
         }
 
