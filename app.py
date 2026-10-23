@@ -2582,6 +2582,12 @@ def resolve_boka_round(game):
     if alive_count <= 1:
         game.winner_card_id = -999
 
+    # ★ 核心：在这里就把真实手牌给扣了！
+    # 因为上面已经算出了 hand_changes，我们直接覆盖真实的 g.hand
+    for g in gps:
+        g.hand = json_dumps_safe(hand_changes[g.username])
+    game.card_pool = json_dumps_safe(pool)
+
     history = json_loads_safe(game.history)
     history.append(round_record)
     game.history = json_dumps_safe(history)
@@ -2985,58 +2991,24 @@ def boka_battle_state(room_code):
             db.session.commit()
 
         if elapsed_since_reveal >= TIME_UPDATE_CARDS:
-            try:
-                history = json_loads_safe(game.history)
-                if history:
-                    last_round = history[-1]
-                    movements = last_round.get("movements", [])
-                    
-                    hand_changes = {g.username: json_loads_safe(g.hand) for g in gps}
-                    pool = json_loads_safe(game.card_pool)
-                    if not isinstance(pool, list): pool = [] # 终极防崩
-
-                    for m in movements:
-                        cid = m["card_id"]
-                        frm = m["from"]
-                        to = m["to"]
-                        if frm in hand_changes and cid in hand_changes[frm]:
-                            hand_changes[frm].remove(cid)
-                        if to in hand_changes:
-                            hand_changes[to].append(cid)
-                        elif to == "pool":
-                            pool.append({"id": cid, "level": m.get("level", 1)})
-
-                    # 存库
-                    for g in gps:
-                        g.hand = json_dumps_safe(hand_changes[g.username])
-                        # ★ 核心改动：把最新手牌数量直接塞进内存字典，绕开数据库缓存
-                        latest_hand_counts[g.username] = len(hand_changes[g.username])
-                    game.card_pool = json_dumps_safe(pool)
-
-                # 判断是否结束
-                if game.winner_card_id == -999:
-                    if game.phase != "finished":
-                        alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
-                        finish_boka_game(game, alive)
-                        game.phase = "finished"
-                else:
-                    # 没结束，进入下一轮
-                    game.round_no += 1
-                    game.phase = "selecting"
-                    game.revealed_at = None
-                    game.round_winner_card_id = None
-                    game.winner_card_id = None
-                    game.winner_username = None
-                    
-                    for g in gps:
-                        g.ready_card = json_dumps_safe([])
-                        g.locked = False
-                        
-                # ★ 核心：无论走哪个分支，都把刚才修改的手牌真正存进数据库！
-                db.session.commit()
-            except Exception as e:
-                print(f"8秒结算报错: {e}")
-                db.session.rollback()
+            # 手牌和卡袋在 0 秒时 resolve_boka_round 已经处理过了，这里只负责推进状态
+            if game.winner_card_id == -999:
+                if game.phase != "finished":
+                    alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
+                    finish_boka_game(game, alive)
+                    game.phase = "finished"
+            else:
+                game.round_no += 1
+                game.phase = "selecting"
+                game.revealed_at = None
+                game.round_winner_card_id = None
+                game.winner_card_id = None
+                game.winner_username = None
+                
+                for g in gps:
+                    g.ready_card = json_dumps_safe([])
+                    g.locked = False
+            db.session.commit()
 
     all_played = {}
     for g in gps:
