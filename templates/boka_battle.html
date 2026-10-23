@@ -623,38 +623,21 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        // 1. 常规状态渲染（手牌数、桌面等）
-        if (data.phase === 'selecting') {
-          if (lastPhase !== 'selecting' || lastRound !== data.round_no || myHand.length === 0) {
-            window.resultShown = false; // 重置弹窗标记
-            locked = false;
-            myHand = data.my_hand || [];
-            myReady = [];
-            renderHand();
-            updatePlayBtn();
-            
-            playersData.forEach(p => {
-              const area = document.getElementById(`play-${p.username}`);
-              if (area) area.innerHTML = '';
-            });
-            const myArea = document.getElementById('play-myArea');
-            if (myArea) myArea.innerHTML = '';
-          }
-        } else if (data.phase === 'revealing' || data.phase === 'finished') {
-          locked = true;
-          updatePlayBtn();
-          renderPlayedCards(data, elapsed);
-          
-          if (data.players_info) {
-            data.players_info.forEach(p => {
-              if (p.is_me) {
-                document.getElementById('myHandCount').textContent = p.hand_count;
-              } else {
-                const countEl = document.getElementById(`count-${p.username}`);
-                if (countEl) countEl.textContent = p.hand_count;
-              }
-            });
-          }
+        // ★ 核心：如果是比牌动画阶段（revealing），且还没到 8 秒，绝对不准刷新数字！
+        if (data.phase === 'revealing' && elapsed < TIME_UPDATE) {
+            // 什么都不做，保持旧数字！
+        } else {
+            // 只有在选牌阶段，或者 8 秒时间到了，才允许刷新数字
+            if (data.players_info) {
+                data.players_info.forEach(p => {
+                    if (p.is_me) {
+                        document.getElementById('myHandCount').textContent = p.hand_count;
+                    } else {
+                        const countEl = document.getElementById(`count-${p.username}`);
+                        if (countEl) countEl.textContent = p.hand_count;
+                    }
+                });
+            }
         }
 
         lastPhase = data.phase;
