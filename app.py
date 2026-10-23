@@ -3049,12 +3049,14 @@ def boka_battle_state(room_code):
 
     players_info = []
     for g in gps:
+        # ★ 直接从数据库重新取一次这个玩家，保证拿到的是刚刚 commit 后的最新手牌
+        db_g = db.session.get(BokaGamePlayer, g.id)
         players_info.append({
-            "username": g.username,
-            "nickname": g.nickname or g.username,
-            "hand_count": len(json_loads_safe(g.hand)),
-            "locked": g.locked,
-            "is_me": g.username == current_user.username
+            "username": db_g.username,
+            "nickname": db_g.nickname or db_g.username,
+            "hand_count": len(json_loads_safe(db_g.hand)),
+            "locked": db_g.locked,
+            "is_me": db_g.username == current_user.username
         })
 
     return jsonify({
