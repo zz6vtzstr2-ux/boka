@@ -623,11 +623,14 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        // ★ 核心：如果是比牌动画阶段（revealing），且还没到 8 秒，绝对不准刷新数字！
-        if (data.phase === 'revealing' && elapsed < TIME_UPDATE) {
-            // 什么都不做，保持旧数字！
-        } else {
-            // 只有在选牌阶段，或者 8 秒时间到了，才允许刷新数字
+        // 在 8 秒前，强行不刷新卡袋数字！
+        if (data.phase === 'selecting' || (data.phase === 'revealing' && elapsed >= TIME_UPDATE)) {
+            poolCount = data.pool_count || 0;
+            document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
+        }
+
+        // 在 8 秒前，强行不刷新手牌数字！
+        if (data.phase === 'selecting' || (data.phase === 'revealing' && elapsed >= TIME_UPDATE)) {
             if (data.players_info) {
                 data.players_info.forEach(p => {
                     if (p.is_me) {
