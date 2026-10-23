@@ -231,7 +231,8 @@ class BokaGame(db.Model):
     revealed_at = db.Column(db.DateTime, nullable=True)
     round_winner_card_id = db.Column(db.Integer, nullable=True)
     beauty_left = db.Column(db.Integer, default=3)
-
+    round_resolved = db.Column(db.Boolean, default=False)
+    hand_count_snapshot = db.Column(db.Text, default='{}')
 
 class BokaGamePlayer(db.Model):
     """搏卡一局中的玩家状态"""
