@@ -3015,7 +3015,6 @@ def boka_battle_state(room_code):
                         alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
                         finish_boka_game(game, alive)
                         game.phase = "finished"
-                        db.session.commit()
                 else:
                     # 没结束，进入下一轮
                     game.round_no += 1
@@ -3029,7 +3028,8 @@ def boka_battle_state(room_code):
                         g.ready_card = json_dumps_safe([])
                         g.locked = False
                         
-                    db.session.commit()
+                # ★ 核心：无论走哪个分支，都把刚才修改的手牌真正存进数据库！
+                db.session.commit()
             except Exception as e:
                 print(f"8秒结算报错: {e}")
                 db.session.rollback()
