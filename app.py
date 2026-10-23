@@ -2987,7 +2987,33 @@ def boka_battle_state(room_code):
             db.session.commit()
 
         if elapsed_since_reveal >= TIME_UPDATE_CARDS:
-            # 手牌和卡袋在 0 秒时 resolve_boka_round 已经处理过了，这里只负责推进状态
+            # ★ 到达 8 秒，这里才真正去扣减手牌、更新卡袋！
+            history = json_loads_safe(game.history)
+            if history:
+                last_round = history[-1]
+                movements = last_round.get("movements", [])
+                
+                pool = json_loads_safe(game.card_pool)
+                if not isinstance(pool, list): pool = []
+                final_hands = {g.username: json_loads_safe(g.hand) for g in gps}
+
+                for m in movements:
+                    cid = m["card_id"]
+                    frm = m["from"]
+                    to = m["to"]
+                    
+                    if frm in final_hands:
+                        final_hands[frm] = [c for c in final_hands[frm] if str(c) != str(cid)]
+                    if to in final_hands:
+                        final_hands[to].append(cid)
+                    elif to == "pool":
+                        pool.append({"id": cid, "level": m.get("level", 1)})
+
+                for g in gps:
+                    g.hand = json_dumps_safe(final_hands[g.username])
+                game.card_pool = json_dumps_safe(pool)
+
+            # 判断是否结束
             if game.winner_card_id == -999:
                 if game.phase != "finished":
                     alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
@@ -3004,6 +3030,8 @@ def boka_battle_state(room_code):
                 for g in gps:
                     g.ready_card = json_dumps_safe([])
                     g.locked = False
+                    
+            # ★ 核心：提交所有的修改！手牌、卡袋、状态全部在此刻落库！
             db.session.commit()
 
     all_played = {}
