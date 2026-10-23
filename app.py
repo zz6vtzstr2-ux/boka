@@ -2582,38 +2582,11 @@ def resolve_boka_round(game):
     if alive_count <= 1:
         game.winner_card_id = -999
 
-    # ★ 终极修复：用最原始的方法，一张一张算去向，绝对不可能多扣！
-    pool = json_loads_safe(game.card_pool)
-    if not isinstance(pool, list): pool = []
-    
-    # 建立一个临时的手牌字典，用来模拟最终结果
-    final_hands = {g.username: json_loads_safe(g.hand) for g in gps}
-
-    for m in movements:
-        cid = m["card_id"]
-        frm = m["from"]
-        to = m["to"]
-        
-        # 1. 从原主人手里移除（如果他有的话）
-        if frm in final_hands:
-            # 转成字符串比对，防止类型不一致导致没删掉
-            final_hands[frm] = [c for c in final_hands[frm] if str(c) != str(cid)]
-            
-        # 2. 把牌给新主人
-        if to in final_hands:
-            final_hands[to].append(cid)
-        elif to == "pool":
-            pool.append({"id": cid, "level": m.get("level", 1)})
-
-    # 最后，把算好的结果覆盖回玩家的真实手牌
-    for g in gps:
-        g.hand = json_dumps_safe(final_hands[g.username])
-        
-    game.card_pool = json_dumps_safe(pool)
-
     history = json_loads_safe(game.history)
     history.append(round_record)
     game.history = json_dumps_safe(history)
+    
+    # （不要在这里修改 g.hand，不要 commit，只推演！）
 
 def _resolve_top_combo(game, gps, played, combo_p, pool, round_record, dim, other_dim):
     winner_name = combo_p["username"]
