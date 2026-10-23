@@ -2974,6 +2974,7 @@ def boka_battle_state(room_code):
         return jsonify({"error": "你不在本局"}), 403
 
     elapsed_since_reveal = -1
+    latest_hand_counts = {} # ★ 新增：用于暂存最新手牌数的内存字典
 
     if game.phase == "revealing" and game.revealed_at:
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
@@ -3005,8 +3006,11 @@ def boka_battle_state(room_code):
                         elif to == "pool":
                             pool.append({"id": cid, "level": m.get("level", 1)})
 
+                    # 存库
                     for g in gps:
                         g.hand = json_dumps_safe(hand_changes[g.username])
+                        # ★ 核心改动：把最新手牌数量直接塞进内存字典，绕开数据库缓存
+                        latest_hand_counts[g.username] = len(hand_changes[g.username])
                     game.card_pool = json_dumps_safe(pool)
 
                 # 判断是否结束
@@ -3049,14 +3053,18 @@ def boka_battle_state(room_code):
 
     players_info = []
     for g in gps:
-        # ★ 直接从数据库重新取一次这个玩家，保证拿到的是刚刚 commit 后的最新手牌
-        db_g = db.session.get(BokaGamePlayer, g.id)
+        # ★ 核心改动：优先从刚才存好的内存字典里拿数字！
+        h_count = latest_hand_counts.get(g.username)
+        if h_count is None:
+            # 如果字典里没有（说明没扣牌，或者已经出局的人），才去读原本的对象
+            h_count = len(json_loads_safe(g.hand))
+            
         players_info.append({
-            "username": db_g.username,
-            "nickname": db_g.nickname or db_g.username,
-            "hand_count": len(json_loads_safe(db_g.hand)),
-            "locked": db_g.locked,
-            "is_me": db_g.username == current_user.username
+            "username": g.username,
+            "nickname": g.nickname or g.username,
+            "hand_count": h_count,
+            "locked": g.locked,
+            "is_me": g.username == current_user.username
         })
 
     return jsonify({
