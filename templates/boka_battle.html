@@ -330,7 +330,7 @@
 
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
-      
+      
       let renderPhase = 'qmark';
       if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) renderPhase = 'face';
       else if (elapsed >= TIME_RESOLVE) renderPhase = 'result';
@@ -343,7 +343,7 @@
         if (p.username === myUsername) return;
         const area = document.getElementById(`play-${p.username}`);
         if (!area) return;
-        
+        
         area.innerHTML = '';
         if (renderPhase === 'qmark') {
           area.appendChild(makeQmarkCard());
@@ -357,6 +357,11 @@
             }
             area.appendChild(makeHeroCard(c, cls));
           });
+        }
+        const info = data.players_info.find(x => x.username === p.username);
+        if (info) {
+          const countEl = document.getElementById(`count-${p.username}`);
+          if (countEl) countEl.textContent = info.hand_count;
         }
       });
 
@@ -372,6 +377,19 @@
             cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
           }
           myArea.appendChild(makeHeroCard(c, cls));
+        });
+      }
+
+      // ★ 核心新增：在这个函数的最后，强制同步一次所有人的手牌数
+      // 只要后端传来最新的 players_info，无论当前是什么动画阶段，立刻更新数字
+      if (data.players_info) {
+        data.players_info.forEach(p => {
+          if (p.is_me) {
+            document.getElementById('myHandCount').textContent = p.hand_count;
+          } else {
+            const countEl = document.getElementById(`count-${p.username}`);
+            if (countEl) countEl.textContent = p.hand_count;
+          }
         });
       }
     }
