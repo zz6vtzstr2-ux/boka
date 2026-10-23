@@ -2582,11 +2582,41 @@ def resolve_boka_round(game):
     if alive_count <= 1:
         game.winner_card_id = -999
 
-    # ★ 核心：在这里就把真实手牌给扣了！
-    # 因为上面已经算出了 hand_changes，我们直接覆盖真实的 g.hand
-    for g in gps:
-        g.hand = json_dumps_safe(hand_changes[g.username])
+    # ★ 核心：在这里（3 秒算出胜负瞬间）直接把真实手牌扣了！
+    pool = json_loads_safe(game.card_pool)
+    if not isinstance(pool, list): pool = []
+    
+    for m in movements:
+        cid = m["card_id"]
+        frm = m["from"]
+        to = m["to"]
+        
+        # 从打出者的手里扣掉
+        if frm != "pool":
+            g = next((x for x in gps if x.username == frm), None)
+            if g:
+                hand = json_loads_safe(g.hand)
+                hand = [str(c) for c in hand]
+                if str(cid) in hand:
+                    hand.remove(str(cid))
+                g.hand = json_dumps_safe(hand)
+                
+        # 给赢家加上，或者进卡袋
+        if to != "pool":
+            g = next((x for x in gps if x.username == to), None)
+            if g:
+                hand = json_loads_safe(g.hand)
+                hand.append(cid)
+                g.hand = json_dumps_safe(hand)
+        else:
+            pool.append({"id": cid, "level": m.get("level", 1)})
+
     game.card_pool = json_dumps_safe(pool)
+
+    # 清理所有人的准备牌和锁定状态
+    for g in gps:
+        g.ready_card = json_dumps_safe([])
+        g.locked = False
 
     history = json_loads_safe(game.history)
     history.append(round_record)
