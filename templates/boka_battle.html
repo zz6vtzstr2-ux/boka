@@ -330,7 +330,7 @@
 
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
-      
+
       let renderPhase = 'qmark';
       if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) renderPhase = 'face';
       else if (elapsed >= TIME_RESOLVE) renderPhase = 'result';
@@ -343,7 +343,7 @@
         if (p.username === myUsername) return;
         const area = document.getElementById(`play-${p.username}`);
         if (!area) return;
-        
+
         area.innerHTML = '';
         if (renderPhase === 'qmark') {
           area.appendChild(makeQmarkCard());
@@ -357,11 +357,6 @@
             }
             area.appendChild(makeHeroCard(c, cls));
           });
-        }
-        const info = data.players_info.find(x => x.username === p.username);
-        if (info) {
-          const countEl = document.getElementById(`count-${p.username}`);
-          if (countEl) countEl.textContent = info.hand_count;
         }
       });
 
@@ -377,19 +372,6 @@
             cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
           }
           myArea.appendChild(makeHeroCard(c, cls));
-        });
-      }
-
-      // ★ 核心新增：在这个函数的最后，强制同步一次所有人的手牌数
-      // 只要后端传来最新的 players_info，无论当前是什么动画阶段，立刻更新数字
-      if (data.players_info) {
-        data.players_info.forEach(p => {
-          if (p.is_me) {
-            document.getElementById('myHandCount').textContent = p.hand_count;
-          } else {
-            const countEl = document.getElementById(`count-${p.username}`);
-            if (countEl) countEl.textContent = p.hand_count;
-          }
         });
       }
     }
@@ -610,10 +592,8 @@
         if (data.error) return;
 
         if (data.history) lastHistory = data.history;
-        poolCount = data.pool_count || 0;
 
         document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
-        document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
         
         const banner = document.getElementById('centerBanner');
         banner.textContent = '本轮' + data.round_phase;
@@ -623,35 +603,29 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        // 在 8 秒前，强行不刷新卡袋数字！
-        if (data.phase === 'selecting' || (data.phase === 'revealing' && elapsed >= TIME_UPDATE)) {
-            poolCount = data.pool_count || 0;
-            document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
-        }
+        // ★ 后端已保证：8 秒前返回结算前快照，8 秒后返回真实值。前端拿到什么显示什么。
+        poolCount = data.pool_count || 0;
+        document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
 
-        // 在 8 秒前，强行不刷新手牌数字！
-        if (data.phase === 'selecting' || (data.phase === 'revealing' && elapsed >= TIME_UPDATE)) {
-            if (data.players_info) {
-                data.players_info.forEach(p => {
-                    if (p.is_me) {
-                        document.getElementById('myHandCount').textContent = p.hand_count;
-                    } else {
-                        const countEl = document.getElementById(`count-${p.username}`);
-                        if (countEl) countEl.textContent = p.hand_count;
-                    }
-                });
+        if (data.players_info) {
+          data.players_info.forEach(p => {
+            if (p.is_me) {
+              document.getElementById('myHandCount').textContent = p.hand_count;
+            } else {
+              const countEl = document.getElementById(`count-${p.username}`);
+              if (countEl) countEl.textContent = p.hand_count;
             }
+          });
         }
 
         lastPhase = data.phase;
         lastRound = data.round_no;
 
-        // 2. ★ 绝杀：不管什么状态，只要后端发 finished 了，立刻弹窗！
-        if (data.finished && !window.resultShown) {
+        // 8 秒后才弹窗（对齐 challenge 的 TIME_UPDATE）
+        if (data.finished && elapsed >= TIME_UPDATE && !window.resultShown) {
           window.resultShown = true;
-          clearInterval(pollTimer); // 停止轮询
+          clearInterval(pollTimer);
           
-          // 立刻弹出结算面板
           document.getElementById('resultTitle').textContent = data.my_rank === 1 ? "恭喜获胜！" : "对局结束";
           document.getElementById('resultLine').textContent = `你的最终排名：第 ${data.my_rank || '未知'} 名`;
           document.getElementById('resultRanks').innerHTML = `
