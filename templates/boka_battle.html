@@ -512,6 +512,11 @@
       document.getElementById('songjiangModal').style.display = 'none';
       if (!ok) return;
 
+      // ★ 在 fetch 之前先清前端选择状态，保证发请求时 myReady 已空
+      myReady = [];
+      songjiangShownForCurrentSelection = false;
+      renderHand();
+
       // ★ 1. 在中央亮卡区展示宋江 2 秒（金边）
       const songjiangCard = myHand.find(c => c.name === '宋江');
       if (songjiangCard) {
@@ -550,9 +555,6 @@
         }, 3000);
       }
 
-      myReady = [];
-      songjiangShownForCurrentSelection = false;
-      
       // 3. 立即刷新手牌状态
       await pollState(); 
     }
