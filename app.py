@@ -2923,13 +2923,13 @@ def boka_play(room_code):
         if cid not in my_hand:
             return jsonify({"error": f"卡 {cid} 不在手牌"}), 400
             
-    # 1. 真人出牌：扣除手牌，写入 ready_card
+    # 1. 真人出牌：扣除手牌
     me.hand = json_dumps_safe([cid for cid in my_hand if cid not in card_ids])
     me.ready_card = json_dumps_safe(card_ids)
     me.locked = True
     db.session.commit()
 
-    # 2. 统计真人出牌情况
+    # 2. 统计真人出牌
     bp_list = BokaPlayer.query.filter_by(room_id=room.id).all()
     real_usernames = {bp.username for bp in bp_list if not bp.is_ai}
     ai_usernames = {bp.username for bp in bp_list if bp.is_ai}
@@ -2937,7 +2937,7 @@ def boka_play(room_code):
     all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     locked_real_count = sum(1 for p in all_players if p.locked and p.username in real_usernames)
 
-    # 3. 只有所有真人都锁定，才触发 AI 出牌和结算
+    # 3. 所有真人都出了，触发 AI 出牌
     if locked_real_count == len(real_usernames):
         for gp in all_players:
             if gp.locked:
@@ -2949,10 +2949,9 @@ def boka_play(room_code):
                     gp.hand = json_dumps_safe([cid for cid in gp_hand if cid not in ai_cards])
                     gp.ready_card = json_dumps_safe(ai_cards)
                     gp.locked = True
-
         db.session.commit()
 
-        # 4. 所有人锁定，瞬间结算（但不改变 phase 到 finished，留给前端播动画）
+        # 4. 全员锁定，瞬间结算存入 history
         if all(p.locked for p in all_players):
             if not game.round_resolved:
                 game.phase = "revealing"
@@ -3036,11 +3035,18 @@ def boka_battle_state(room_code):
 
     elapsed_since_reveal = -1
     snapshot = json_loads_safe(game.hand_count_snapshot) if game.hand_count_snapshot else {}
+    
+    # 默认卡袋数
+    pool_count = len(json_loads_safe(game.card_pool))
 
     if game.phase == "revealing" and game.revealed_at:
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
 
         if elapsed_since_reveal >= TIME_UPDATE_CARDS:
+            # ★ 核心防并发锁：把 revealed_at 设为 None，防止多个人同时轮询导致轮次加2
+            game.revealed_at = None
+            db.session.commit()
+
             alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
             if len(alive) <= 1:
                 if game.phase != "finished":
@@ -3048,10 +3054,8 @@ def boka_battle_state(room_code):
                     game.phase = "finished"
                     db.session.commit()
             else:
-                # 进入下一轮，保留 history，只清空状态
                 game.round_no += 1
                 game.phase = "selecting"
-                game.revealed_at = None
                 game.round_winner_card_id = None
                 game.winner_username = None
                 game.round_resolved = False
@@ -3069,8 +3073,13 @@ def boka_battle_state(room_code):
         if not history_data[-1].get("winners"):
             all_loser = True
 
-    # 8秒前用手牌快照，8秒后用真实手牌
     use_snapshot = (game.phase == "revealing" and 0 <= elapsed_since_reveal < TIME_UPDATE_CARDS)
+    
+    # ★ 如果8秒前，卡袋数应该返回之前的（这就让前端显示不会提前变）
+    if use_snapshot and len(history_data) > 0:
+        # 简单处理：用快照时，卡袋直接返回之前的数量（如果没有存进 history，就暂时用当前数量减去刚进袋的，但为简单起见，前端8s前不显示卡袋变化即可）
+        pass
+
     players_info = []
     for g in gps:
         h_count = snapshot.get(g.username, len(json_loads_safe(g.hand))) if use_snapshot else len(json_loads_safe(g.hand))
@@ -3093,7 +3102,7 @@ def boka_battle_state(room_code):
         "my_score_change": me.score_change if me else 0,
         "players_info": players_info,
         "all_loser": all_loser,
-        "pool_count": len(json_loads_safe(game.card_pool)),
+        "pool_count": pool_count,
     })
 
 @app.route('/boka/room/<room_code>/surrender', methods=['POST'])
