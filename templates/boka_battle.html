@@ -639,9 +639,8 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        // ★ 1. 8秒前（或者选牌阶段），冻结所有数字的刷新
+        // 1. 选牌阶段（只在轮次变了或者刚进游戏时刷新）
         if (data.phase === 'selecting') {
-            // 第一次进入选牌，强制同步手牌
             if (lastRound !== data.round_no) {
                 document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
                 const banner = document.getElementById('centerBanner');
@@ -667,26 +666,23 @@
                 lastRound = data.round_no;
             }
             
-            // 刷新手牌数（头像边上的），但不改我的手牌
             if (data.players_info) {
               data.players_info.forEach(p => {
-                if (p.is_me) {
-                  document.getElementById('myHandCount').textContent = p.hand_count;
-                } else {
+                if (p.is_me) document.getElementById('myHandCount').textContent = p.hand_count;
+                else {
                   const countEl = document.getElementById(`count-${p.username}`);
                   if (countEl) countEl.textContent = p.hand_count;
                 }
               });
             }
+            renderPlayedCards(data, elapsed); 
             
-            renderPlayedCards(data, elapsed);
-            
-        } else if (data.phase === 'revealing') {
+        } 
+        // 2. 亮牌阶段
+        else if (data.phase === 'revealing') {
             if (elapsed < TIME_UPDATE) {
-                // 8秒前，只渲染出牌区，不改变任何数值
                 renderPlayedCards(data, elapsed);
             } else {
-                // 刚好8秒，数字在这个请求返回时刷新
                 document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
                 const banner = document.getElementById('centerBanner');
                 banner.textContent = '本轮' + data.round_phase;
@@ -697,20 +693,18 @@
                 
                 if (data.players_info) {
                   data.players_info.forEach(p => {
-                    if (p.is_me) {
-                      document.getElementById('myHandCount').textContent = p.hand_count;
-                    } else {
+                    if (p.is_me) document.getElementById('myHandCount').textContent = p.hand_count;
+                    else {
                       const countEl = document.getElementById(`count-${p.username}`);
                       if (countEl) countEl.textContent = p.hand_count;
                     }
                   });
                 }
-                
                 renderPlayedCards(data, elapsed);
             }
         }
 
-        // 游戏结束弹窗（只弹一次）
+        // 3. 结束弹窗
         if (data.finished && elapsed >= TIME_UPDATE && !window.resultShown) {
           window.resultShown = true;
           clearInterval(pollTimer);
