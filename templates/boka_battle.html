@@ -632,7 +632,7 @@
 
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(pollState, 1000);
+      pollTimer = setInterval(pollState, 500);
     }
 
     async function pollState() {
