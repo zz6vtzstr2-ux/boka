@@ -331,17 +331,19 @@
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
       
+      // ★ 核心：只认 elapsed，不看 data.finished，绝对不跳过动画
       let renderPhase = 'qmark';
-      if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) renderPhase = 'face';
-      else if (elapsed >= TIME_RESOLVE) renderPhase = 'result';
+      if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) {
+          renderPhase = 'face';
+      } else if (elapsed >= TIME_RESOLVE) {
+          renderPhase = 'result';
+      }
 
       const allLoser = data.all_loser || false;
       let lastRound = null;
       if (data.history && data.history.length > 0) {
           lastRound = data.history[data.history.length - 1];
       }
-      
-      // ... (下面代码保持不变，不用动) ...
 
       playersData.forEach(p => {
         if (p.username === myUsername) return;
@@ -354,17 +356,22 @@
         } else if (lastRound) {
           const playedEntry = lastRound.played.find(x => x.username === p.username);
           const isWin = lastRound.winners.includes(p.username);
+          
           if (playedEntry && playedEntry.card) {
             const c = playedEntry.card;
             let cls = '';
             if (renderPhase === 'result') {
               cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
             }
+            // 渲染单卡或组合
             if (c.is_combo && c.cards) {
               c.cards.forEach(subC => area.appendChild(makeHeroCard(subC, cls)));
             } else {
               area.appendChild(makeHeroCard(c, cls));
             }
+          } else {
+            // 如果奇迹般地没找到卡（比如数据异常），为了不空白，还是画个问号
+            area.appendChild(makeQmarkCard());
           }
         }
       });
@@ -375,6 +382,7 @@
       } else if (lastRound) {
         const playedEntry = lastRound.played.find(x => x.username === myUsername);
         const isWin = lastRound.winners.includes(myUsername);
+        
         if (playedEntry && playedEntry.card) {
           const c = playedEntry.card;
           let cls = '';
@@ -386,6 +394,8 @@
           } else {
             myArea.appendChild(makeHeroCard(c, cls));
           }
+        } else {
+          myArea.appendChild(makeQmarkCard());
         }
       }
     }
