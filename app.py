@@ -25,6 +25,8 @@ from game_logic import (
 )
 
 app = Flask(__name__)
+from flask_compress import Compress
+Compress(app)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
 
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///game.db')
