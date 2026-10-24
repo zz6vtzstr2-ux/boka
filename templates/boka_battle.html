@@ -330,14 +330,17 @@
 
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
-
+      
       let renderPhase = 'qmark';
       if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) renderPhase = 'face';
       else if (elapsed >= TIME_RESOLVE) renderPhase = 'result';
       if (data.finished) renderPhase = 'result';
 
-      const winnerIds = data.winner_card_ids || [];
       const allLoser = data.all_loser || false;
+      let lastRound = null;
+      if (data.history && data.history.length > 0) {
+          lastRound = data.history[data.history.length - 1];
+      }
 
       playersData.forEach(p => {
         if (p.username === myUsername) return;
@@ -345,34 +348,46 @@
         if (!area) return;
 
         area.innerHTML = '';
+        
         if (renderPhase === 'qmark') {
           area.appendChild(makeQmarkCard());
-        } else {
-          const cards = data.all_played[p.username] || [];
-          const isWin = data.winner_username === p.username;
-          cards.forEach(c => {
+        } else if (lastRound) {
+          const playedEntry = lastRound.played.find(x => x.username === p.username);
+          const isWin = lastRound.winners.includes(p.username);
+          if (playedEntry && playedEntry.card) {
+            const c = playedEntry.card;
             let cls = '';
             if (renderPhase === 'result') {
               cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
             }
-            area.appendChild(makeHeroCard(c, cls));
-          });
+            // 兼容单卡和组合
+            if (c.is_combo && c.cards) {
+              c.cards.forEach(subC => area.appendChild(makeHeroCard(subC, cls)));
+            } else {
+              area.appendChild(makeHeroCard(c, cls));
+            }
+          }
         }
       });
 
       myArea.innerHTML = '';
       if (renderPhase === 'qmark') {
         myArea.appendChild(makeQmarkCard());
-      } else {
-        const cards = data.all_played[myUsername] || [];
-        const isWin = data.winner_username === myUsername;
-        cards.forEach(c => {
+      } else if (lastRound) {
+        const playedEntry = lastRound.played.find(x => x.username === myUsername);
+        const isWin = lastRound.winners.includes(myUsername);
+        if (playedEntry && playedEntry.card) {
+          const c = playedEntry.card;
           let cls = '';
           if (renderPhase === 'result') {
             cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
           }
-          myArea.appendChild(makeHeroCard(c, cls));
-        });
+          if (c.is_combo && c.cards) {
+            c.cards.forEach(subC => myArea.appendChild(makeHeroCard(subC, cls)));
+          } else {
+            myArea.appendChild(makeHeroCard(c, cls));
+          }
+        }
       }
     }
 
@@ -676,7 +691,7 @@
       }
 
       let displayHistory = lastHistory;
-      if (currentPhase === 'revealing' && currentElapsed < 6) {
+      if (currentPhase === 'revealing' && currentElapsed < TIME_RESOLVE) {
         displayHistory = lastHistory.slice(0, -1);
       }
 
@@ -685,48 +700,49 @@
         return;
       }
 
-      let html = `
-        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;">
-          <thead>
-            <tr>
-              <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8; border-bottom:1px solid #e8e0cc;">轮次</th>
-              <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8; border-bottom:1px solid #e8e0cc;">我</th>
-              <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8; border-bottom:1px solid #e8e0cc;">对手</th>
-              <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8; border-bottom:1px solid #e8e0cc;">赢家</th>
-            </tr>
-          </thead>
-          <tbody>
-      `;
+      const allUsernames = [...new Set(displayHistory.flatMap(h => h.played.map(p => p.username)))];
+      let html = `<table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;">
+          <thead><tr>
+          <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8;">轮次</th>`;
+      allUsernames.forEach(u => {
+        const pInfo = playersData.find(x => x.username === u);
+        const name = pInfo ? pInfo.nickname : u;
+        html += `<th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8;">${name}</th>`;
+      });
+      html += `<th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8;">赢家</th></tr></thead><tbody>`;
 
       displayHistory.forEach(h => {
         const dimKey = h.dim === 'atk' ? 'atk' : 'def';
-        const myPlay = h.played.find(p => p.username === myUsername) || {};
-        const oppPlay = h.played.find(p => p.username !== myUsername) || {};
-
-        const formatPlay = (play) => {
-          if (!play || !play.cards || play.cards.length === 0) return '?';
-          if (play.cards.length === 1) {
-            const c = play.cards[0];
-            return `${displayName(c.name)} ${c[dimKey] ?? '-'}`;
+        html += `<tr><td style="padding:8px 6px; border-bottom:1px solid #e8e0cc;">第 ${h.round} 轮</td>`;
+        
+        allUsernames.forEach(u => {
+          const play = h.played.find(x => x.username === u);
+          let cellText = '?';
+          if (play && play.card) {
+            const c = play.card;
+            if (c.no_stats) {
+              cellText = displayName(c.name);
+            } else if (c.is_combo) {
+              cellText = `${displayName(c.name)} ${c[dimKey] ?? '-'}`;
+            } else {
+              cellText = `${displayName(c.name)} ${c[dimKey] ?? '-'}`;
+            }
           }
-          return `组合 ${play.value ?? '-'}`;
-        };
+          html += `<td style="padding:8px 6px; border-bottom:1px solid #e8e0cc;">${cellText}</td>`;
+        });
 
+        const winners = h.winners || [];
         let winnerText = '/';
         let winnerCls = 'color:#999; font-weight:bold;';
-        if (myPlay.result === 'win') { winnerText = '我'; winnerCls = 'color:#5cb85c; font-weight:bold;'; }
-        else if (oppPlay.result === 'win') { winnerText = '对手'; winnerCls = 'color:#d9534f; font-weight:bold;'; }
-        else if (myPlay.result === 'beauty' || oppPlay.result === 'beauty') { winnerText = '美女'; winnerCls = 'color:#a06cd5; font-weight:bold;'; }
-        else if (myPlay.result === 'bombed') { winnerText = '炸弹'; winnerCls = 'color:#f5a623; font-weight:bold;'; }
+        if (winners.length > 0) { 
+          winnerText = winners.map(w => {
+            const wInfo = playersData.find(x => x.username === w);
+            return wInfo ? wInfo.nickname : w;
+          }).join('、'); 
+          winnerCls = 'color:#5cb85c; font-weight:bold;'; 
+        }
 
-        html += `
-          <tr>
-            <td style="padding:8px 6px; border-bottom:1px solid #e8e0cc;">第 ${h.round} 轮</td>
-            <td style="padding:8px 6px; border-bottom:1px solid #e8e0cc;">${formatPlay(myPlay)}</td>
-            <td style="padding:8px 6px; border-bottom:1px solid #e8e0cc;">${formatPlay(oppPlay)}</td>
-            <td style="padding:8px 6px; border-bottom:1px solid #e8e0cc; ${winnerCls}">${winnerText}</td>
-          </tr>
-        `;
+        html += `<td style="padding:8px 6px; border-bottom:1px solid #e8e0cc; ${winnerCls}">${winnerText}</td></tr>`;
       });
       html += `</tbody></table>`;
       el.innerHTML = html;
