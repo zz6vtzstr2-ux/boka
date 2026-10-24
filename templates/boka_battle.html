@@ -609,6 +609,9 @@
     
     async function submitPlay() {
       if (myReady.length === 0) return;
+      
+      console.log(`[${new Date().toLocaleTimeString('zh-CN', {hour12: false})}.${new Date().getMilliseconds()}] 我点击了出战`);
+      
       locked = true;
       updatePlayBtn();
       renderHand();
