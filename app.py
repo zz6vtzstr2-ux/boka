@@ -2230,16 +2230,13 @@ def boka_leave(room_code):
 @login_required
 def boka_quit(room_code):
     room = BokaRoom.query.filter_by(room_code=room_code).first()
-    if not room:
-        return jsonify({"error": "房间不存在"}), 404
+    if not room: return jsonify({"error": "房间不存在"}), 404
 
-    # 1. 游戏进行中：拒绝退出（必须先弃卡）
     if room.status == "playing":
         game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
-        if game and game.phase != "finished":
+        if game and not game.finished_at:
             return jsonify({"error": "游戏进行中无法退出，请先弃卡"}), 400
 
-    # 2. 游戏已结束：恢复房间到等待状态
     if room.status == "finished":
         room.status = "waiting"
         BokaPlayer.query.filter_by(room_id=room.id).update({"ready": False})
@@ -2251,35 +2248,28 @@ def boka_quit(room_code):
         db.session.commit()
         return jsonify({"success": True})
 
-    # 3. 等待中：房主解散 / 普通玩家退出
+    # 如果是等待中退出
     me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
-    if not me:
-        return jsonify({"error": "你不在房间"}), 400
+    if not me: return jsonify({"error": "你不在房间"}), 400
 
     is_owner = (room.owner_username == current_user.username)
     if is_owner:
-        # 房主解散：所有玩家 boka_room_id=None，删 game/gameplayer/player/room
         players = BokaPlayer.query.filter_by(room_id=room.id).all()
         for p in players:
             u = User.query.filter_by(username=p.username).first()
-            if u:
-                u.boka_room_id = None
+            if u: u.boka_room_id = None
         games = BokaGame.query.filter_by(room_id=room.id).all()
         for g in games:
             BokaGamePlayer.query.filter_by(game_id=g.id).delete()
             db.session.delete(g)
         BokaPlayer.query.filter_by(room_id=room.id).delete()
         db.session.delete(room)
-        BOKA_ROOM_CACHE.pop(room_code, None)
-        db.session.commit()
     else:
-        # 普通玩家退出：删自己，清 boka_room_id
         current_user.boka_room_id = None
         db.session.delete(me)
         if room_code in BOKA_ROOM_CACHE:
             BOKA_ROOM_CACHE[room_code] = [p for p in BOKA_ROOM_CACHE[room_code] if p["username"] != current_user.username]
-        db.session.commit()
-
+    db.session.commit()
     return jsonify({"success": True})
 
 # ========== 战斗页 ==========
@@ -2720,50 +2710,40 @@ def finish_boka_game(game, alive):
     
     finished.sort(key=lambda g: g.finished_order, reverse=True)
     rank_order = []
-    for s in survivors:
-        rank_order.append(s)
-    for f in finished:
-        rank_order.append(f)
+    for s in survivors: rank_order.append(s)
+    for f in finished: rank_order.append(f)
     for s in surrendered:
-        if s not in rank_order:
-            rank_order.append(s)
+        if s not in rank_order: rank_order.append(s)
             
     n = len(rank_order)
-    
-    # ★ 核心修复：只统计真人的分数，且防 None 崩溃
-    real_scores = []
-    for g in rank_order:
-        u = User.query.filter_by(username=g.username).first()
-        # 有 User 记录且不是 AI，才算进平均分
-        if u and not g.username.startswith("ai_"):
-            real_scores.append(u.score or 0)
-            
-    avg_score = sum(real_scores) / len(real_scores) if real_scores else 0
 
     for idx, g in enumerate(rank_order, start=1):
         g.rank = idx
-        # 如果是 AI，不改变分数，直接跳过
         if g.username.startswith("ai_"):
             g.score_change = 0
             continue
             
         u = User.query.filter_by(username=g.username).first()
-        if not u:
-            continue
+        if not u: continue
             
+        # ★ 你的新逻辑：除自己外的所有人（含AI算0）参与平均分
+        other_scores = []
+        for other_g in rank_order:
+            if other_g.username == g.username: continue
+            other_u = User.query.filter_by(username=other_g.username).first()
+            other_scores.append((other_u.score or 0) if other_u else 0)
+                
+        avg_score = sum(other_scores) / len(other_scores) if other_scores else 0
+
         old_score = u.score or 0
         change = calc_boka_score_change(old_score, g.rank, n, avg_score)
         new_score = old_score + change
         
-        if u.max_score is None:
-            u.max_score = 0
+        if u.max_score is None: u.max_score = 0
         floor = (u.max_score // 1000) * 1000
-        if new_score < floor:
-            new_score = floor
-        if new_score < 0:
-            new_score = 0
-        if new_score > u.max_score:
-            u.max_score = new_score
+        if new_score < floor: new_score = floor
+        if new_score < 0: new_score = 0
+        if new_score > u.max_score: u.max_score = new_score
             
         g.score_change = new_score - old_score
         u.score = new_score
@@ -2776,14 +2756,10 @@ def finish_boka_game(game, alive):
         )
         db.session.add(rec)
         
-    game.phase = "finished"
+    # ★ 核心：绝对不改 game.phase，保持 revealing，前端才知道要看 8 秒动画
     game.finished_at = datetime.now()
-    
-    # 房间状态挂起，不自动重置
     room = BokaRoom.query.get(game.room_id)
-    if room:
-        room.status = "finished"
-        
+    if room: room.status = "finished"
     db.session.commit()
 
 def calc_boka_score_change(my_score, rank, total_players, avg_score):
@@ -3021,41 +2997,34 @@ def boka_songjiang_draw(room_code):
 @login_required
 def boka_battle_state(room_code):
     room = BokaRoom.query.filter_by(room_code=room_code).first()
-    if not room:
-        return jsonify({"error": "房间不存在"}), 404
-
+    if not room: return jsonify({"error": "房间不存在"}), 404
     game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
-    if not game:
-        return jsonify({"error": "无对局"}), 404
-
+    if not game: return jsonify({"error": "无对局"}), 404
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     me = next((g for g in gps if g.username == current_user.username), None)
-    if not me:
-        return jsonify({"error": "你不在本局"}), 403
+    if not me: return jsonify({"error": "你不在本局"}), 403
 
     elapsed_since_reveal = -1
     snapshot = json_loads_safe(game.hand_count_snapshot) if game.hand_count_snapshot else {}
-    
-    # 默认卡袋数
     pool_count = len(json_loads_safe(game.card_pool))
 
     if game.phase == "revealing" and game.revealed_at:
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
 
         if elapsed_since_reveal >= TIME_UPDATE_CARDS:
-            # ★ 核心防并发锁：把 revealed_at 设为 None，防止多个人同时轮询导致轮次加2
-            game.revealed_at = None
-            db.session.commit()
-
             alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
+            
             if len(alive) <= 1:
-                if game.phase != "finished":
+                # 结束：保持 revealing，强制返回 8.0
+                if not game.finished_at:
                     finish_boka_game(game, alive)
-                    game.phase = "finished"
                     db.session.commit()
+                elapsed_since_reveal = TIME_UPDATE_CARDS
             else:
+                # 未结束：推进下一轮
                 game.round_no += 1
                 game.phase = "selecting"
+                game.revealed_at = None
                 game.round_winner_card_id = None
                 game.winner_username = None
                 game.round_resolved = False
@@ -3064,22 +3033,15 @@ def boka_battle_state(room_code):
                     g.ready_card = json_dumps_safe([])
                     g.locked = False
                 db.session.commit()
+                elapsed_since_reveal = -1
 
     history_data = json_loads_safe(game.history)
     my_hand_ids = json_loads_safe(me.hand)
-    
     all_loser = False
     if game.phase == "revealing" and game.round_resolved and len(history_data) > 0:
-        if not history_data[-1].get("winners"):
-            all_loser = True
+        if not history_data[-1].get("winners"): all_loser = True
 
     use_snapshot = (game.phase == "revealing" and 0 <= elapsed_since_reveal < TIME_UPDATE_CARDS)
-    
-    # ★ 如果8秒前，卡袋数应该返回之前的（这就让前端显示不会提前变）
-    if use_snapshot and len(history_data) > 0:
-        # 简单处理：用快照时，卡袋直接返回之前的数量（如果没有存进 history，就暂时用当前数量减去刚进袋的，但为简单起见，前端8s前不显示卡袋变化即可）
-        pass
-
     players_info = []
     for g in gps:
         h_count = snapshot.get(g.username, len(json_loads_safe(g.hand))) if use_snapshot else len(json_loads_safe(g.hand))
@@ -3089,20 +3051,15 @@ def boka_battle_state(room_code):
         })
 
     return jsonify({
-        "round_no": game.round_no,
-        "phase": game.phase,
+        "round_no": game.round_no, "phase": game.phase,
         "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
         "my_hand": [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)],
-        "my_hand_count": len(my_hand_ids),
-        "history": history_data,
-        "finished": game.phase == "finished",
-        "elapsed_since_reveal": elapsed_since_reveal if elapsed_since_reveal is not None else -1,
+        "my_hand_count": len(my_hand_ids), "history": history_data,
+        "finished": game.finished_at is not None,
+        "elapsed_since_reveal": elapsed_since_reveal,
         "beauty_left": game.beauty_left if game.beauty_left is not None else 3,
-        "my_rank": me.rank if me else None,
-        "my_score_change": me.score_change if me else 0,
-        "players_info": players_info,
-        "all_loser": all_loser,
-        "pool_count": pool_count,
+        "my_rank": me.rank if me else None, "my_score_change": me.score_change if me else 0,
+        "players_info": players_info, "all_loser": all_loser, "pool_count": pool_count,
     })
 
 @app.route('/boka/room/<room_code>/surrender', methods=['POST'])
