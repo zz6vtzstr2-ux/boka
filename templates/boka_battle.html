@@ -331,7 +331,31 @@
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
       
-      // ★ 核心：只认 elapsed，不看 data.finished，绝对不跳过动画
+      // 1. 如果是选牌阶段（selecting）
+      if (data.phase === 'selecting') {
+          // 我的区域：如果我锁定了（出了牌），才画问号
+          myArea.innerHTML = '';
+          if (locked) {
+              myArea.appendChild(makeQmarkCard());
+          }
+          
+          // 对手区域：如果对手锁定了，画问号；否则清空
+          playersData.forEach(p => {
+              if (p.username === myUsername) return;
+              const area = document.getElementById(`play-${p.username}`);
+              if (!area) return;
+              area.innerHTML = '';
+              
+              // 从后端返回的 players_info 找该玩家的锁定状态
+              const info = data.players_info.find(x => x.username === p.username);
+              if (info && info.locked) {
+                  area.appendChild(makeQmarkCard());
+              }
+          });
+          return; // 选牌阶段处理完，直接结束函数
+      }
+
+      // 2. 亮牌阶段（revealing）：严格按时间轴 elapsed 渲染
       let renderPhase = 'qmark';
       if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) {
           renderPhase = 'face';
@@ -345,6 +369,7 @@
           lastRound = data.history[data.history.length - 1];
       }
 
+      // 渲染对手
       playersData.forEach(p => {
         if (p.username === myUsername) return;
         const area = document.getElementById(`play-${p.username}`);
@@ -363,19 +388,18 @@
             if (renderPhase === 'result') {
               cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
             }
-            // 渲染单卡或组合
             if (c.is_combo && c.cards) {
               c.cards.forEach(subC => area.appendChild(makeHeroCard(subC, cls)));
             } else {
               area.appendChild(makeHeroCard(c, cls));
             }
           } else {
-            // 如果奇迹般地没找到卡（比如数据异常），为了不空白，还是画个问号
             area.appendChild(makeQmarkCard());
           }
         }
       });
 
+      // 渲染自己
       myArea.innerHTML = '';
       if (renderPhase === 'qmark') {
         myArea.appendChild(makeQmarkCard());
