@@ -329,8 +329,35 @@
     }
 
     function renderPlayedCards(data, elapsed) {
+      // 在 selecting 阶段（等待真人出牌阶段），手动维护问号，不要清除
+      if (data.phase === 'selecting') {
+          // 如果自己已经锁定，确保自己的区是问号
+          if (locked) {
+              const myArea = document.getElementById('play-myArea');
+              if (!myArea.querySelector('.qmark-card')) {
+                  myArea.innerHTML = '';
+                  myArea.appendChild(makeQmarkCard());
+              }
+          }
+          // 检查其他玩家
+          playersData.forEach(p => {
+              if (p.username === myUsername) return;
+              const area = document.getElementById(`play-${p.username}`);
+              if (!area) return;
+              const info = data.players_info.find(x => x.username === p.username);
+              if (info && info.locked) {
+                  if (!area.querySelector('.qmark-card')) {
+                      area.innerHTML = '';
+                      area.appendChild(makeQmarkCard());
+                  }
+              } else {
+                  if (area.querySelector('.qmark-card')) area.innerHTML = '';
+              }
+          });
+          return; // 选牌阶段不往下走渲染亮牌的代码
+      }
+
       const myArea = document.getElementById('play-myArea');
-      
       let renderPhase = 'qmark';
       if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) renderPhase = 'face';
       else if (elapsed >= TIME_RESOLVE) renderPhase = 'result';
@@ -348,9 +375,8 @@
         if (!area) return;
 
         area.innerHTML = '';
-        // 0~3秒 或者 当前玩家没锁定，画问号
-        if (renderPhase === 'qmark' || !p.locked) {
-          if (renderPhase === 'qmark') area.appendChild(makeQmarkCard());
+        if (renderPhase === 'qmark') {
+          area.appendChild(makeQmarkCard());
         } else if (lastRound) {
           const playedEntry = lastRound.played.find(x => x.username === p.username);
           const isWin = lastRound.winners.includes(p.username);
@@ -608,58 +634,83 @@
         if (data.error) return;
 
         if (data.history) lastHistory = data.history;
-
-        document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
         
-        const banner = document.getElementById('centerBanner');
-        banner.textContent = '本轮' + data.round_phase;
-        banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
-
         const elapsed = data.elapsed_since_reveal || 0;
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        poolCount = data.pool_count || 0;
-        document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
-
-        if (data.players_info) {
-          data.players_info.forEach(p => {
-            if (p.is_me) {
-              document.getElementById('myHandCount').textContent = p.hand_count;
-            } else {
-              const countEl = document.getElementById(`count-${p.username}`);
-              if (countEl) countEl.textContent = p.hand_count;
-            }
-          });
-        }
-
-        lastPhase = data.phase;
-        lastRound = data.round_no;
-
-        renderPlayedCards(data, elapsed);
-
-        // ★ 核心：进入选牌阶段，清空桌面（仅在新一轮开始时同步手牌和解除锁定）
+        // ★ 1. 8秒前（或者选牌阶段），冻结所有数字的刷新
         if (data.phase === 'selecting') {
-          document.getElementById('play-myArea').innerHTML = '';
-          playersData.forEach(p => {
-             if (p.username !== myUsername) {
-                 const area = document.getElementById(`play-${p.username}`);
-                 if (area) area.innerHTML = '';
-             }
-          });
-
-          // ★ 仅当轮次发生变化（刚进入新一轮）时，才强制同步手牌并解除锁定
-          if (lastRound !== data.round_no) {
-              myHand = data.my_hand || [];
-              myReady = [];
-              locked = false;
-              renderHand();
-              updatePlayBtn();
-              lastRound = data.round_no;
-          }
+            // 第一次进入选牌，强制同步手牌
+            if (lastRound !== data.round_no) {
+                document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
+                const banner = document.getElementById('centerBanner');
+                banner.textContent = '本轮' + data.round_phase;
+                banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
+                
+                poolCount = data.pool_count || 0;
+                document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
+                
+                myHand = data.my_hand || [];
+                myReady = [];
+                locked = false;
+                renderHand();
+                updatePlayBtn();
+                
+                document.getElementById('play-myArea').innerHTML = '';
+                playersData.forEach(p => {
+                    if (p.username !== myUsername) {
+                        const area = document.getElementById(`play-${p.username}`);
+                        if (area) area.innerHTML = '';
+                    }
+                });
+                lastRound = data.round_no;
+            }
+            
+            // 刷新手牌数（头像边上的），但不改我的手牌
+            if (data.players_info) {
+              data.players_info.forEach(p => {
+                if (p.is_me) {
+                  document.getElementById('myHandCount').textContent = p.hand_count;
+                } else {
+                  const countEl = document.getElementById(`count-${p.username}`);
+                  if (countEl) countEl.textContent = p.hand_count;
+                }
+              });
+            }
+            
+            renderPlayedCards(data, elapsed);
+            
+        } else if (data.phase === 'revealing') {
+            if (elapsed < TIME_UPDATE) {
+                // 8秒前，只渲染出牌区，不改变任何数值
+                renderPlayedCards(data, elapsed);
+            } else {
+                // 刚好8秒，数字在这个请求返回时刷新
+                document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
+                const banner = document.getElementById('centerBanner');
+                banner.textContent = '本轮' + data.round_phase;
+                banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
+                
+                poolCount = data.pool_count || 0;
+                document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
+                
+                if (data.players_info) {
+                  data.players_info.forEach(p => {
+                    if (p.is_me) {
+                      document.getElementById('myHandCount').textContent = p.hand_count;
+                    } else {
+                      const countEl = document.getElementById(`count-${p.username}`);
+                      if (countEl) countEl.textContent = p.hand_count;
+                    }
+                  });
+                }
+                
+                renderPlayedCards(data, elapsed);
+            }
         }
 
-        // 8秒后才弹窗
+        // 游戏结束弹窗（只弹一次）
         if (data.finished && elapsed >= TIME_UPDATE && !window.resultShown) {
           window.resultShown = true;
           clearInterval(pollTimer);
