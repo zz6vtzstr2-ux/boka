@@ -348,7 +348,6 @@
         if (!area) return;
 
         area.innerHTML = '';
-        
         if (renderPhase === 'qmark') {
           area.appendChild(makeQmarkCard());
         } else if (lastRound) {
@@ -360,7 +359,6 @@
             if (renderPhase === 'result') {
               cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
             }
-            // 兼容单卡和组合
             if (c.is_combo && c.cards) {
               c.cards.forEach(subC => area.appendChild(makeHeroCard(subC, cls)));
             } else {
@@ -620,7 +618,6 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        // ★ 后端已保证：8 秒前返回结算前快照，8 秒后返回真实值。前端拿到什么显示什么。
         poolCount = data.pool_count || 0;
         document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
 
@@ -638,7 +635,25 @@
         lastPhase = data.phase;
         lastRound = data.round_no;
 
-        // 8 秒后才弹窗（对齐 challenge 的 TIME_UPDATE）
+        // ★ 核心：调用渲染函数！
+        renderPlayedCards(data, elapsed);
+
+        // ★ 如果在选牌阶段，说明上一轮已经过了8秒或者刚开局，清空桌面，刷新手牌
+        if (data.phase === 'selecting') {
+          document.getElementById('play-myArea').innerHTML = '';
+          playersData.forEach(p => {
+             if (p.username !== myUsername) {
+                 const area = document.getElementById(`play-${p.username}`);
+                 if (area) area.innerHTML = '';
+             }
+          });
+          myHand = data.my_hand || [];
+          myReady = [];
+          locked = false;
+          renderHand();
+          updatePlayBtn();
+        }
+
         if (data.finished && elapsed >= TIME_UPDATE && !window.resultShown) {
           window.resultShown = true;
           clearInterval(pollTimer);
