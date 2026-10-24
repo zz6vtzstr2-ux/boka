@@ -4,3 +4,4 @@ Flask-SQLAlchemy==3.1.1
 SQLAlchemy>=2.0.44,<2.1
 gunicorn==21.2.0
 psycopg[binary]
+Flask-Compress==1.14
