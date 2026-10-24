@@ -3009,19 +3009,19 @@ def boka_battle_state(room_code):
     pool_count = len(json_loads_safe(game.card_pool))
 
     if game.phase == "revealing" and game.revealed_at:
+        # ★ 核心：时间真实计算，绝对不强行篡改
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
 
         if elapsed_since_reveal >= TIME_UPDATE_CARDS:
             alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
             
             if len(alive) <= 1:
-                # 结束：保持 revealing，强制返回 8.0
+                # 游戏结束，保持 revealing 状态，时间自然流逝（此时已经 >= 8）
                 if not game.finished_at:
                     finish_boka_game(game, alive)
                     db.session.commit()
-                elapsed_since_reveal = TIME_UPDATE_CARDS
             else:
-                # 未结束：推进下一轮
+                # 游戏未结束，进入下一轮
                 game.round_no += 1
                 game.phase = "selecting"
                 game.revealed_at = None
@@ -3037,6 +3037,7 @@ def boka_battle_state(room_code):
 
     history_data = json_loads_safe(game.history)
     my_hand_ids = json_loads_safe(me.hand)
+    
     all_loser = False
     if game.phase == "revealing" and game.round_resolved and len(history_data) > 0:
         if not history_data[-1].get("winners"): all_loser = True
