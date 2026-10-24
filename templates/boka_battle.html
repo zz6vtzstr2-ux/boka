@@ -348,8 +348,9 @@
         if (!area) return;
 
         area.innerHTML = '';
-        if (renderPhase === 'qmark') {
-          area.appendChild(makeQmarkCard());
+        // 0~3秒 或者 当前玩家没锁定，画问号
+        if (renderPhase === 'qmark' || !p.locked) {
+          if (renderPhase === 'qmark') area.appendChild(makeQmarkCard());
         } else if (lastRound) {
           const playedEntry = lastRound.played.find(x => x.username === p.username);
           const isWin = lastRound.winners.includes(p.username);
@@ -635,10 +636,9 @@
         lastPhase = data.phase;
         lastRound = data.round_no;
 
-        // ★ 核心：调用渲染函数！
         renderPlayedCards(data, elapsed);
 
-        // ★ 如果在选牌阶段，说明上一轮已经过了8秒或者刚开局，清空桌面，刷新手牌
+        // ★ 核心：进入选牌阶段（8秒后），清空桌面和选卡状态
         if (data.phase === 'selecting') {
           document.getElementById('play-myArea').innerHTML = '';
           playersData.forEach(p => {
@@ -647,13 +647,17 @@
                  if (area) area.innerHTML = '';
              }
           });
-          myHand = data.my_hand || [];
-          myReady = [];
-          locked = false;
-          renderHand();
-          updatePlayBtn();
+          
+          if (myHand.length !== data.my_hand_count || locked || myReady.length > 0) {
+              myHand = data.my_hand || [];
+              myReady = [];
+              locked = false;
+              renderHand();
+              updatePlayBtn();
+          }
         }
 
+        // 8秒后才弹窗
         if (data.finished && elapsed >= TIME_UPDATE && !window.resultShown) {
           window.resultShown = true;
           clearInterval(pollTimer);
