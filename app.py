@@ -2917,6 +2917,8 @@ def boka_play(room_code):
 
     # 3. 所有真人都出了，触发 AI 出牌
     if locked_real_count == len(real_usernames):
+        print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 所有真人已出牌，开始让AI出牌...", flush=True)
+        
         for gp in all_players:
             if gp.locked:
                 continue
@@ -2936,10 +2938,7 @@ def boka_play(room_code):
                 game.revealed_at = datetime.now()
                 resolve_boka_round(game)
                 db.session.commit()
-            else:
-                game.phase = "revealing"
-                game.revealed_at = datetime.now()
-                db.session.commit()
+                print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] AI已出牌且胜负结算完成，写入revealed_at", flush=True)
 
     return jsonify({"success": True})
 
@@ -3013,6 +3012,9 @@ def boka_battle_state(room_code):
     if game.phase == "revealing" and game.revealed_at:
         # ★ 核心：时间真实计算，绝对不强行篡改
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
+        
+        # 加上这行日志，打印当前前端轮询时距离结算过了多久
+        print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 前端来轮询了，当前elapsed={elapsed_since_reveal:.3f}秒", flush=True)
 
         if elapsed_since_reveal >= TIME_UPDATE_CARDS:
             alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
