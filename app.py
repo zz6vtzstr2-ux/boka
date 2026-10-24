@@ -90,10 +90,10 @@ BOSS_DAILY_LIMIT = 2
 ROOMS = {}
 
 # ========== 战斗时间轴配置（单位：秒） ==========
-BATTLE_TIME_A = 1.0
-BATTLE_TIME_B = 2.0
-BATTLE_TIME_C = 3.0
-BATTLE_TIME_D = 2.0
+BATTLE_TIME_A = 0.5  # 后端处理AI出牌的时间（极快）
+BATTLE_TIME_B = 1.5  # 问号停留，加起来总问号时间 2 秒
+BATTLE_TIME_C = 1.0  # 亮牌展示 1 秒
+BATTLE_TIME_D = 1.0  # 输赢亮暗展示 1 秒
 BATTLE_TIME_E = 0.0
 
 TIME_REVEAL = BATTLE_TIME_A + BATTLE_TIME_B
