@@ -329,45 +329,19 @@
     }
 
     function renderPlayedCards(data, elapsed) {
-      // 在 selecting 阶段（等待真人出牌阶段），手动维护问号，不要清除
-      if (data.phase === 'selecting') {
-          // 如果自己已经锁定，确保自己的区是问号
-          if (locked) {
-              const myArea = document.getElementById('play-myArea');
-              if (!myArea.querySelector('.qmark-card')) {
-                  myArea.innerHTML = '';
-                  myArea.appendChild(makeQmarkCard());
-              }
-          }
-          // 检查其他玩家
-          playersData.forEach(p => {
-              if (p.username === myUsername) return;
-              const area = document.getElementById(`play-${p.username}`);
-              if (!area) return;
-              const info = data.players_info.find(x => x.username === p.username);
-              if (info && info.locked) {
-                  if (!area.querySelector('.qmark-card')) {
-                      area.innerHTML = '';
-                      area.appendChild(makeQmarkCard());
-                  }
-              } else {
-                  if (area.querySelector('.qmark-card')) area.innerHTML = '';
-              }
-          });
-          return; // 选牌阶段不往下走渲染亮牌的代码
-      }
-
       const myArea = document.getElementById('play-myArea');
+      
       let renderPhase = 'qmark';
       if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) renderPhase = 'face';
       else if (elapsed >= TIME_RESOLVE) renderPhase = 'result';
-      if (data.finished) renderPhase = 'result';
 
       const allLoser = data.all_loser || false;
       let lastRound = null;
       if (data.history && data.history.length > 0) {
           lastRound = data.history[data.history.length - 1];
       }
+      
+      // ... (下面代码保持不变，不用动) ...
 
       playersData.forEach(p => {
         if (p.username === myUsername) return;
