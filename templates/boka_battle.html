@@ -638,7 +638,7 @@
 
         renderPlayedCards(data, elapsed);
 
-        // ★ 核心：进入选牌阶段（8秒后），清空桌面和选卡状态
+        // ★ 核心：进入选牌阶段，清空桌面（仅在新一轮开始时同步手牌和解除锁定）
         if (data.phase === 'selecting') {
           document.getElementById('play-myArea').innerHTML = '';
           playersData.forEach(p => {
@@ -647,13 +647,15 @@
                  if (area) area.innerHTML = '';
              }
           });
-          
-          if (myHand.length !== data.my_hand_count || locked || myReady.length > 0) {
+
+          // ★ 仅当轮次发生变化（刚进入新一轮）时，才强制同步手牌并解除锁定
+          if (lastRound !== data.round_no) {
               myHand = data.my_hand || [];
               myReady = [];
               locked = false;
               renderHand();
               updatePlayBtn();
+              lastRound = data.round_no;
           }
         }
 
