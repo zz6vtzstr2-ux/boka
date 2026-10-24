@@ -92,11 +92,10 @@ BOSS_DAILY_LIMIT = 2
 ROOMS = {}
 
 # ========== 战斗时间轴配置（单位：秒） ==========
-BATTLE_TIME_A = 0.5  # 后端处理AI出牌的时间（极快）
-BATTLE_TIME_B = 1.5  # 问号停留，加起来总问号时间 2 秒
-BATTLE_TIME_C = 1.0  # 亮牌展示 1 秒
-BATTLE_TIME_D = 1.0  # 输赢亮暗展示 1 秒
-BATTLE_TIME_E = 0.0
+BATTLE_TIME_A = 1.0  
+BATTLE_TIME_B = 1.0  
+BATTLE_TIME_C = 2.0  
+BATTLE_TIME_D = 2.0  
 
 TIME_REVEAL = BATTLE_TIME_A + BATTLE_TIME_B
 TIME_RESOLVE = TIME_REVEAL + BATTLE_TIME_C
@@ -2936,7 +2935,7 @@ def boka_play(room_code):
             if not game.round_resolved:
                 game.phase = "revealing"
                 game.revealed_at = datetime.now()
-                resolve_boka_round(game)
+                # ★ 这里一定不能有 resolve_boka_round(game)！
                 db.session.commit()
                 print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] AI已出牌且胜负结算完成，写入revealed_at", flush=True)
 
@@ -3013,14 +3012,28 @@ def boka_battle_state(room_code):
         # ★ 核心：时间真实计算，绝对不强行篡改
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
         
-        # 加上这行日志，打印当前前端轮询时距离结算过了多久
         print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 前端来轮询了，当前elapsed={elapsed_since_reveal:.3f}秒", flush=True)
 
+        # ★ 关键修改：到达亮牌节点 (TIME_REVEAL) 才计算胜负
+        if elapsed_since_reveal >= TIME_REVEAL and not game.round_resolved:
+            print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 到达亮牌节点，开始计算胜负...", flush=True)
+            resolve_boka_round(game)
+            db.session.commit()
+            print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 胜负计算完成，更新history", flush=True)
+            
+            # 重新读取数据，确保当前请求返回的是算好的结果
+            gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+            snapshot = json_loads_safe(game.hand_count_snapshot) if game.hand_count_snapshot else {}
+            history_data = json_loads_safe(game.history)
+            # 重新获取 me 以防被刷新
+            me = next((g for g in gps if g.username == current_user.username), None)
+
+        # 原来的 6 秒推进逻辑
         if elapsed_since_reveal >= TIME_UPDATE_CARDS:
             alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
             
             if len(alive) <= 1:
-                # 游戏结束，保持 revealing 状态，时间自然流逝（此时已经 >= 8）
+                # 游戏结束，保持 revealing 状态，时间自然流逝
                 if not game.finished_at:
                     finish_boka_game(game, alive)
                     db.session.commit()
@@ -3038,9 +3051,13 @@ def boka_battle_state(room_code):
                     g.locked = False
                 db.session.commit()
                 elapsed_since_reveal = -1
+                history_data = json_loads_safe(game.history)
 
-    history_data = json_loads_safe(game.history)
-    my_hand_ids = json_loads_safe(me.hand)
+    # 如果上面没算过，这里也要确保拿到最新的 history_data
+    if 'history_data' not in locals():
+        history_data = json_loads_safe(game.history)
+        
+    my_hand_ids = json_loads_safe(me.hand) if me else []
     
     all_loser = False
     if game.phase == "revealing" and game.round_resolved and len(history_data) > 0:
