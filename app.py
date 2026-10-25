@@ -2913,14 +2913,16 @@ def boka_play(room_code):
     me.locked = True
     db.session.commit()
 
-    # 如果全员出牌，瞬间计算胜负
+    # 因为 AI 早就出好牌了，这里只要真人都出完，瞬间就能算胜负
     all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     if all(p.locked for p in all_players):
         if not game.round_resolved:
+            print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 检测到全员锁定！瞬间开始结算...", flush=True)
             game.phase = "revealing"
             game.revealed_at = datetime.now()  # 时点0
             resolve_boka_round(game)           # 瞬间算完
             db.session.commit()
+            print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 结算完成！时点0已记录", flush=True)
 
     return jsonify({"success": True})
 
@@ -2993,6 +2995,8 @@ def boka_battle_state(room_code):
 
     if game.phase == "revealing" and game.revealed_at:
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
+        # ★ 确认这句在不在
+        print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 轮询到达，当前elapsed={elapsed_since_reveal:.3f}秒", flush=True)
 
         if elapsed_since_reveal >= TIME_UPDATE_CARDS:
             alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
