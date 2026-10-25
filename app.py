@@ -92,13 +92,13 @@ BOSS_DAILY_LIMIT = 2
 ROOMS = {}
 
 # ========== 战斗时间轴配置（单位：秒） ==========
-BATTLE_TIME_A = 2.0  # 从全员出牌到亮牌（问号停留）
-BATTLE_TIME_B = 2.0  # 亮牌停留
-BATTLE_TIME_C = 2.0  # 亮暗停留
+BATTLE_TIME_A = 2.0  # 问号停留时间 (0~2秒)
+BATTLE_TIME_B = 2.0  # 亮牌停留时间 (2~4秒)
+BATTLE_TIME_C = 3.0  # 亮暗停留时间 (4~7秒，多给1秒看金框)
 
-TIME_REVEAL = BATTLE_TIME_A               # 2.0 秒
-TIME_RESOLVE = TIME_REVEAL + BATTLE_TIME_B # 4.0 秒
-TIME_UPDATE_CARDS = TIME_RESOLVE + BATTLE_TIME_C # 6.0 秒
+TIME_REVEAL = BATTLE_TIME_A                      # 2.0 秒
+TIME_RESOLVE = TIME_REVEAL + BATTLE_TIME_B       # 4.0 秒
+TIME_UPDATE_CARDS = TIME_RESOLVE + BATTLE_TIME_C # 7.0 秒
 TIME_NEXT_ROUND = TIME_UPDATE_CARDS
 
 BOKA_ROOM_CACHE = {}
@@ -2913,16 +2913,15 @@ def boka_play(room_code):
     me.locked = True
     db.session.commit()
 
-    # 因为 AI 早就出好牌了，这里只要真人都出完，瞬间就能算胜负
+    # 因为 AI 早就出好牌了，只要真人都出完，瞬间就能触发
     all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     if all(p.locked for p in all_players):
         if not game.round_resolved:
-            print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 检测到全员锁定！瞬间开始结算...", flush=True)
             game.phase = "revealing"
-            game.revealed_at = datetime.now()  # 时点0
-            resolve_boka_round(game)           # 瞬间算完
+            # ★ 核心修改：立刻记录时点0，然后瞬间返回！把计算留给下一次轮询！
+            game.revealed_at = datetime.now()
             db.session.commit()
-            print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 结算完成！时点0已记录", flush=True)
+            print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 全员锁定，记录时点0，立刻返回前端", flush=True)
 
     return jsonify({"success": True})
 
@@ -2995,9 +2994,22 @@ def boka_battle_state(room_code):
 
     if game.phase == "revealing" and game.revealed_at:
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
-        # ★ 确认这句在不在
-        print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 轮询到达，当前elapsed={elapsed_since_reveal:.3f}秒", flush=True)
+        print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 轮询到达，elapsed={elapsed_since_reveal:.3f}秒", flush=True)
 
+        # ★ 核心新增：利用前2秒的“问号时间”来计算胜负！
+        if not game.round_resolved:
+            print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 开始计算胜负（利用问号时间）...", flush=True)
+            resolve_boka_round(game)
+            db.session.commit()
+            print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 胜负计算完成！", flush=True)
+            
+            # 重新读取数据，确保当前请求返回的是算好的结果
+            gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+            snapshot = json_loads_safe(game.hand_count_snapshot) if game.hand_count_snapshot else {}
+            history_data = json_loads_safe(game.history)
+            me = next((g for g in gps if g.username == current_user.username), None)
+
+        # 7 秒到了，推进下一轮
         if elapsed_since_reveal >= TIME_UPDATE_CARDS:
             alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
             
@@ -3006,7 +3018,6 @@ def boka_battle_state(room_code):
                     finish_boka_game(game, alive)
                     db.session.commit()
             else:
-                # 进入下一轮
                 game.round_no += 1
                 game.phase = "selecting"
                 game.revealed_at = None
@@ -3020,7 +3031,7 @@ def boka_battle_state(room_code):
                 db.session.commit()
                 elapsed_since_reveal = -1
 
-                # 提前帮 AI 选好下一轮
+                # 帮 AI 提前选好下一轮
                 bp_list = BokaPlayer.query.filter_by(room_id=room.id).all()
                 ai_usernames = {bp.username for bp in bp_list if bp.is_ai}
                 for gp in gps:
