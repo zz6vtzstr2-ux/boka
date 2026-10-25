@@ -92,10 +92,10 @@ BOSS_DAILY_LIMIT = 2
 ROOMS = {}
 
 # ========== 战斗时间轴配置（单位：秒） ==========
-BATTLE_TIME_A = 1.0  
-BATTLE_TIME_B = 2.0  
-BATTLE_TIME_C = 3.0  
-BATTLE_TIME_D = 2.0  
+BATTLE_TIME_A = 0.5  
+BATTLE_TIME_B = 1.0  # A+B=1.5秒亮牌
+BATTLE_TIME_C = 1.5  # 亮牌1.5秒
+BATTLE_TIME_D = 2.0  # 亮暗2秒
 BATTLE_TIME_E = 0.0
 
 TIME_REVEAL = BATTLE_TIME_A + BATTLE_TIME_B
