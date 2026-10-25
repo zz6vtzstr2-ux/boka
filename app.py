@@ -3079,10 +3079,12 @@ def boka_battle_state(room_code):
         else:
             all_played[g.username] = {"cards": []}
 
-    # 8 秒前用手牌快照，8 秒后用真实手牌
+    # 8 秒前（也就是整段动画期间），手牌数绝对不跟随真实数据变，全部用快照！
     use_snapshot = (game.phase == "revealing" and 0 <= elapsed_since_reveal < BOKA_TIME_UPDATE)
+    
     players_info = []
     for g in gps:
+        # 如果是在 8 秒前，读快照；否则读真实手牌
         h_count = snapshot.get(g.username, len(json_loads_safe(g.hand))) if use_snapshot else len(json_loads_safe(g.hand))
         players_info.append({
             "username": g.username, "nickname": g.nickname or g.username,
