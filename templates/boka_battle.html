@@ -331,7 +331,7 @@
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
       
-      // 如果是选牌阶段，且自己没锁定，清空桌面
+      // 1. 选牌阶段（selecting）：确保桌面是干净的，谁也没出牌
       if (data.phase === 'selecting' && !locked) {
           myArea.innerHTML = '';
           playersData.forEach(p => {
@@ -340,9 +340,10 @@
                  if (area) area.innerHTML = '';
              }
           });
-          return;
+          return; 
       }
 
+      // 2. 亮牌阶段（revealing）：完全依赖 elapsed 和 history
       let renderPhase = 'qmark';
       if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) {
           renderPhase = 'face';
@@ -356,6 +357,7 @@
           lastRound = data.history[data.history.length - 1];
       }
 
+      // 渲染对手
       playersData.forEach(p => {
         if (p.username === myUsername) return;
         const area = document.getElementById(`play-${p.username}`);
@@ -363,11 +365,7 @@
 
         area.innerHTML = '';
         if (renderPhase === 'qmark') {
-          // AI 是否出问号，基于它的 locked 状态（现在后端一开始就锁定了，所以会立刻有问号）
-          const info = data.players_info.find(x => x.username === p.username);
-          if (info && info.locked) {
-              area.appendChild(makeQmarkCard());
-          }
+          area.appendChild(makeQmarkCard());
         } else if (lastRound) {
           const playedEntry = lastRound.played.find(x => x.username === p.username);
           const isWin = lastRound.winners.includes(p.username);
@@ -389,11 +387,10 @@
         }
       });
 
+      // 渲染自己
       myArea.innerHTML = '';
       if (renderPhase === 'qmark') {
-        if (locked) {
-            myArea.appendChild(makeQmarkCard());
-        }
+        myArea.appendChild(makeQmarkCard());
       } else if (lastRound) {
         const playedEntry = lastRound.played.find(x => x.username === myUsername);
         const isWin = lastRound.winners.includes(myUsername);
@@ -629,11 +626,16 @@
       pollState(); // ★ 确保加这一句，启动时立刻拉一次
     }
 
+    let isPolling = false;
+
     async function pollState() {
+      if (isPolling) return;
+      isPolling = true;
+
       try {
         const res = await fetch(`/boka/room/${roomCode}/battle_state`);
         const data = await res.json();
-        if (data.error) return;
+        if (data.error) { isPolling = false; return; }
 
         if (data.history) lastHistory = data.history;
         
@@ -641,7 +643,6 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        // 更新顶部数字
         document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
         const banner = document.getElementById('centerBanner');
         banner.textContent = '本轮' + data.round_phase;
@@ -660,7 +661,7 @@
           });
         }
 
-        // 选牌阶段：轮次变了才刷新手牌
+        // 选牌阶段：轮次变了才刷新手牌并清空桌面
         if (data.phase === 'selecting') {
             if (lastRound !== data.round_no) {
                 myHand = data.my_hand || [];
@@ -672,11 +673,9 @@
             }
         }
 
-        // 渲染桌面
         renderPlayedCards(data, elapsed);
 
-        // ★ 这里严格验证 data.finished 布尔值！
-        // 如果游戏结束，并且时间到了（或者后端已经切到了 finished 阶段）
+        // 结束弹窗判断
         if (data.finished && !window.resultShown && (elapsed >= TIME_UPDATE || data.phase === 'finished')) {
           window.resultShown = true;
           clearInterval(pollTimer);
@@ -689,11 +688,12 @@
             </div>
           `;
           document.getElementById('resultModal').style.display = 'flex';
-          return;
         }
 
       } catch(e) { 
         console.error(e); 
+      } finally {
+        isPolling = false;
       }
     }
 
@@ -820,7 +820,6 @@
     }
 
     renderHand();
-    pollState();
     startPolling();
   </script>
 
