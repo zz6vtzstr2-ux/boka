@@ -91,15 +91,15 @@ BOSS_DAILY_LIMIT = 2
 
 ROOMS = {}
 
-# ========== 战斗时间轴配置（单位：秒） ==========
-BATTLE_TIME_A = 2.0  # 问号停留时间 (0~2秒)
-BATTLE_TIME_B = 2.0  # 亮牌停留时间 (2~4秒)
-BATTLE_TIME_C = 3.0  # 亮暗停留时间 (4~7秒，多给1秒看金框)
+# ========== Boka 战斗时间轴（极速版） ==========
+BOKA_TIME_REVEAL = 2.0  # 0~2秒：问号
+BOKA_TIME_RESOLVE = 4.0 # 2~4秒：亮牌
+BOKA_TIME_UPDATE = 7.0  # 4~7秒：亮暗，7秒后清空进下一轮
 
-TIME_REVEAL = BATTLE_TIME_A                      # 2.0 秒
-TIME_RESOLVE = TIME_REVEAL + BATTLE_TIME_B       # 4.0 秒
-TIME_UPDATE_CARDS = TIME_RESOLVE + BATTLE_TIME_C # 7.0 秒
-TIME_NEXT_ROUND = TIME_UPDATE_CARDS
+# ========== 挑战模式专属时间轴（经典版） ==========
+CHALLENGE_TIME_REVEAL = 3.0  # 0~3秒：问号
+CHALLENGE_TIME_RESOLVE = 6.0 # 3~6秒：亮牌
+CHALLENGE_TIME_UPDATE = 8.0  # 6~8秒：亮暗，8秒后判定
 
 BOKA_ROOM_CACHE = {}
 CHALLENGE_GAME_CACHE = {}
