@@ -301,9 +301,9 @@
     let currentElapsed = 0;
     let poolCount = {{ pool_count | default(0) }}; // ★ 补充全局变量
     const playersData = {{ players | tojson | default('[]', true) }};
-    const TIME_REVEAL = {{ TIME_REVEAL | default(3.0) }};
-    const TIME_RESOLVE = {{ TIME_RESOLVE | default(6.0) }};
-    const TIME_UPDATE = {{ TIME_UPDATE_CARDS | default(8.0) }};
+    const TIME_REVEAL = {{ BOKA_TIME_REVEAL | default(2.0) }};
+    const TIME_RESOLVE = {{ BOKA_TIME_RESOLVE | default(4.0) }};
+    const TIME_UPDATE = {{ BOKA_TIME_UPDATE | default(7.0) }};
 
     let songjiangShownForCurrentSelection = false;
 
