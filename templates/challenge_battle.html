@@ -730,9 +730,9 @@
   <script>
     const level = {{ level }};
     // ★ 注入时间轴配置
-    const TIME_REVEAL = {{ TIME_REVEAL | default(3.0) }};
-    const TIME_RESOLVE = {{ TIME_RESOLVE | default(6.0) }};
-    const TIME_UPDATE = {{ TIME_UPDATE_CARDS | default(8.0) }};
+    const TIME_REVEAL = {{ CHALLENGE_TIME_REVEAL | default(3.0) }};
+    const TIME_RESOLVE = {{ CHALLENGE_TIME_RESOLVE | default(6.0) }};
+    const TIME_UPDATE = {{ CHALLENGE_TIME_UPDATE | default(8.0) }};
     let myHand = {{ my_hand | tojson }};
     let myReady = [];
     let locked = false;
