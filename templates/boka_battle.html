@@ -331,7 +331,6 @@
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
       
-      // 1. 选牌阶段（selecting）：确保桌面是干净的，谁也没出牌
       if (data.phase === 'selecting' && !locked) {
           myArea.innerHTML = '';
           playersData.forEach(p => {
@@ -343,7 +342,6 @@
           return; 
       }
 
-      // 2. 亮牌阶段（revealing）：完全依赖 elapsed 和 history
       let renderPhase = 'qmark';
       if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) {
           renderPhase = 'face';
@@ -352,6 +350,7 @@
       }
 
       const allLoser = data.all_loser || false;
+      
       let lastRound = null;
       if (data.history && data.history.length > 0) {
           lastRound = data.history[data.history.length - 1];
@@ -366,21 +365,18 @@
         area.innerHTML = '';
         if (renderPhase === 'qmark') {
           area.appendChild(makeQmarkCard());
-        } else if (lastRound) {
-          const playedEntry = lastRound.played.find(x => x.username === p.username);
-          const isWin = lastRound.winners.includes(p.username);
-          
-          if (playedEntry && playedEntry.card) {
-            const c = playedEntry.card;
-            let cls = '';
-            if (renderPhase === 'result') {
+        } else {
+          // 从后端传来的 all_played 拿真实卡牌（亮牌时立刻有）
+          const playedObj = data.all_played ? data.all_played[p.username] : null;
+          let cls = '';
+          // 如果是亮暗阶段，且有胜负数据，加上金框/灰暗
+          if (renderPhase === 'result' && lastRound) {
+              const isWin = lastRound.winners.includes(p.username);
               cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
-            }
-            if (c.is_combo && c.cards) {
-              c.cards.forEach(subC => area.appendChild(makeHeroCard(subC, cls)));
-            } else {
-              area.appendChild(makeHeroCard(c, cls));
-            }
+          }
+          
+          if (playedObj && playedObj.cards) {
+            playedObj.cards.forEach(subC => area.appendChild(makeHeroCard(subC, cls)));
           } else {
             area.appendChild(makeQmarkCard());
           }
@@ -391,21 +387,16 @@
       myArea.innerHTML = '';
       if (renderPhase === 'qmark') {
         myArea.appendChild(makeQmarkCard());
-      } else if (lastRound) {
-        const playedEntry = lastRound.played.find(x => x.username === myUsername);
-        const isWin = lastRound.winners.includes(myUsername);
-        
-        if (playedEntry && playedEntry.card) {
-          const c = playedEntry.card;
-          let cls = '';
-          if (renderPhase === 'result') {
+      } else {
+        const playedObj = data.all_played ? data.all_played[myUsername] : null;
+        let cls = '';
+        if (renderPhase === 'result' && lastRound) {
+            const isWin = lastRound.winners.includes(myUsername);
             cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
-          }
-          if (c.is_combo && c.cards) {
-            c.cards.forEach(subC => myArea.appendChild(makeHeroCard(subC, cls)));
-          } else {
-            myArea.appendChild(makeHeroCard(c, cls));
-          }
+        }
+        
+        if (playedObj && playedObj.cards) {
+          playedObj.cards.forEach(subC => myArea.appendChild(makeHeroCard(subC, cls)));
         } else {
           myArea.appendChild(makeQmarkCard());
         }
