@@ -1026,13 +1026,13 @@ def challenge_state():
         except Exception:
             elapsed_since_reveal = 0
 
-        if elapsed_since_reveal >= TIME_RESOLVE and not game.get("_resolved"):
+        if elapsed_since_reveal >= CHALLENGE_TIME_RESOLVE and not game.get("_resolved"):
             _resolve_challenge_round(game)
             game["_resolved"] = True
             current_user.challenge_active_game = json_dumps_safe(game)
             db.session.commit()
 
-        if elapsed_since_reveal >= TIME_UPDATE_CARDS and not game.get("finished"):
+        if elapsed_since_reveal >= CHALLENGE_TIME_UPDATE and not game.get("finished"):
             if len(game.get("my_hand", [])) == 0 or len(game.get("ai_hand", [])) == 0:
                 _finish_challenge(game, current_user, level)
             else:
@@ -3010,7 +3010,7 @@ def boka_battle_state(room_code):
             me = next((g for g in gps if g.username == current_user.username), None)
 
         # 7 秒到了，推进下一轮
-        if elapsed_since_reveal >= TIME_UPDATE_CARDS:
+        if elapsed_since_reveal >= BOKA_TIME_UPDATE:
             alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
             
             if len(alive) <= 1:
@@ -3051,7 +3051,7 @@ def boka_battle_state(room_code):
     if game.phase == "revealing" and game.round_resolved and len(history_data) > 0:
         if not history_data[-1].get("winners"): all_loser = True
 
-    use_snapshot = (game.phase == "revealing" and 0 <= elapsed_since_reveal < TIME_UPDATE_CARDS)
+    use_snapshot = (game.phase == "revealing" and 0 <= elapsed_since_reveal < BOKA_TIME_UPDATE)
     players_info = []
     for g in gps:
         h_count = snapshot.get(g.username, len(json_loads_safe(g.hand))) if use_snapshot else len(json_loads_safe(g.hand))
