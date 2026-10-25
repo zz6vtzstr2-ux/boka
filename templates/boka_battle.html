@@ -331,7 +331,7 @@
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
       
-      // 如果是选牌阶段，且自己没锁定，清空桌面（防残留）
+      // 如果是选牌阶段，且自己没锁定，清空桌面
       if (data.phase === 'selecting' && !locked) {
           myArea.innerHTML = '';
           playersData.forEach(p => {
@@ -343,16 +343,11 @@
           return;
       }
 
-      // ★ 只认 elapsed，绝不看 phase
       let renderPhase = 'qmark';
       if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) {
           renderPhase = 'face';
       } else if (elapsed >= TIME_RESOLVE) {
           renderPhase = 'result';
-      }
-
-      if (elapsed < 0 || elapsed < TIME_REVEAL) {
-          renderPhase = 'qmark';
       }
 
       const allLoser = data.all_loser || false;
@@ -368,7 +363,11 @@
 
         area.innerHTML = '';
         if (renderPhase === 'qmark') {
-          area.appendChild(makeQmarkCard());
+          // AI 是否出问号，基于它的 locked 状态（现在后端一开始就锁定了，所以会立刻有问号）
+          const info = data.players_info.find(x => x.username === p.username);
+          if (info && info.locked) {
+              area.appendChild(makeQmarkCard());
+          }
         } else if (lastRound) {
           const playedEntry = lastRound.played.find(x => x.username === p.username);
           const isWin = lastRound.winners.includes(p.username);
@@ -392,7 +391,9 @@
 
       myArea.innerHTML = '';
       if (renderPhase === 'qmark') {
-        myArea.appendChild(makeQmarkCard());
+        if (locked) {
+            myArea.appendChild(makeQmarkCard());
+        }
       } else if (lastRound) {
         const playedEntry = lastRound.played.find(x => x.username === myUsername);
         const isWin = lastRound.winners.includes(myUsername);
@@ -600,12 +601,11 @@
     async function submitPlay() {
       if (myReady.length === 0) return;
       
-      console.log(`[${new Date().toLocaleTimeString('zh-CN', {hour12: false})}.${new Date().getMilliseconds()}] 我点击了出战`);
-      
       locked = true;
       updatePlayBtn();
       renderHand();
 
+      // 只画你自己的问号
       document.getElementById('play-myArea').innerHTML = '';
       document.getElementById('play-myArea').appendChild(makeQmarkCard());
 
@@ -625,7 +625,8 @@
 
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(pollState, 1000);
+      pollTimer = setInterval(pollState, 500); // ★ 确保是 500
+      pollState(); // ★ 确保加这一句，启动时立刻拉一次
     }
 
     async function pollState() {
@@ -671,10 +672,11 @@
             }
         }
 
-        // 渲染桌面（纯看时间轴）
+        // 渲染桌面
         renderPlayedCards(data, elapsed);
 
-        // 结束弹窗
+        // ★ 这里严格验证 data.finished 布尔值！
+        // 如果游戏结束，并且时间到了（或者后端已经切到了 finished 阶段）
         if (data.finished && !window.resultShown && (elapsed >= TIME_UPDATE || data.phase === 'finished')) {
           window.resultShown = true;
           clearInterval(pollTimer);
