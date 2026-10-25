@@ -2920,6 +2920,12 @@ def boka_play(room_code):
     # 3. 所有真人都出了：瞬间扣除 AI 手牌并记录时点 0
     if locked_real_count == len(real_usernames):
         if not game.round_resolved and game.phase != "revealing":
+            
+            # ★ 新增：在所有人扣牌前，记录当前手牌数作为快照
+            # 此时所有人应该都是 6 张，这样前端在 8 秒内就绝对只显示 6 张！
+            current_snapshot = {p.username: len(json_loads_safe(p.hand)) for p in all_players}
+            game.hand_count_snapshot = json_dumps_safe(current_snapshot)
+
             for gp in all_players:
                 if gp.username in ai_usernames and not gp.locked:
                     ai_cards = json_loads_safe(gp.ready_card)
