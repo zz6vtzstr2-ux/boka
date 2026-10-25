@@ -2186,8 +2186,18 @@ def boka_start(room_code):
     room.status = "playing"
     room.started_at = datetime.now()
     game.round_no = 1
+    # ... 原本的发牌代码 ...
     game.phase = "selecting"
     
+    # ★ 第一轮：让 AI 提前算好牌，但绝对不扣手牌
+    ai_usernames = {p.username for p in players if p.is_ai}
+    gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+    for gp in gps:
+        if gp.username in ai_usernames:
+            ai_cards = _boka_ai_choose_cards(game, gp)
+            if ai_cards:
+                gp.ready_card = json_dumps_safe(ai_cards)
+
     db.session.commit()
     return jsonify({"success": True})
 
@@ -2900,30 +2910,26 @@ def boka_play(room_code):
     me.locked = True
     db.session.commit()
 
-    # 2. 统计真人出牌
+    # 2. 统计
     bp_list = BokaPlayer.query.filter_by(room_id=room.id).all()
     real_usernames = {bp.username for bp in bp_list if not bp.is_ai}
     ai_usernames = {bp.username for bp in bp_list if bp.is_ai}
     all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     locked_real_count = sum(1 for p in all_players if p.locked and p.username in real_usernames)
 
-    # 3. 所有真人都出了，立刻记录时点 0，并瞬间返回
+    # 3. 所有真人都出了：瞬间扣除 AI 手牌并记录时点 0
     if locked_real_count == len(real_usernames):
         if not game.round_resolved and game.phase != "revealing":
-            # ★ 核心：真人锁完，瞬间记录时点 0，让前端立刻开始 elapse
-            game.phase = "revealing"
-            game.revealed_at = datetime.now()
-            db.session.commit()
-
-            # ★ 在后台让 AI 出牌（时间轴已经在走了，这个计算被隐藏在问号时间里）
             for gp in all_players:
                 if gp.username in ai_usernames and not gp.locked:
-                    ai_cards = _boka_ai_choose_cards(game, gp)
+                    ai_cards = json_loads_safe(gp.ready_card)
                     if ai_cards:
                         gp_hand = json_loads_safe(gp.hand)
                         gp.hand = json_dumps_safe([cid for cid in gp_hand if cid not in ai_cards])
-                        gp.ready_card = json_dumps_safe(ai_cards)
                         gp.locked = True
+            
+            game.phase = "revealing"
+            game.revealed_at = datetime.now()
             db.session.commit()
 
     return jsonify({"success": True})
@@ -2998,37 +3004,49 @@ def boka_battle_state(room_code):
     if game.phase == "revealing" and game.revealed_at:
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
 
-        # ★ 核心：到达亮牌节点（3秒），才开始计算胜负（利用这 3 秒缓冲）
+        # ★ 3 秒节点：开始算胜负
         if elapsed_since_reveal >= BOKA_TIME_REVEAL and not game.round_resolved:
             resolve_boka_round(game)
             db.session.commit()
-            # 重新读取数据，确保发给前端的是算好的
             gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
             snapshot = json_loads_safe(game.hand_count_snapshot) if game.hand_count_snapshot else {}
             history_data = json_loads_safe(game.history)
             me = next((g for g in gps if g.username == current_user.username), None)
 
-        # 到达 8 秒，清场进下一轮
+        # ★ 8 秒节点：清场
         if elapsed_since_reveal >= BOKA_TIME_UPDATE:
-            alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
-            
-            if len(alive) <= 1:
-                if not game.finished_at:
-                    finish_boka_game(game, alive)
-                    db.session.commit()
-            else:
-                game.round_no += 1
-                game.phase = "selecting"
+            # ★ 核心防并发锁：立刻把 revealed_at 清空，防止并发请求重复推进轮次
+            if game.revealed_at is not None:
                 game.revealed_at = None
-                game.round_winner_card_id = None
-                game.winner_username = None
-                game.round_resolved = False
-                game.hand_count_snapshot = json_dumps_safe({})
-                for g in gps:
-                    g.ready_card = json_dumps_safe([])
-                    g.locked = False
                 db.session.commit()
-                elapsed_since_reveal = -1
+
+                alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
+                if len(alive) <= 1:
+                    if not game.finished_at:
+                        finish_boka_game(game, alive)
+                        db.session.commit()
+                else:
+                    game.round_no += 1
+                    game.phase = "selecting"
+                    game.round_winner_card_id = None
+                    game.winner_username = None
+                    game.round_resolved = False
+                    game.hand_count_snapshot = json_dumps_safe({})
+                    for g in gps:
+                        g.ready_card = json_dumps_safe([])
+                        g.locked = False
+                    db.session.commit()
+                    elapsed_since_reveal = -1
+
+                    # 帮 AI 提前算好下一轮（只算不扣）
+                    bp_list = BokaPlayer.query.filter_by(room_id=room.id).all()
+                    ai_usernames = {bp.username for bp in bp_list if bp.is_ai}
+                    for gp in gps:
+                        if gp.username in ai_usernames:
+                            ai_cards = _boka_ai_choose_cards(game, gp)
+                            if ai_cards:
+                                gp.ready_card = json_dumps_safe(ai_cards)
+                    db.session.commit()
 
     if 'history_data' not in locals():
         history_data = json_loads_safe(game.history)
@@ -3039,19 +3057,15 @@ def boka_battle_state(room_code):
     if game.phase == "revealing" and game.round_resolved and len(history_data) > 0:
         if not history_data[-1].get("winners"): all_loser = True
 
-    # ★ 核心修改：只要还没到 8 秒进下一轮，全部用手牌快照，绝对不暴露真实手牌变化！
+    # 8 秒前用手牌快照，8 秒后用真实手牌
     use_snapshot = (game.phase == "revealing" and 0 <= elapsed_since_reveal < BOKA_TIME_UPDATE)
-    
-    # 如果是选牌阶段，真实手牌应该是 6 张（因为 AI 没扣），如果是 revealing，快照里存的是 5 张。
     players_info = []
     for g in gps:
-        if use_snapshot:
-            h_count = snapshot.get(g.username, len(json_loads_safe(g.hand)))
-        elif game.phase == "selecting":
-            # 选牌阶段，因为可能有些数据没被清空，以防万一，强行按当前 hand 算
-            h_count = len(json_loads_safe(g.hand))
-        else:
-            h_count = len(json_loads_safe(g.hand))
+        h_count = snapshot.get(g.username, len(json_loads_safe(g.hand))) if use_snapshot else len(json_loads_safe(g.hand))
+        players_info.append({
+            "username": g.username, "nickname": g.nickname or g.username,
+            "hand_count": h_count, "locked": g.locked, "is_me": g.username == current_user.username,
+        })
 
     return jsonify({
         "round_no": game.round_no, "phase": game.phase,
