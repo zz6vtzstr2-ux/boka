@@ -93,9 +93,9 @@ ROOMS = {}
 
 # ========== 战斗时间轴配置（单位：秒） ==========
 BATTLE_TIME_A = 1.0  
-BATTLE_TIME_B = 1.0  
-BATTLE_TIME_C = 2.0  
-BATTLE_TIME_D = 4.0 
+BATTLE_TIME_B = 2.0  
+BATTLE_TIME_C = 3.0  
+BATTLE_TIME_D = 2.0  
 BATTLE_TIME_E = 0.0
 
 TIME_REVEAL = BATTLE_TIME_A + BATTLE_TIME_B
@@ -3015,13 +3015,10 @@ def boka_battle_state(room_code):
         
         print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 前端来轮询了，当前elapsed={elapsed_since_reveal:.3f}秒", flush=True)
 
-        # ★ 关键修改：到达亮牌节点 (TIME_REVEAL) 才计算胜负
+        # 在 3 秒亮牌节点才计算胜负
         if elapsed_since_reveal >= TIME_REVEAL and not game.round_resolved:
-            print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 到达亮牌节点，开始计算胜负...", flush=True)
             resolve_boka_round(game)
             db.session.commit()
-            print(f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] 胜负计算完成，更新history", flush=True)
-            
             # 重新读取数据，确保当前请求返回的是算好的结果
             gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
             snapshot = json_loads_safe(game.hand_count_snapshot) if game.hand_count_snapshot else {}
