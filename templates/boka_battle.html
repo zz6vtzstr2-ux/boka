@@ -620,13 +620,10 @@
     let isPolling = false;
 
     async function pollState() {
-      if (isPolling) return;
-      isPolling = true;
-
       try {
         const res = await fetch(`/boka/room/${roomCode}/battle_state`);
         const data = await res.json();
-        if (data.error) { isPolling = false; return; }
+        if (data.error) return;
 
         if (data.history) lastHistory = data.history;
         
@@ -634,39 +631,52 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
-        const banner = document.getElementById('centerBanner');
-        banner.textContent = '本轮' + data.round_phase;
-        banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
-        poolCount = data.pool_count || 0;
-        document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
+        // ==========================================
+        // ★ 核心逻辑：是否是更新数字的时机？
+        // 条件是：不在亮牌阶段（说明在选牌/等待），或者时间已经 >= 8 秒
+        // ==========================================
+        const isTimeToUpdate = (data.phase !== 'revealing') || (elapsed >= TIME_UPDATE);
 
-        if (data.players_info) {
-          data.players_info.forEach(p => {
-            if (p.is_me) {
-              document.getElementById('myHandCount').textContent = p.hand_count;
-            } else {
-              const countEl = document.getElementById(`count-${p.username}`);
-              if (countEl) countEl.textContent = p.hand_count;
+        if (isTimeToUpdate) {
+            // 更新顶部轮次和比攻防
+            document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
+            const banner = document.getElementById('centerBanner');
+            banner.textContent = '本轮' + data.round_phase;
+            banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
+            
+            // 更新卡袋
+            poolCount = data.pool_count || 0;
+            document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
+
+            // 更新头像边上的手牌数
+            if (data.players_info) {
+              data.players_info.forEach(p => {
+                if (p.is_me) {
+                  document.getElementById('myHandCount').textContent = p.hand_count;
+                } else {
+                  const countEl = document.getElementById(`count-${p.username}`);
+                  if (countEl) countEl.textContent = p.hand_count;
+                }
+              });
             }
-          });
+
+            // 选牌阶段：同步下方手牌区
+            if (data.phase === 'selecting') {
+                if (lastRound !== data.round_no || myHand.length !== data.my_hand.length || locked) {
+                    myHand = data.my_hand || [];
+                    myReady = [];
+                    locked = false;
+                    renderHand();
+                    updatePlayBtn();
+                    lastRound = data.round_no;
+                }
+            }
         }
 
-        // 选牌阶段：轮次变了才刷新手牌并清空桌面
-        if (data.phase === 'selecting') {
-            if (lastRound !== data.round_no) {
-                myHand = data.my_hand || [];
-                myReady = [];
-                locked = false;
-                renderHand();
-                updatePlayBtn();
-                lastRound = data.round_no;
-            }
-        }
-
+        // 渲染桌面（画问号、画卡牌、画金框），这个随时根据 elapsed 渲染，不受上面的锁限制
         renderPlayedCards(data, elapsed);
 
-        // 结束弹窗判断
+        // 结束弹窗
         if (data.finished && !window.resultShown && (elapsed >= TIME_UPDATE || data.phase === 'finished')) {
           window.resultShown = true;
           clearInterval(pollTimer);
@@ -683,8 +693,6 @@
 
       } catch(e) { 
         console.error(e); 
-      } finally {
-        isPolling = false;
       }
     }
 
