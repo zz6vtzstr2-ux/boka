@@ -629,7 +629,7 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        // 1. 更新顶部信息（后端在 8 秒前会给快照，所以这里不会乱跳）
+        // 1. 更新顶部信息
         document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
         const banner = document.getElementById('centerBanner');
         banner.textContent = '本轮' + data.round_phase;
@@ -638,7 +638,7 @@
         poolCount = data.pool_count || 0;
         document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
 
-        // 2. 更新所有人手牌数（后端在 8 秒前会给快照，所以这里不会乱跳）
+        // 2. 更新所有人手牌数
         if (data.players_info) {
           data.players_info.forEach(p => {
             if (p.is_me) {
@@ -662,7 +662,7 @@
             }
         }
 
-        // 4. 渲染桌面（问号/亮牌/金框），这个只看 elapsed，不受任何限制
+        // 4. 渲染桌面（画问号、卡牌、金框）
         renderPlayedCards(data, elapsed);
 
         // 5. 结束弹窗
