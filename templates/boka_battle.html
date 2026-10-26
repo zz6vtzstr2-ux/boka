@@ -366,7 +366,6 @@
         if (renderPhase === 'qmark') {
           area.appendChild(makeQmarkCard());
         } else {
-          // 核心：直接用后端的 all_played 亮卡
           const playedObj = data.all_played ? data.all_played[p.username] : null;
           let cls = '';
           if (renderPhase === 'result' && lastRound) {
@@ -385,6 +384,7 @@
       // 渲染自己
       myArea.innerHTML = '';
       if (renderPhase === 'qmark') {
+        // ★ 关键：如果还没到 3 秒亮牌，死死按住问号！
         myArea.appendChild(makeQmarkCard());
       } else {
         const playedObj = data.all_played ? data.all_played[myUsername] : null;
