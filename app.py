@@ -2904,22 +2904,22 @@ def boka_play(room_code):
     for cid in card_ids:
         if cid not in my_hand: return jsonify({"error": f"卡 {cid} 不在手牌"}), 400
             
-    # 1. 真人扣手牌并锁定
+    # 扣手牌并锁定
     me.hand = json_dumps_safe([cid for cid in my_hand if cid not in card_ids])
     me.ready_card = json_dumps_safe(card_ids)
     me.locked = True
     db.session.commit()
 
-    # 2. 统计所有真人
+    # 统计真人
     bp_list = BokaPlayer.query.filter_by(room_id=room.id).all()
     real_usernames = {bp.username for bp in bp_list if not bp.is_ai}
     all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     locked_real_count = sum(1 for p in all_players if p.locked and p.username in real_usernames)
 
-    # 3. 所有真人都出了：记录时点0，瞬间返回！（不在这里算胜负，不扣AI牌）
+    # 真人都出了：记录时点0，存快照，立刻返回
     if locked_real_count == len(real_usernames):
         if not game.round_resolved and game.phase != "revealing":
-            # 保存0秒时的快照（大家都是扣完牌的5张，卡袋是没加牌的原始数）
+            # 存快照（手牌数在 8 秒前绝对不变）
             current_snapshot = {p.username: len(json_loads_safe(p.hand)) for p in all_players}
             current_snapshot["__pool__"] = len(json_loads_safe(game.card_pool))
             game.hand_count_snapshot = json_dumps_safe(current_snapshot)
@@ -2999,7 +2999,7 @@ def boka_battle_state(room_code):
     if game.phase == "revealing" and game.revealed_at:
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
 
-        # 3 秒节点：算胜负（消耗 0.5 秒左右）
+        # 3 秒算胜负
         if elapsed_since_reveal >= BOKA_TIME_REVEAL and not game.round_resolved:
             resolve_boka_round(game)
             db.session.commit()
@@ -3007,7 +3007,7 @@ def boka_battle_state(room_code):
             history_data = json_loads_safe(game.history)
             me = next((g for g in gps if g.username == current_user.username), None)
 
-        # 8 秒节点：清场进下一轮
+        # 8 秒清场进下一轮
         if elapsed_since_reveal >= BOKA_TIME_UPDATE:
             if game.revealed_at is not None:
                 game.revealed_at = None
@@ -3032,30 +3032,21 @@ def boka_battle_state(room_code):
                     elapsed_since_reveal = -1
 
     my_hand_ids = json_loads_safe(me.hand) if me else []
-    
     all_loser = False
     if game.phase == "revealing" and game.round_resolved and len(history_data) > 0:
         if not history_data[-1].get("winners"): all_loser = True
 
-    # ==========================================
-    # ★ 核心障眼法：用中间变量欺骗前端
-    # ==========================================
+    # 快照防跳变逻辑
     is_animating = (game.phase == "revealing" and 0 <= elapsed_since_reveal < BOKA_TIME_UPDATE)
-    
     snapshot = json_loads_safe(game.hand_count_snapshot) if game.hand_count_snapshot else {}
-    
-    # 8 秒前，卡袋数不变
-    if is_animating:
-        pool_count = snapshot.get("__pool__", len(json_loads_safe(game.card_pool)))
-    else:
-        pool_count = len(json_loads_safe(game.card_pool))
+    pool_count = snapshot.get("__pool__", len(json_loads_safe(game.card_pool))) if is_animating else len(json_loads_safe(game.card_pool))
 
+    # 亮牌数据 (这是你说第10点时我们确认的：直接拿 ready_card 亮)
     all_played = {}
     for g in gps:
         card_ids = json_loads_safe(g.ready_card)
         if card_ids:
-            played_cards = [CARD_BY_ID.get(cid) for cid in card_ids if CARD_BY_ID.get(cid)]
-            all_played[g.username] = {"cards": played_cards}
+            all_played[g.username] = {"cards": [CARD_BY_ID.get(cid) for cid in card_ids if CARD_BY_ID.get(cid)]}
         elif game.round_resolved and history_data:
             entry = next((p for p in history_data[-1].get("played", []) if p["username"] == g.username), None)
             if entry and entry.get("card"):
@@ -3068,13 +3059,7 @@ def boka_battle_state(room_code):
 
     players_info = []
     for g in gps:
-        if is_animating:
-            # 8 秒前，读快照手牌数（5张）
-            h_count = snapshot.get(g.username, len(json_loads_safe(g.hand)))
-        else:
-            # 选牌阶段或8秒后，读真实手牌数
-            h_count = len(json_loads_safe(g.hand))
-            
+        h_count = snapshot.get(g.username, len(json_loads_safe(g.hand))) if is_animating else len(json_loads_safe(g.hand))
         players_info.append({
             "username": g.username, "nickname": g.nickname or g.username,
             "hand_count": h_count, "locked": g.locked, "is_me": g.username == current_user.username,
