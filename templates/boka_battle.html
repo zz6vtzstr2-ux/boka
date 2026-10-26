@@ -828,8 +828,43 @@
     async function doQuit() { closeQuitModal(); await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' }); window.location.href = '/boka'; }
 
     async function discardCards() {
-      const ok = await showCustomConfirm("弃卡认输", "确定弃卡吗？手牌将进入卡袋。");
-      if (!ok) return;
+      // 1. 修改文字
+      document.getElementById('confirmMsg').textContent = "确定要弃卡认输吗？";
+      
+      // 2. 获取弹窗内的两个按钮
+      const btns = document.querySelectorAll('#confirmModal button');
+      
+      // 3. 设置左边按钮（取消）：文字改“取消”，样式改蓝色
+      btns[0].textContent = '取消'; 
+      btns[0].style.background = '#5bb8e8';
+      btns[0].style.color = '#fff';
+      btns[0].style.border = 'none';
+
+      // 4. 设置右边按钮（弃卡）：文字改“弃卡”，样式改红色
+      btns[1].textContent = '弃卡'; 
+      btns[1].style.background = '#fce8ec';
+      btns[1].style.color = '#b85a6a';
+      btns[1].style.border = '1px solid #e8c8d0';
+
+      // 5. 显示弹窗并等待用户选择
+      document.getElementById('confirmModal').style.display = 'flex';
+      const ok = await new Promise(resolve => { confirmResolve = resolve; });
+
+      // 6. ★ 核心：恢复默认样式，防止污染其他弹窗（比如退出房间）
+      btns[0].textContent = '取消';
+      btns[0].style.background = '#fce8ec';
+      btns[0].style.color = '#b85a6a';
+      btns[0].style.border = '1px solid #e8c8d0';
+
+      btns[1].textContent = '确定';
+      btns[1].style.background = '#5bb8e8';
+      btns[1].style.color = '#fff';
+      btns[1].style.border = 'none';
+
+      // 7. 如果点了左边（取消），直接结束
+      if (!ok) return; 
+      
+      // 8. 如果点了右边（弃卡），发请求
       const res = await fetch(`/boka/room/${roomCode}/surrender`, { method: 'POST' });
       const data = await res.json();
       if (data.error) { alert(data.error); return; }
