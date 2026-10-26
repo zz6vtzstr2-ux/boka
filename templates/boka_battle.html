@@ -634,22 +634,28 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
-        const banner = document.getElementById('centerBanner');
-        banner.textContent = '本轮' + data.round_phase;
-        banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
-        poolCount = data.pool_count || 0;
-        document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
+        // ★ 核心修改：只有在没进入战斗（-1），或者时间到了 8 秒（TIME_UPDATE），才允许刷新 UI 数字
+        const isTimeToUpdate = (elapsed === -1) || (elapsed >= TIME_UPDATE);
 
-        if (data.players_info) {
-          data.players_info.forEach(p => {
-            if (p.is_me) {
-              document.getElementById('myHandCount').textContent = p.hand_count;
-            } else {
-              const countEl = document.getElementById(`count-${p.username}`);
-              if (countEl) countEl.textContent = p.hand_count;
+        if (isTimeToUpdate) {
+            document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
+            const banner = document.getElementById('centerBanner');
+            banner.textContent = '本轮' + data.round_phase;
+            banner.className = `center-banner ${data.round_phase === '比攻' ? 'atk' : 'def'}`;
+            
+            poolCount = data.pool_count || 0;
+            document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
+
+            if (data.players_info) {
+              data.players_info.forEach(p => {
+                if (p.is_me) {
+                  document.getElementById('myHandCount').textContent = p.hand_count;
+                } else {
+                  const countEl = document.getElementById(`count-${p.username}`);
+                  if (countEl) countEl.textContent = p.hand_count;
+                }
+              });
             }
-          });
         }
 
         // 选牌阶段：轮次变了才刷新手牌并清空桌面
