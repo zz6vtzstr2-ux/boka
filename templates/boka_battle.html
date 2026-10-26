@@ -539,37 +539,41 @@
       document.getElementById('songjiangModal').style.display = 'none';
       if (!ok) return;
 
-      // ★ 在 fetch 之前先清前端选择状态，保证发请求时 myReady 已空
+      // ★ 1. 清理本地选择状态
       myReady = [];
       songjiangShownForCurrentSelection = false;
       renderHand();
 
-      // ★ 1. 在中央亮卡区展示宋江 2 秒（金边）
+      // ★ 2. 核心修复：开启“展示锁”，在这 2 秒内，让 pollState 不要去动出牌区
+      window.isShowingSongjiang = true;
+
+      // 展示宋江 2 秒（金边）
       const songjiangCard = myHand.find(c => c.name === '宋江');
       if (songjiangCard) {
-        renderPlayedCards({ 
-          all_played: { [myUsername]: [songjiangCard] }, 
-          winner_username: null, 
-          finished: false 
-        }, TIME_REVEAL); // 传入一个处于 face 阶段的假数据
+        const myArea = document.getElementById('play-myArea');
+        myArea.innerHTML = ''; // 彻底清空防止问号重叠
+        myArea.appendChild(makeHeroCard(songjiangCard, 'new-drawn')); // 用金框样式展示宋江
         
         if (window.songjiangShowTimer) clearTimeout(window.songjiangShowTimer);
         window.songjiangShowTimer = setTimeout(() => {
-          const myArea = document.getElementById('play-myArea');
-          if (myArea) myArea.innerHTML = '';
+          const area = document.getElementById('play-myArea');
+          if (area) area.innerHTML = ''; // 2 秒后消失
           window.songjiangShowTimer = null;
+          window.isShowingSongjiang = false; // ★ 解除展示锁
         }, 2000);
       }
 
+      // 发请求给后端抽卡
       const res = await fetch(`/boka/room/${roomCode}/songjiang_draw`, { method: 'POST' });
       const data = await res.json();
       
       if (data.error) {
         alert(data.error);
+        window.isShowingSongjiang = false;
         return;
       }
       
-      // 2. 记录抽到的新卡ID，用于 3 秒金框闪烁
+      // 抽到新卡的金框闪烁逻辑（3秒）
       if (data.picked_id) {
         if (!window.newDrawnCards) window.newDrawnCards = new Set();
         window.newDrawnCards.add(data.picked_id);
@@ -577,12 +581,12 @@
         setTimeout(() => {
           if (window.newDrawnCards) {
             window.newDrawnCards.delete(data.picked_id);
-            renderHand(); // 3秒后取消闪烁
+            renderHand(); // 3秒后取消手牌区的闪烁
           }
         }, 3000);
       }
 
-      // 3. 立即刷新手牌状态
+      // 立即刷新手牌状态
       await pollState(); 
     }
     
@@ -634,7 +638,9 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        // ★ 核心修改：只有在没进入战斗（-1），或者时间到了 8 秒（TIME_UPDATE），才允许刷新 UI 数字
+        // ==========================================
+        // ★ 数字冻结逻辑：只在非战斗期或 8 秒后刷新数字
+        // ==========================================
         const isTimeToUpdate = (elapsed === -1) || (elapsed >= TIME_UPDATE);
 
         if (isTimeToUpdate) {
@@ -658,7 +664,7 @@
             }
         }
 
-        // 选牌阶段：轮次变了才刷新手牌并清空桌面
+        // 选牌阶段：轮次变了才刷新手牌
         if (data.phase === 'selecting') {
             if (lastRound !== data.round_no) {
                 myHand = data.my_hand || [];
@@ -670,14 +676,19 @@
             }
         }
 
-        renderPlayedCards(data, elapsed);
+        // ==========================================
+        // ★ 核心修复：如果正在展示宋江，跳过桌面渲染
+        // ==========================================
+        if (!window.isShowingSongjiang) {
+            renderPlayedCards(data, elapsed);
+        }
 
-        // 结束弹窗判断：死死卡在 8 秒（TIME_UPDATE）后
+        // ==========================================
+        // ★ 结束弹窗判断：死死卡在 8 秒（TIME_UPDATE）后
+        // ==========================================
         if (data.finished && !window.resultShown && elapsed >= TIME_UPDATE) {
           window.resultShown = true;
           clearInterval(pollTimer);
-          
-          // ... 后面弹窗内容保持不变 ...
           
           document.getElementById('resultTitle').textContent = data.my_rank === 1 ? "恭喜获胜！" : "对局结束";
           document.getElementById('resultLine').textContent = `你的最终排名：第 ${data.my_rank || '未知'} 名`;
