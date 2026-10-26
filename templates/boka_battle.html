@@ -672,10 +672,12 @@
 
         renderPlayedCards(data, elapsed);
 
-        // 结束弹窗判断
-        if (data.finished && !window.resultShown && (elapsed >= TIME_UPDATE || data.phase === 'finished')) {
+        // 结束弹窗判断：死死卡在 8 秒（TIME_UPDATE）后
+        if (data.finished && !window.resultShown && elapsed >= TIME_UPDATE) {
           window.resultShown = true;
           clearInterval(pollTimer);
+          
+          // ... 后面弹窗内容保持不变 ...
           
           document.getElementById('resultTitle').textContent = data.my_rank === 1 ? "恭喜获胜！" : "对局结束";
           document.getElementById('resultLine').textContent = `你的最终排名：第 ${data.my_rank || '未知'} 名`;
