@@ -828,48 +828,69 @@
     async function doQuit() { closeQuitModal(); await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' }); window.location.href = '/boka'; }
 
     async function discardCards() {
-      // 1. 修改文字
       document.getElementById('confirmMsg').textContent = "确定要弃卡认输吗？";
       
-      // 2. 获取弹窗内的两个按钮
       const btns = document.querySelectorAll('#confirmModal button');
-      
-      // 3. 设置左边按钮（取消）：文字改“取消”，样式改蓝色
       btns[0].textContent = '取消'; 
-      btns[0].style.background = '#5bb8e8';
-      btns[0].style.color = '#fff';
-      btns[0].style.border = 'none';
+      btns[0].style.background = '#5bb8e8'; btns[0].style.color = '#fff'; btns[0].style.border = 'none';
 
-      // 4. 设置右边按钮（弃卡）：文字改“弃卡”，样式改红色
       btns[1].textContent = '弃卡'; 
-      btns[1].style.background = '#fce8ec';
-      btns[1].style.color = '#b85a6a';
-      btns[1].style.border = '1px solid #e8c8d0';
+      btns[1].style.background = '#fce8ec'; btns[1].style.color = '#b85a6a'; btns[1].style.border = '1px solid #e8c8d0';
 
-      // 5. 显示弹窗并等待用户选择
       document.getElementById('confirmModal').style.display = 'flex';
       const ok = await new Promise(resolve => { confirmResolve = resolve; });
 
-      // 6. ★ 核心：恢复默认样式，防止污染其他弹窗（比如退出房间）
       btns[0].textContent = '取消';
-      btns[0].style.background = '#fce8ec';
-      btns[0].style.color = '#b85a6a';
-      btns[0].style.border = '1px solid #e8c8d0';
+      btns[0].style.background = '#fce8ec'; btns[0].style.color = '#b85a6a'; btns[0].style.border = '1px solid #e8c8d0';
 
       btns[1].textContent = '确定';
-      btns[1].style.background = '#5bb8e8';
-      btns[1].style.color = '#fff';
-      btns[1].style.border = 'none';
+      btns[1].style.background = '#5bb8e8'; btns[1].style.color = '#fff'; btns[1].style.border = 'none';
 
-      // 7. 如果点了左边（取消），直接结束
       if (!ok) return; 
       
-      // 8. 如果点了右边（弃卡），发请求
+      locked = true; // 防止连点
       const res = await fetch(`/boka/room/${roomCode}/surrender`, { method: 'POST' });
       const data = await res.json();
-      if (data.error) { alert(data.error); return; }
-      if (data.finished) document.getElementById('exitBtn').disabled = false;
-      window.location.href = `/boka/room/${roomCode}`;
+      
+      if (data.error) { 
+        alert(data.error); 
+        locked = false;
+        return; 
+      }
+      
+      if (data.finished) {
+        // ★ 游戏彻底结束：弹结算框
+        window.resultShown = false; 
+        currentElapsed = 8.0;       
+        await pollState();          
+        if (window.resultShown) return;
+
+        document.getElementById('resultTitle').textContent = data.rank === 1 ? "恭喜获胜！" : "对局结束";
+        document.getElementById('resultLine').textContent = `你的最终排名：第 ${data.rank} 名`;
+        document.getElementById('resultRanks').innerHTML = `<div style="text-align:center; font-weight:bold; color:#b85a6a; font-size:18px;">已弃卡（积分已结算）</div>`;
+        document.getElementById('resultModal').style.display = 'flex';
+        clearInterval(pollTimer);
+      } else {
+        // ★ 游戏未结束：进入观战模式
+        // 1. 清空并替换底部手牌区
+        const handArea = document.getElementById('myHandArea');
+        handArea.innerHTML = `<div style="color: #b85a6a; font-weight: bold; font-size: 16px; width: 100%; text-align: center; margin-top: 20px;">你已淘汰，第 ${data.rank} 名</div>`;
+        
+        // 2. 将手牌数量改为 0
+        document.getElementById('myHandCount').textContent = "0";
+        
+        // 3. 将底部头像和出战按钮替换/禁用
+        document.getElementById('playBtn').disabled = true;
+        document.getElementById('playBtn').textContent = '观战';
+        
+        // 4. 清空自己的出牌区
+        document.getElementById('play-myArea').innerHTML = '';
+        
+        // 5. 锁定前端状态，继续轮询（观战）
+        myHand = [];
+        myReady = [];
+        locked = true; // 阻止任何再出的可能
+      }
     }
 
     renderHand();
