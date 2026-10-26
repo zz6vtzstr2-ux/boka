@@ -366,10 +366,9 @@
         if (renderPhase === 'qmark') {
           area.appendChild(makeQmarkCard());
         } else {
-          // 从后端传来的 all_played 拿真实卡牌（亮牌时立刻有）
+          // 核心：直接用后端的 all_played 亮卡
           const playedObj = data.all_played ? data.all_played[p.username] : null;
           let cls = '';
-          // 如果是亮暗阶段，且有胜负数据，加上金框/灰暗
           if (renderPhase === 'result' && lastRound) {
               const isWin = lastRound.winners.includes(p.username);
               cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
@@ -629,7 +628,6 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        // 1. 更新顶部信息
         document.getElementById('roundInfo').textContent = `第 ${data.round_no} 轮`;
         const banner = document.getElementById('centerBanner');
         banner.textContent = '本轮' + data.round_phase;
@@ -638,7 +636,6 @@
         poolCount = data.pool_count || 0;
         document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
 
-        // 2. 更新所有人手牌数
         if (data.players_info) {
           data.players_info.forEach(p => {
             if (p.is_me) {
@@ -650,7 +647,6 @@
           });
         }
 
-        // 3. 选牌阶段，刷新下方手牌区
         if (data.phase === 'selecting') {
             if (lastRound !== data.round_no || myHand.length !== data.my_hand.length || locked) {
                 myHand = data.my_hand || [];
@@ -662,10 +658,8 @@
             }
         }
 
-        // 4. 渲染桌面（画问号、卡牌、金框）
         renderPlayedCards(data, elapsed);
 
-        // 5. 结束弹窗
         if (data.finished && !window.resultShown && (elapsed >= TIME_UPDATE || data.phase === 'finished')) {
           window.resultShown = true;
           clearInterval(pollTimer);
