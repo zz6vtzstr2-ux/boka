@@ -3051,12 +3051,34 @@ def boka_battle_state(room_code):
 
     if 'history_data' not in locals():
         history_data = json_loads_safe(game.history)
-        
+
     my_hand_ids = json_loads_safe(me.hand) if me else []
     
     all_loser = False
     if game.phase == "revealing" and game.round_resolved and len(history_data) > 0:
         if not history_data[-1].get("winners"): all_loser = True
+
+    # ★ 核心新增：组装出牌展示数据（无论算没算完，都发给前端亮牌用）
+    all_played = {}
+    for g in gps:
+        card_ids = json_loads_safe(g.ready_card)
+        if card_ids:
+            # 还没算完，或者算完了但 ready_card 还在，直接用 ready_card 里的卡
+            played_cards = [CARD_BY_ID.get(cid) for cid in card_ids if CARD_BY_ID.get(cid)]
+            all_played[g.username] = {"cards": played_cards}
+        elif game.round_resolved and history_data:
+            # 算完了，并且 ready_card 已经被清了，从 history 拿
+            last_round = history_data[-1]
+            entry = next((p for p in last_round.get("played", []) if p["username"] == g.username), None)
+            if entry and entry.get("card"):
+                c = entry["card"]
+                all_played[g.username] = {
+                    "cards": c["cards"] if c.get("is_combo") and c.get("cards") else [c]
+                }
+            else:
+                all_played[g.username] = {"cards": []}
+        else:
+            all_played[g.username] = {"cards": []}
 
     # 8 秒前用手牌快照，8 秒后用真实手牌
     use_snapshot = (game.phase == "revealing" and 0 <= elapsed_since_reveal < BOKA_TIME_UPDATE)
@@ -3078,6 +3100,7 @@ def boka_battle_state(room_code):
         "beauty_left": game.beauty_left if game.beauty_left is not None else 3,
         "my_rank": me.rank if me else None, "my_score_change": me.score_change if me else 0,
         "players_info": players_info, "all_loser": all_loser, "pool_count": pool_count,
+        "all_played": all_played, # ★ 发给前端
     })
 
 @app.route('/boka/room/<room_code>/surrender', methods=['POST'])
