@@ -539,31 +539,31 @@
       document.getElementById('songjiangModal').style.display = 'none';
       if (!ok) return;
 
-      // ★ 1. 清理本地选择状态
+      // 1. 清理本地选择状态
       myReady = [];
       songjiangShownForCurrentSelection = false;
       renderHand();
 
-      // ★ 2. 核心修复：开启“展示锁”，在这 2 秒内，让 pollState 不要去动出牌区
+      // 2. 开启“展示锁”
       window.isShowingSongjiang = true;
 
-      // 展示宋江 2 秒（金边）
+      // 3. 展示宋江 2 秒
       const songjiangCard = myHand.find(c => c.name === '宋江');
       if (songjiangCard) {
         const myArea = document.getElementById('play-myArea');
-        myArea.innerHTML = ''; // 彻底清空防止问号重叠
-        myArea.appendChild(makeHeroCard(songjiangCard, 'new-drawn')); // 用金框样式展示宋江
+        myArea.innerHTML = ''; 
+        myArea.appendChild(makeHeroCard(songjiangCard, 'new-drawn')); 
         
         if (window.songjiangShowTimer) clearTimeout(window.songjiangShowTimer);
         window.songjiangShowTimer = setTimeout(() => {
           const area = document.getElementById('play-myArea');
           if (area) area.innerHTML = ''; // 2 秒后消失
           window.songjiangShowTimer = null;
-          window.isShowingSongjiang = false; // ★ 解除展示锁
+          window.isShowingSongjiang = false; // 解除展示锁
         }, 2000);
       }
 
-      // 发请求给后端抽卡
+      // 4. 发请求给后端抽卡
       const res = await fetch(`/boka/room/${roomCode}/songjiang_draw`, { method: 'POST' });
       const data = await res.json();
       
@@ -573,7 +573,7 @@
         return;
       }
       
-      // 抽到新卡的金框闪烁逻辑（3秒）
+      // 5. 处理新卡金框闪烁
       if (data.picked_id) {
         if (!window.newDrawnCards) window.newDrawnCards = new Set();
         window.newDrawnCards.add(data.picked_id);
@@ -581,12 +581,20 @@
         setTimeout(() => {
           if (window.newDrawnCards) {
             window.newDrawnCards.delete(data.picked_id);
-            renderHand(); // 3秒后取消手牌区的闪烁
+            renderHand();
           }
         }, 3000);
       }
 
-      // 立即刷新手牌状态
+      // 6. ★ 核心修复：学挑战，直接向后端要最新的手牌数据！
+      const stateRes = await fetch(`/boka/room/${roomCode}/battle_state`);
+      const stateData = await stateRes.json();
+      if (!stateData.error) {
+        myHand = stateData.my_hand || []; // 强制覆盖本地手牌
+        renderHand(); // 立刻重绘，新卡和少掉的宋江就会显示出来
+      }
+
+      // 7. 顺便再轮询一次更新顶部状态
       await pollState(); 
     }
     
@@ -664,9 +672,9 @@
             }
         }
 
-        // 选牌阶段：轮次变了才刷新手牌
         if (data.phase === 'selecting') {
-            if (lastRound !== data.round_no) {
+            // ★ 确保有 locked 这个判断，因为你现在是没锁定状态，但只要手牌内容变了（比如宋江被换），最好能同步
+            if (lastRound !== data.round_no || myHand.length !== data.my_hand.length || locked) {
                 myHand = data.my_hand || [];
                 myReady = [];
                 locked = false;
