@@ -873,7 +873,6 @@
 
       btns[0].textContent = '取消';
       btns[0].style.background = '#fce8ec'; btns[0].style.color = '#b85a6a'; btns[0].style.border = '1px solid #e8c8d0';
-
       btns[1].textContent = '确定';
       btns[1].style.background = '#5bb8e8'; btns[1].style.color = '#fff'; btns[1].style.border = 'none';
 
@@ -890,63 +889,31 @@
       }
       
       if (data.finished) {
-        // ★ 游戏彻底结束：强行调用 pollState 拉取最新完整数据，让它来弹窗
+        // ★ 游戏彻底结束：强行调用 pollState 让它弹出最终的表格结算框
         window.resultShown = false; 
         currentElapsed = 8.0;       
         await pollState();          
-        
-        // 如果 pollState 没弹出来（比如因为并发锁），兜底手动渲染一次
         if (!window.resultShown) {
-          window.resultShown = true;
-          clearInterval(pollTimer);
-          
-          document.getElementById('resultTitle').textContent = "对局结束";
-          document.getElementById('resultLine').textContent = ""; 
-          
-          // 这里我们不需要再写一遍表格，直接请求一次 battle_state 拿数据
-          const endRes = await fetch(`/boka/room/${roomCode}/battle_state`);
-          const endData = await endRes.json();
-          
-          if (endData.all_ranks) {
-              let html = `
-                <table style="width:100%; border-collapse:collapse; font-size:14px; text-align:center; margin-top: 10px;">
-                  <thead><tr style="color:#8a6d1f; border-bottom:2px solid #d8d0bc; background:#fdf6d8;">
-                    <th style="padding:8px 4px;">名次</th><th style="padding:8px 4px;">玩家</th><th style="padding:8px 4px;">积分</th><th style="padding:8px 4px;">建材</th>
-                  </tr></thead><tbody>
-              `;
-              endData.all_ranks.forEach(p => {
-                const isMe = p.is_me; const color = isMe ? '#b85a6a' : '#333';
-                const scoreText = p.score_change > 0 ? `+${p.score_change}` : p.score_change;
-                const matText = p.materials > 0 ? `+${p.materials}` : p.materials;
-                html += `<tr style="border-bottom:1px solid #f0e8d0;">
-                  <td style="padding:10px 4px; color:${color};">${p.rank}</td><td style="padding:10px 4px; color:${color};">${p.nickname}</td><td style="padding:10px 4px; color:${color};">${scoreText}</td><td style="padding:10px 4px; color:${color};">${matText}</td>
-                </tr>`;
-              });
-              html += `</tbody></table>`;
-              document.getElementById('resultRanks').innerHTML = html;
-          }
-          document.getElementById('resultModal').style.display = 'flex';
+           // 如果 pollState 因为某些原因没弹（比如你就在最后结算的动画里），这里做个兜底
+           window.resultShown = true;
+           document.getElementById('resultTitle').textContent = "对局结束";
+           document.getElementById('resultRanks').innerHTML = `<div style="text-align:center; font-weight:bold; color:#b85a6a; font-size:18px;">已弃卡（积分已结算）</div>`;
+           document.getElementById('resultModal').style.display = 'flex';
+           clearInterval(pollTimer);
         }
       } else {
-        // ★ 游戏未结束：进入观战模式
-        // 1. 清空并替换底部手牌区
+        // ★ 游戏未结束：直接文字显示淘汰并进入观战
         const handArea = document.getElementById('myHandArea');
         handArea.innerHTML = `<div style="color: #b85a6a; font-weight: bold; font-size: 16px; width: 100%; text-align: center; margin-top: 20px;">你已淘汰，第 ${data.rank} 名</div>`;
         
-        // 2. 将手牌数量改为 0
         document.getElementById('myHandCount').textContent = "0";
-        
-        // 3. 将底部头像和出战按钮替换/禁用
         document.getElementById('playBtn').disabled = true;
         document.getElementById('playBtn').textContent = '观战';
-        
-        // 4. 清空自己的出牌区
         document.getElementById('play-myArea').innerHTML = '';
         
-        // 5. 锁定前端状态，继续轮询（观战）
         myHand = [];
         myReady = [];
-        locked = true; // 阻止任何再出的可能
+        locked = true; 
       }
     }
 
