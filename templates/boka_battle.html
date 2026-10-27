@@ -331,6 +331,7 @@
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
       
+      // 1. 如果没锁定且在选牌，正常清空
       if (data.phase === 'selecting' && !locked) {
           myArea.innerHTML = '';
           playersData.forEach(p => {
@@ -342,6 +343,13 @@
           return; 
       }
 
+      // ★ 2. 核心防闪烁拦截：如果自己已出战(locked)，但后端数据未就绪(all_played为空)或时间无效(elapsed<0)
+      // 此时绝对不许清空本地已经画好的问号，直接 return 跳过本次渲染！
+      if (locked && (elapsed < 0 || !data.all_played || Object.keys(data.all_played).length === 0)) {
+          return; 
+      }
+
+      // 下面保持不变
       let renderPhase = 'qmark';
       if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) {
           renderPhase = 'face';
@@ -366,10 +374,8 @@
         if (renderPhase === 'qmark') {
           area.appendChild(makeQmarkCard());
         } else {
-          // 从后端传来的 all_played 拿真实卡牌（亮牌时立刻有）
           const playedObj = data.all_played ? data.all_played[p.username] : null;
           let cls = '';
-          // 如果是亮暗阶段，且有胜负数据，加上金框/灰暗
           if (renderPhase === 'result' && lastRound) {
               const isWin = lastRound.winners.includes(p.username);
               cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
