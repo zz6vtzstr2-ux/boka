@@ -343,14 +343,6 @@
           return; 
       }
 
-      // ★ 2. 核心防闪锁：只要我锁定了，但后端还没把我的真实出牌数据发过来，就不许清空！
-      if (locked) {
-          const myData = data.all_played ? data.all_played[myUsername] : null;
-          if (!myData || !myData.cards || myData.cards.length === 0) {
-              return; // 强行保住你本地的问号
-          }
-      }
-
       // ===== 下面这行是你原本的代码，保持不动 =====
       let renderPhase = 'qmark';
       // ...（后面的渲染逻辑不用动，保留原来的）
@@ -695,7 +687,17 @@
             }
         }
 
-        if (!window.isShowingSongjiang) {
+        // ★ 防闪逻辑
+        let canRender = true;
+        if (locked && data.phase === 'revealing') {
+            // 如果我点了出战，但后端还没给我发回有效的出牌数据，先不渲染，保住本地问号
+            if (!data.all_played || !data.all_played[myUsername] || !data.all_played[myUsername].cards) {
+                canRender = false;
+            }
+        }
+
+        // 只有在没展示宋江，且防闪允许的情况下，才渲染桌面
+        if (!window.isShowingSongjiang && canRender) {
             renderPlayedCards(data, elapsed);
         }
 
