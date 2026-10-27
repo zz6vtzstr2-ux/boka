@@ -331,7 +331,7 @@
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
       
-      // 1. 选牌阶段（正常清空）
+      // 1. 只有在选牌阶段，且自己没锁定，才清空桌面
       if (data.phase === 'selecting' && !locked) {
           myArea.innerHTML = '';
           playersData.forEach(p => {
@@ -343,7 +343,7 @@
           return; 
       }
 
-      // 2. 确定当前阶段
+      // 2. 纯时间轴判断
       let renderPhase = 'qmark';
       if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) {
           renderPhase = 'face';
@@ -352,14 +352,13 @@
       }
 
       const allLoser = data.all_loser || false;
+      
       let lastRound = null;
       if (data.history && data.history.length > 0) {
           lastRound = data.history[data.history.length - 1];
       }
 
-      // ==========================================
-      // 3. 渲染对手区（AI） - 按后端时间轴走
-      // ==========================================
+      // 3. 渲染对手（AI）
       playersData.forEach(p => {
         if (p.username === myUsername) return;
         const area = document.getElementById(`play-${p.username}`);
@@ -384,31 +383,23 @@
         }
       });
 
-      // ==========================================
-      // 4. 渲染自己区（我） - 独立逻辑
-      // ==========================================
+      // 4. 渲染自己
       myArea.innerHTML = '';
-      
-      // ★ 核心：只要我锁定了，或者是亮牌阶段，我的区就必须有东西！
       if (renderPhase === 'qmark') {
-          // 没到亮牌时间，只要我点过出战（locked），就无脑焊一个问号！
-          if (locked) {
-              myArea.appendChild(makeQmarkCard());
-          }
+        myArea.appendChild(makeQmarkCard());
       } else {
-          // 到了亮牌时间，画我的真卡
-          const playedObj = data.all_played ? data.all_played[myUsername] : null;
-          let cls = '';
-          if (renderPhase === 'result' && lastRound) {
-              const isWin = lastRound.winners.includes(myUsername);
-              cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
-          }
-          
-          if (playedObj && playedObj.cards) {
-            playedObj.cards.forEach(subC => myArea.appendChild(makeHeroCard(subC, cls)));
-          } else {
-            myArea.appendChild(makeQmarkCard());
-          }
+        const playedObj = data.all_played ? data.all_played[myUsername] : null;
+        let cls = '';
+        if (renderPhase === 'result' && lastRound) {
+            const isWin = lastRound.winners.includes(myUsername);
+            cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
+        }
+        
+        if (playedObj && playedObj.cards) {
+          playedObj.cards.forEach(subC => myArea.appendChild(makeHeroCard(subC, cls)));
+        } else {
+          myArea.appendChild(makeQmarkCard());
+        }
       }
     }
 
@@ -692,17 +683,8 @@
             }
         }
 
-        // ★ 防闪逻辑：如果自己出牌了，但后端还没发来所有人的出牌数据，保留本地问号，不渲染
-        let canRender = true;
-        if (locked && data.phase === 'revealing') {
-            // data.all_played[myUsername] 只要不存在或者为空，就不渲染
-            if (!data.all_played || !data.all_played[myUsername] || data.all_played[myUsername].length === 0) {
-                canRender = false;
-            }
-        }
-
-        // 只有在没展示宋江，且防闪允许的情况下，才渲染桌面
-        if (!window.isShowingSongjiang && canRender) {
+        // 只要不是在展示宋江，就无条件调用渲染！
+        if (!window.isShowingSongjiang) {
             renderPlayedCards(data, elapsed);
         }
 
