@@ -682,11 +682,11 @@
             }
         }
 
-        // ★ 防闪逻辑
+        // ★ 防闪逻辑：如果自己出牌了，但后端还没发来所有人的出牌数据，保留本地问号，不渲染
         let canRender = true;
         if (locked && data.phase === 'revealing') {
-            // 如果我点了出战，但后端还没给我发回有效的出牌数据，先不渲染，保住本地问号
-            if (!data.all_played || !data.all_played[myUsername] || !data.all_played[myUsername].cards) {
+            // data.all_played[myUsername] 只要不存在或者为空，就不渲染
+            if (!data.all_played || !data.all_played[myUsername] || data.all_played[myUsername].length === 0) {
                 canRender = false;
             }
         }
