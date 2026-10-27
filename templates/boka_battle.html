@@ -673,7 +673,6 @@
         }
 
         if (data.phase === 'selecting') {
-            // ★ 确保有 locked 这个判断，因为你现在是没锁定状态，但只要手牌内容变了（比如宋江被换），最好能同步
             if (lastRound !== data.round_no || myHand.length !== data.my_hand.length || locked) {
                 myHand = data.my_hand || [];
                 myReady = [];
@@ -684,27 +683,58 @@
             }
         }
 
-        // ==========================================
-        // ★ 核心修复：如果正在展示宋江，跳过桌面渲染
-        // ==========================================
         if (!window.isShowingSongjiang) {
             renderPlayedCards(data, elapsed);
         }
 
         // ==========================================
-        // ★ 结束弹窗判断：死死卡在 8 秒（TIME_UPDATE）后
+        // ★ 结束弹窗渲染（表格化）
         // ==========================================
         if (data.finished && !window.resultShown && elapsed >= TIME_UPDATE) {
           window.resultShown = true;
           clearInterval(pollTimer);
           
-          document.getElementById('resultTitle').textContent = data.my_rank === 1 ? "恭喜获胜！" : "对局结束";
-          document.getElementById('resultLine').textContent = `你的最终排名：第 ${data.my_rank || '未知'} 名`;
-          document.getElementById('resultRanks').innerHTML = `
-            <div style="text-align:center; font-weight:bold; color:#b85a6a; font-size:18px;">
-              积分变动：${data.my_score_change > 0 ? '+' : ''}${data.my_score_change || 0}
-            </div>
+          document.getElementById('resultTitle').textContent = "对局结束";
+          document.getElementById('resultLine').textContent = ""; // 清空旧文字
+          
+          let html = `
+            <table style="width:100%; border-collapse:collapse; font-size:14px; text-align:center; margin-top: 10px;">
+              <thead>
+                <tr style="color:#8a6d1f; border-bottom:2px solid #d8d0bc; background:#fdf6d8;">
+                  <th style="padding:8px 4px;">名次</th>
+                  <th style="padding:8px 4px;">玩家</th>
+                  <th style="padding:8px 4px;">积分</th>
+                  <th style="padding:8px 4px;">建材</th>
+                </tr>
+              </thead>
+              <tbody>
           `;
+          
+          if (data.all_ranks && data.all_ranks.length > 0) {
+              data.all_ranks.forEach(p => {
+                const isMe = p.is_me; 
+                const color = isMe ? '#b85a6a' : '#333';
+                const weight = isMe ? 'bold' : 'normal';
+                
+                const scoreText = p.score_change > 0 ? `+${p.score_change}` : p.score_change;
+                const matText = p.materials > 0 ? `+${p.materials}` : p.materials;
+
+                html += `
+                  <tr style="border-bottom:1px solid #f0e8d0;">
+                    <td style="padding:10px 4px; color:${color}; font-weight:${weight};">${p.rank}</td>
+                    <td style="padding:10px 4px; color:${color}; font-weight:${weight};">${p.nickname}</td>
+                    <td style="padding:10px 4px; color:${color}; font-weight:${weight};">${scoreText}</td>
+                    <td style="padding:10px 4px; color:${color}; font-weight:${weight};">${matText}</td>
+                  </tr>
+                `;
+              });
+          } else {
+              html += `<tr><td colspan="4" style="padding:20px; color:#b85a6a;">数据加载异常，请刷新页面</td></tr>`;
+          }
+          
+          html += `</tbody></table>`;
+
+          document.getElementById('resultRanks').innerHTML = html;
           document.getElementById('resultModal').style.display = 'flex';
         }
 
