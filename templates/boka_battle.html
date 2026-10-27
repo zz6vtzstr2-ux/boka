@@ -331,7 +331,7 @@
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
       
-      // 1. 如果没锁定且在选牌，正常清空
+      // 1. 选牌阶段且没锁定，正常清空
       if (data.phase === 'selecting' && !locked) {
           myArea.innerHTML = '';
           playersData.forEach(p => {
@@ -343,11 +343,17 @@
           return; 
       }
 
-      // ★ 2. 核心防闪烁拦截：如果自己已出战(locked)，但后端数据未就绪(all_played为空)或时间无效(elapsed<0)
-      // 此时绝对不许清空本地已经画好的问号，直接 return 跳过本次渲染！
-      if (locked && (elapsed < 0 || !data.all_played || Object.keys(data.all_played).length === 0)) {
-          return; 
+      // ★ 2. 核心防闪锁：只要我锁定了，但后端还没把我的真实出牌数据发过来，就不许清空！
+      if (locked) {
+          const myData = data.all_played ? data.all_played[myUsername] : null;
+          if (!myData || !myData.cards || myData.cards.length === 0) {
+              return; // 强行保住你本地的问号
+          }
       }
+
+      // ===== 下面这行是你原本的代码，保持不动 =====
+      let renderPhase = 'qmark';
+      // ...（后面的渲染逻辑不用动，保留原来的）
 
       // 下面保持不变
       let renderPhase = 'qmark';
