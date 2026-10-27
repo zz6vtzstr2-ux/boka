@@ -331,7 +331,7 @@
     function renderPlayedCards(data, elapsed) {
       const myArea = document.getElementById('play-myArea');
       
-      // 1. 选牌阶段且没锁定，正常清空
+      // 1. 选牌阶段
       if (data.phase === 'selecting' && !locked) {
           myArea.innerHTML = '';
           playersData.forEach(p => {
@@ -343,6 +343,7 @@
           return; 
       }
 
+      // 2. 确定当前阶段
       let renderPhase = 'qmark';
       if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) {
           renderPhase = 'face';
@@ -351,18 +352,20 @@
       }
 
       const allLoser = data.all_loser || false;
-      
       let lastRound = null;
       if (data.history && data.history.length > 0) {
           lastRound = data.history[data.history.length - 1];
       }
 
-      // 渲染对手
+      // ==========================================
+      // 3. 各管各的：渲染对手区（AI）
+      // ==========================================
       playersData.forEach(p => {
         if (p.username === myUsername) return;
         const area = document.getElementById(`play-${p.username}`);
         if (!area) return;
 
+        // AI 区域：只要有数据就画
         area.innerHTML = '';
         if (renderPhase === 'qmark') {
           area.appendChild(makeQmarkCard());
@@ -382,23 +385,32 @@
         }
       });
 
-      // 渲染自己
-      myArea.innerHTML = '';
+      // ==========================================
+      // 4. 各管各的：渲染自己区（我）
+      // ==========================================
+      // ★ 核心防闪：如果在 qmark 阶段，且我自己已经锁定并画了问号，就不要去清空我的区域！
+      // 只有进入了 face 或 result 阶段，才把问号换成真牌。
       if (renderPhase === 'qmark') {
-        myArea.appendChild(makeQmarkCard());
+          // 如果我的区域里空空如也，才补一个问号。如果已经有问号了（你出牌时画的），就保留。
+          if (myArea.innerHTML === '' && locked) {
+              myArea.innerHTML = '';
+              myArea.appendChild(makeQmarkCard());
+          }
       } else {
-        const playedObj = data.all_played ? data.all_played[myUsername] : null;
-        let cls = '';
-        if (renderPhase === 'result' && lastRound) {
-            const isWin = lastRound.winners.includes(myUsername);
-            cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
-        }
-        
-        if (playedObj && playedObj.cards) {
-          playedObj.cards.forEach(subC => myArea.appendChild(makeHeroCard(subC, cls)));
-        } else {
-          myArea.appendChild(makeQmarkCard());
-        }
+          // 进入亮牌或结果阶段，直接清空画真牌
+          myArea.innerHTML = '';
+          const playedObj = data.all_played ? data.all_played[myUsername] : null;
+          let cls = '';
+          if (renderPhase === 'result' && lastRound) {
+              const isWin = lastRound.winners.includes(myUsername);
+              cls = allLoser ? 'loser' : (isWin ? 'winner' : 'loser');
+          }
+          
+          if (playedObj && playedObj.cards) {
+            playedObj.cards.forEach(subC => myArea.appendChild(makeHeroCard(subC, cls)));
+          } else {
+            myArea.appendChild(makeQmarkCard());
+          }
       }
     }
 
