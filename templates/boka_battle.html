@@ -343,11 +343,6 @@
           return; 
       }
 
-      // ===== 下面这行是你原本的代码，保持不动 =====
-      let renderPhase = 'qmark';
-      // ...（后面的渲染逻辑不用动，保留原来的）
-
-      // 下面保持不变
       let renderPhase = 'qmark';
       if (elapsed >= TIME_REVEAL && elapsed < TIME_RESOLVE) {
           renderPhase = 'face';
