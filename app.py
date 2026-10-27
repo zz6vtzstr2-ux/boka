@@ -3090,6 +3090,25 @@ def boka_battle_state(room_code):
             "hand_count": h_count, "locked": g.locked, "is_me": g.username == current_user.username,
         })
 
+    # ★ 核心追加：游戏结束时，打包所有人的结算数据
+    all_ranks_data = []
+    if game.finished_at:
+        all_gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+        all_gps.sort(key=lambda x: x.rank or 99)
+        
+        for g in all_gps:
+            if g.username.startswith("ai_"):
+                all_ranks_data.append({
+                    "username": g.username, "nickname": g.nickname or g.username,
+                    "rank": g.rank, "score_change": 0, "materials": 0, "is_me": False,
+                })
+            else:
+                all_ranks_data.append({
+                    "username": g.username, "nickname": g.nickname or g.username,
+                    "rank": g.rank, "score_change": g.score_change or 0, "materials": 50, 
+                    "is_me": g.username == current_user.username,
+                })
+    
     return jsonify({
         "round_no": game.round_no, "phase": game.phase,
         "round_phase": "比攻" if game.round_no % 2 == 1 else "比防",
@@ -3100,7 +3119,8 @@ def boka_battle_state(room_code):
         "beauty_left": game.beauty_left if game.beauty_left is not None else 3,
         "my_rank": me.rank if me else None, "my_score_change": me.score_change if me else 0,
         "players_info": players_info, "all_loser": all_loser, "pool_count": pool_count,
-        "all_played": all_played, # ★ 发给前端
+        "all_played": all_played,
+        "all_ranks": all_ranks_data, # ★ 加上这一行
     })
 
 @app.route('/boka/room/<room_code>/surrender', methods=['POST'])
