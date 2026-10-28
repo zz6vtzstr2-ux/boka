@@ -618,9 +618,10 @@
       updatePlayBtn();
       renderHand();
 
-      // 只画你自己的问号
+      // ★ 直接在这里画你的问号，并且给亮卡区加个“本地锁定”标记
       document.getElementById('play-myArea').innerHTML = '';
       document.getElementById('play-myArea').appendChild(makeQmarkCard());
+      window.localLocked = true; // 告诉轮询，别动我的亮卡区
 
       const res = await fetch(`/boka/room/${roomCode}/play`, {
         method: 'POST',
@@ -631,6 +632,7 @@
       if (data.error) {
         alert(data.error);
         locked = false;
+        window.localLocked = false;
         updatePlayBtn();
         renderHand();
       }
@@ -696,9 +698,17 @@
             }
         }
 
-        // 只要不是在展示宋江，就无条件调用渲染！
-        if (!window.isShowingSongjiang) {
-            renderPlayedCards(data, elapsed);
+        // ★ 核心防闪逻辑：如果刚点出战，时间还没开始走，绝对不许清空桌面！
+        if (window.localLocked && elapsed < 0) {
+            // 什么都不做，保留本地问号
+        } else {
+            if (elapsed >= 0) {
+                window.localLocked = false; // 时间开始走了，解除锁
+            }
+            // 只有在没展示宋江，且不是本地锁定时，才渲染
+            if (!window.isShowingSongjiang && !window.localLocked) {
+                renderPlayedCards(data, elapsed);
+            }
         }
 
         // ==========================================
