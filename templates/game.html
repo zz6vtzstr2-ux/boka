@@ -367,22 +367,35 @@
         <h1>欢迎搏卡青年</h1>
         <div class="en">Welcome Boka Juniors</div>
       </div>
-      <div class="user-block">
-        <a href="/profile" class="user-link">
-          <img src="/static/avatars/{{ username }}.jpg" alt="">
-          <span class="nickname">{{ nickname }}</span>
-        </a>
-        <span class="capsule capsule-score">⚔️ {{ score }}</span>
-        <span class="capsule capsule-money">
-          <span class="money-item">{{ gold }}<span class="coin coin-gold"></span></span>
-          <span class="money-item">{{ silver }}<span class="coin coin-silver"></span></span>
-          <span class="money-item">{{ copper }}<span class="coin coin-copper"></span></span>
-        </span>
-        <button class="mail-btn" id="mailBtn" onclick="openMail()">
-          ✉ 邮箱
-          <span class="mail-badge" id="mailBadge">0</span>
-        </button>
-        <a href="/logout" class="link-btn">退出登录</a>
+      <div class="user-block" style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+        
+        <!-- 第一行：头像信息(左) + 邮箱(右) -->
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <a href="/profile" class="user-link">
+              <img src="/static/avatars/{{ username }}.jpg" alt="" style="width: 48px; height: 48px; border-radius: 10px; border: 2px solid #d8d0bc; background: #fff;">
+              <span class="nickname" style="font-size: 18px; font-weight: bold; color: #2c3e50;">{{ nickname }}</span>
+            </a>
+            <span class="capsule" style="padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; background: #e8f0ec; border: 1px solid #c8d8d0;">⚔️ {{ score }}</span>
+          </div>
+
+          <button class="mail-btn" id="mailBtn" onclick="openMail()" style="padding: 6px 12px; border-radius: 8px; font-size: 14px; background: #fdf6d8; border: 1px solid #f0e0a0; color: #8a6d1f; font-weight: bold; cursor: pointer; position: relative;">
+            ✉ 邮箱
+            <span class="mail-badge" id="mailBadge" style="position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #d9534f; color: #fff; font-size: 10px; font-weight: bold; line-height: 16px; text-align: center; display: none;">0</span>
+          </button>
+        </div>
+
+        <!-- 第二行：钱币(左) + 退出(右) -->
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <span class="capsule capsule-money" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; background: #e8f0ec; border: 1px solid #c8d8d0;">
+            <span class="money-item" style="display: flex; align-items: center; gap: 3px;">{{ gold }}<span class="coin coin-gold" style="width: 14px; height: 14px; border-radius: 50%; display: inline-block;"></span></span>
+            <span class="money-item" style="display: flex; align-items: center; gap: 3px;">{{ silver }}<span class="coin coin-silver" style="width: 14px; height: 14px; border-radius: 50%; display: inline-block;"></span></span>
+            <span class="money-item" style="display: flex; align-items: center; gap: 3px;">{{ copper }}<span class="coin coin-copper" style="width: 14px; height: 14px; border-radius: 50%; display: inline-block;"></span></span>
+          </span>
+
+          <button onclick="showLogoutConfirm()" class="link-btn" style="padding: 6px 16px; border-radius: 8px; font-size: 14px; background: #fce8ec; border: 1px solid #e8c8d0; color: #b85a6a; cursor: pointer; font-family: inherit;">退出登录</button>
+        </div>
+
       </div>
     </div>
 
@@ -414,6 +427,18 @@
     </div>
   </div>
 
+  <!-- 退出登录确认弹窗 -->
+  <div id="logoutModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.55); z-index:9999; justify-content:center; align-items:center; padding:16px;">
+    <div style="background:#fffdf5; border-radius:16px; padding:24px; max-width:320px; width:100%; border:4px double #f0e0a0; text-align:center;">
+      <h3 style="margin:0 0 14px 0; color:#8a6d1f; font-size:20px; font-weight:bold;">确认退出</h3>
+      <div style="font-size:15px; color:#555; margin-bottom:20px;">确定要退出当前账号吗？</div>
+      <div style="display:flex; gap:10px;">
+        <button onclick="closeLogoutConfirm()" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; font-family:inherit; background:#fff; color:#666; border:1px solid #d8d0bc; cursor:pointer;">取消</button>
+        <button onclick="window.location.href='/logout'" style="flex:1; padding:12px; border-radius:12px; font-size:16px; font-weight:bold; font-family:inherit; background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; cursor:pointer;">退出</button>
+      </div>
+    </div>
+  </div>
+  
   <script>
     let mailCache = [];
 
@@ -433,6 +458,13 @@
       } catch (e) { /* 静默 */ }
     }
 
+    function showLogoutConfirm() {
+      document.getElementById('logoutModal').style.display = 'flex';
+    }
+    function closeLogoutConfirm() {
+      document.getElementById('logoutModal').style.display = 'none';
+    }
+    
     function openMail() {
       document.getElementById('mailModal').classList.add('active');
       showMailList();
