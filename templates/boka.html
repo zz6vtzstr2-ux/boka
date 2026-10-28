@@ -70,24 +70,25 @@
       justify-content: center; 
       font-size: 12px; 
       font-weight: bold; 
-      padding: 3px 10px !important; 
-      border-radius: 999px !important; /* ★ 强制画成完美半圆 */
+      padding: 2px 10px; /* 上下稍微收窄一点 */
+      border-radius: 50px; /* ★ 改成 50px，或者 50% 也行，强制画圆角 */
       white-space: nowrap; 
-      height: 24px; /* 给定一个固定高度，配合 999px 效果最好 */
+      height: 22px; /* ★ 核心：给定一个高度 */
+      box-sizing: border-box;
     }
 
     /* 状态-准备中（黄） */
     .status-waiting { 
-      color: #8a6d1f !important; 
-      background: #fdf6d8 !important; 
-      border: 1px solid #f0e0a0 !important; 
+      color: #8a6d1f; 
+      background: #fdf6d8; 
+      border: 1px solid #f0e0a0; 
     }
 
     /* 状态-搏卡中（红） */
     .status-playing { 
-      color: #b85a6a !important; 
-      background: #fce8ec !important; 
-      border: 1px solid #e8c8d0 !important; 
+      color: #b85a6a; 
+      background: #fce8ec; 
+      border: 1px solid #e8c8d0; 
     }
 
     /* 操作区容器 */
