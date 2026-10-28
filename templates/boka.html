@@ -132,7 +132,9 @@
       </div>
     </div>
 
-    <button class="btn-main btn-blue" onclick="createRoom()" {% if not can_create %}disabled{% endif %}>创建房间</button>
+    <button class="btn-main btn-blue" onclick="createRoom()" style="{% if not can_create %}opacity: 0.6; filter: grayscale(1);{% endif %}">
+      创建房间 {% if not can_create %}(收藏不足){% endif %}
+    </button>
 
     <div class="panel" style="margin-top: 16px;">
       <div class="list-header">
@@ -157,7 +159,8 @@
     }
 
     async function createRoom() {
-      if (!CAN_CREATE) { showToast('班级收藏不足，无法创建房间'); return; }
+      if (!CAN_CREATE) { showToast('班级收藏不足 6 张，无法创建房间'); return; }
+      // ... 后面保持原样 ...
       try {
         const res = await fetch('/boka/create', { method: 'POST' });
         const data = await res.json();
