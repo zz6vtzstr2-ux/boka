@@ -385,15 +385,17 @@
           </button>
         </div>
 
-        <!-- 第二行：钱币(左) + 退出(右) -->
+        <!-- 第二行：退出(左) + 钱币(右) -->
         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          
+          <button onclick="showLogoutConfirm()" class="link-btn" style="padding: 6px 16px; border-radius: 8px; font-size: 14px; background: #fce8ec; border: 1px solid #e8c8d0; color: #b85a6a; cursor: pointer; font-family: inherit;">退出登录</button>
+
           <span class="capsule capsule-money" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; background: #e8f0ec; border: 1px solid #c8d8d0;">
             <span class="money-item" style="display: flex; align-items: center; gap: 3px;">{{ gold }}<span class="coin coin-gold" style="width: 14px; height: 14px; border-radius: 50%; display: inline-block;"></span></span>
             <span class="money-item" style="display: flex; align-items: center; gap: 3px;">{{ silver }}<span class="coin coin-silver" style="width: 14px; height: 14px; border-radius: 50%; display: inline-block;"></span></span>
             <span class="money-item" style="display: flex; align-items: center; gap: 3px;">{{ copper }}<span class="coin coin-copper" style="width: 14px; height: 14px; border-radius: 50%; display: inline-block;"></span></span>
           </span>
 
-          <button onclick="showLogoutConfirm()" class="link-btn" style="padding: 6px 16px; border-radius: 8px; font-size: 14px; background: #fce8ec; border: 1px solid #e8c8d0; color: #b85a6a; cursor: pointer; font-family: inherit;">退出登录</button>
         </div>
 
       </div>
