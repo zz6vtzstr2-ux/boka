@@ -35,7 +35,25 @@
     .user-link .nickname { font-size: 22px; font-weight: bold; color: #2c3e50; letter-spacing: 1px; }
     .avatar-fallback { width: 64px; height: 64px; border-radius: 12px; border: 2px solid #d8d0bc; background: #d8d0bc; overflow: hidden; flex-shrink: 0; }
     .avatar-fallback img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .avatar-fallback.small { width: 36px; height: 36px; border-radius: 8px; border: 1px solid #d8d0bc; }
+    /* 头像尺寸 */
+    .avatar-fallback.small { 
+      width: 36px; 
+      height: 36px; 
+      border-radius: 8px; 
+      border: 1px solid #d8d0bc; 
+      flex-shrink: 0; /* ★ 核心：防止头像被挤变形 */
+    }
+
+    /* 文字区域对齐 */
+    .player-info-text { 
+      display: flex; 
+      align-items: center; 
+      gap: 8px; 
+      font-size: 14px; 
+      font-weight: bold; 
+      color: #2c3e50; 
+      min-width: 100px; /* ★ 关键：强制文字区域有个基础宽度，让后面带不带标签都不影响头像位置 */
+    }
 
     /* ===== 赛季数据 ===== */
     .stats-row { display: flex; gap: 12px; }
@@ -111,7 +129,6 @@
     .room-players { display: flex; flex-direction: column; gap: 8px; }
     .room-player-row { display: flex; justify-content: space-between; align-items: center; }
     .room-player-left { display: flex; align-items: center; gap: 12px; }
-    .player-info-text { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: bold; color: #2c3e50; }
     .player-info-text .me-tag { color: #b85a6a; font-size: 12px; font-weight: normal; }
     .owner-tag { color: #d89050; background: #fdf0e0; border: 1px solid #f0d0b0; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-weight: bold; }
 
