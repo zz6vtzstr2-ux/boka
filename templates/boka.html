@@ -239,7 +239,7 @@
         }
 
         const mainBtnHtml = `
-          <button class="${mainBtnCls}" ${mainBtnDisabled ? 'disabled' : ''} 
+          <button class="${mainBtnCls}" ${mainBtnDisabled ? 'disabled' : ''} 
                   onclick="event.stopPropagation(); if(${!mainBtnDisabled}) joinRoomById('${r.room_id}')">
             ${mainBtnText}
           </button>
@@ -250,28 +250,46 @@
         (r.players || []).forEach(p => {
           const isOwner = p.username === r.owner;
           const isMe = p.username === myUsername;
-          
+          const isAI = p.username.startsWith('ai_');
+          
           // 观战按钮仅对别人显示
           let spectateHtml = '';
           if (!isMe) {
             // 如果自己正在打牌，不能观战别人
             const canSpectate = !meIsPlaying;
             spectateHtml = `
-              <button class="spectate-btn" ${canSpectate ? '' : 'disabled'} 
+              <button class="spectate-btn" ${canSpectate ? '' : 'disabled'} 
                       onclick="event.stopPropagation(); if(${canSpectate}) spectateRoomById('${r.room_id}')">
                 观战
               </button>
             `;
           }
 
+          // 核心玩家信息块
+          let playerLeftHtml = `
+            <div class="room-player-left">
+              ${avatarHtml(p.username)}
+              <div class="player-info-text">
+                ${p.name}${isMe ? '<span class="me-tag">（我）</span>' : ''}${isOwner ? '<span class="owner-tag">房主</span>' : ''}
+              </div>
+            </div>
+          `;
+
+          // 如果不是 AI，包裹上 <a> 标签链接到 user_profile
+          if (!isAI) {
+              playerLeftHtml = `
+                <a href="/user/${p.username}" class="room-player-left" style="text-decoration: none; cursor: pointer; padding: 4px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='#f0e8d0'" onmouseout="this.style.background='transparent'" onclick="event.stopPropagation();">
+                  ${avatarHtml(p.username)}
+                  <div class="player-info-text">
+                    ${p.name}${isMe ? '<span class="me-tag">（我）</span>' : ''}${isOwner ? '<span class="owner-tag">房主</span>' : ''}
+                  </div>
+                </a>
+              `;
+          }
+
           playersHtml += `
             <div class="room-player-row">
-              <div class="room-player-left">
-                ${avatarHtml(p.username)}
-                <div class="player-info-text">
-                  ${p.name}${isMe ? '<span class="me-tag">（我）</span>' : ''}${isOwner ? '<span class="owner-tag">房主</span>' : ''}
-                </div>
-              </div>
+              ${playerLeftHtml}
               ${spectateHtml}
             </div>
           `;
