@@ -64,7 +64,17 @@
     .room-code { font-family: monospace; font-size: 20px; font-weight: bold; color: #8a6d1f; letter-spacing: 2px; white-space: nowrap; }
     
     /* 状态标签 */
-    .room-status-tag { display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; padding: 4px 12px; border-radius: 20px; white-space: nowrap; }
+    .room-status-tag { 
+      display: inline-flex; 
+      align-items: center; 
+      justify-content: center; 
+      font-size: 12px; 
+      font-weight: bold; 
+      padding: 3px 10px; /* 稍微收窄上下，让胶囊显得更修长 */
+      border-radius: 999px; /* ★ 核心魔法：999px 是 CSS 里实现完美半圆胶囊的通用写法 */
+      white-space: nowrap; 
+      transform: translateY(1px); /* 微调 1px 让它和左边的房间号更对齐 */
+    }
     .status-waiting { color: #8a6d1f; background: #fdf6d8; border: 1px solid #f0e0a0; }
     .status-playing { color: #b85a6a; background: #fce8ec; border: 1px solid #e8c8d0; }
 
