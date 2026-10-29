@@ -395,10 +395,10 @@
         <div class="page-name">搏卡房间</div>
         <div class="en">Room</div>
       </div>
-      <a href="/boka" class="back-btn">返回列表</a>
+      <a href="/boka" class="back-btn">返回大厅</a>
     </div>
 
-    <!-- 板块1：房间号 + 准备 -->
+    <!-- 板块1：房间号 -->
     <div class="panel">
       <div class="panel-title">房间号</div>
       <div class="room-code-big" id="roomCode">{{ room_code }}</div>
@@ -407,36 +407,40 @@
         <input class="copy-input" id="inviteUrl" value="{{ invite_url }}" readonly>
         <button class="copy-btn" onclick="copyInvite()">复制</button>
       </div>
-
-      <!-- 准备区 -->
-      <div class="ready-block">
-        <div class="ready-status">
-          已准备 <b id="readyCount">{{ ready_count }}</b> / <b id="playerCount">{{ player_count }}</b>
-        </div>
-
-        <div class="btn-row">
-          <button class="btn-room btn-green" id="readyBtn" onclick="toggleReady()">
-            {% if is_ready %}取消准备{% else %}准备{% endif %}
-          </button>
-          {% if is_owner %}
-          <button class="btn-room btn-blue" id="startBtn" onclick="startGame()" disabled>开始游戏</button>
-          {% endif %}
-        </div>
-
-        {% if is_owner %}
-        <div class="btn-row">
-          <!-- ★ 新增：添加机器人按钮 -->
-          <button class="btn-room btn-gray" id="addBotBtn" onclick="addBot()">添加机器人</button>
-          <button class="btn-room btn-pink" onclick="dissolveRoom()">解散房间</button>
-        </div>
-        {% endif %}
-      </div>
     </div>
 
-    <!-- 板块2：玩家列表 -->
+    <!-- 板块2：玩家列表与操作 -->
     <div class="panel">
-      <div class="panel-title">玩家列表</div>
-      <div class="player-list" id="playerList"></div>
+      <div class="list-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div class="panel-title" style="margin-bottom:0;">玩家列表</div>
+        <div style="font-size: 15px; color: #666; font-weight: bold;">
+          已准备 <b id="readyCount" style="color:#b85a6a; font-size:20px;">{{ ready_count }}</b> / <b id="playerCount" style="font-size:20px;">{{ player_count }}</b>
+        </div>
+      </div>
+
+      <div class="player-list" id="playerList" style="margin-bottom: 24px;"></div>
+
+      <!-- 新的按钮布局 -->
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <!-- 第一行 -->
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-room btn-green" id="readyBtn" onclick="toggleReady()" style="flex: 1;">
+            {% if is_ready %}取消准备{% else %}准备{% endif %}
+          </button>
+          <button class="btn-room btn-pink" onclick="leaveRoom()" style="flex: 1;">退出房间</button>
+        </div>
+        
+        <!-- 第二行 -->
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-room btn-blue" id="startBtn" onclick="startGame()" style="flex: 3;" {% if not is_owner %}disabled{% endif %}>开始游戏</button>
+          <button class="btn-room btn-pink" id="dissolveBtn" onclick="dissolveRoom()" style="flex: 1;" {% if not is_owner %}disabled{% endif %}>解散房间</button>
+        </div>
+        
+        <!-- 第三行 -->
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-room btn-gray" id="addBotBtn" onclick="addBot()" style="flex: 1;" {% if not is_owner %}disabled{% endif %}>添加机器人</button>
+        </div>
+      </div>
     </div>
   </div>
 
