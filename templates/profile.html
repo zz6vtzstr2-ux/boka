@@ -61,18 +61,38 @@
       box-shadow: 0 4px 16px rgba(0,0,0,0.08);
       margin-bottom: 16px;
     }
+    /* 通用胶囊标题 */
     .panel-title {
       display: inline-block;
       background: #fdf6d8;
       color: #8a6d1f;
-      padding: 8px 20px;
+      padding: 6px 16px;
       border-radius: 20px;
       border: 1px solid #f0e0a0;
-      font-size: 18px;
+      font-size: 16px;
       font-weight: bold;
-      letter-spacing: 3px;
-      text-indent: 3px;
+      letter-spacing: 2px;
+      white-space: nowrap;
+    }
+
+    /* ★ 新增：让标题和右侧文字在一行排列 */
+    .honor-header {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
       margin-bottom: 16px;
+      width: 100%;
+      flex-wrap: nowrap;
+    }
+
+    /* ★ 新增：右侧文字样式 */
+    .honor-subtitle {
+      font-size: 15px;
+      color: #4a4a4a;
+      font-weight: bold;
+      white-space: nowrap;
     }
     .trophy { display: inline-block; text-align: center; margin: 8px; }
     .trophy .icon { font-size: 36px; }
@@ -172,8 +192,10 @@
     {% if error %}<div class="panel"><p class="error">{{ error }}</p></div>{% endif %}
 
     <div class="panel">
-      <div class="panel-title">我的荣誉</div>
-      <p>搏卡月度冠军 × {{ trophies|length }}</p>
+      <div class="honor-header">
+        <div class="panel-title">我的荣誉</div>
+        <div class="honor-subtitle">搏卡月度冠军 × {{ trophies|length }}</div>
+      </div>
       {% for m in trophies %}
       <div class="trophy">
         <div class="icon">🏆</div>
