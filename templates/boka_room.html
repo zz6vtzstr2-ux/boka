@@ -398,7 +398,7 @@
       <a href="/boka" class="back-btn">返回大厅</a>
     </div>
 
-    <!-- 板块1：房间号 + 五个操作按钮 -->
+    <!-- 板块1：房间号 + 操作按钮 -->
     <div class="panel">
       <div class="panel-title">房间号</div>
       <div class="room-code-big" id="roomCode">{{ room_code }}</div>
@@ -409,10 +409,6 @@
       </div>
 
       <div class="ready-block">
-        <div class="ready-status">
-          已准备 <b id="readyCount">{{ ready_count }}</b> / <b id="playerCount">{{ player_count }}</b>
-        </div>
-
         <div class="btn-row">
           <button class="btn-room btn-green" id="readyBtn" onclick="toggleReady()">
             {% if is_ready %}取消准备{% else %}准备{% endif %}
@@ -435,16 +431,14 @@
     <div class="panel">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
         <div class="panel-title" style="margin-bottom:0;">玩家列表</div>
-        
-        <!-- ★ 稍微靠右，但不顶边 -->
-        <div style="font-size: 15px; color: #666; font-weight: bold; margin-right: 16px;">
-          已准备 <b style="color:#b85a6a; font-size:20px;">{{ ready_count }}</b> / <b style="font-size:20px;">{{ player_count }}</b>
+        
+        <div style="font-size: 15px; color: #666; font-weight: bold; margin-right: 48px;">
+          已准备 <b id="readyCount" style="color:#b85a6a; font-size:20px;">{{ ready_count }}</b> / <b id="playerCount" style="font-size:20px;">{{ player_count }}</b>
         </div>
       </div>
 
       <div class="player-list" id="playerList"></div>
     </div>
-  </div>
 
   <!-- 通用确认弹窗 -->
   <div class="confirm-modal" id="confirmModal">
