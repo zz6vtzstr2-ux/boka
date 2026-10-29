@@ -304,8 +304,13 @@
           // 观战按钮仅对别人显示
           let spectateHtml = '';
           if (!isMe) {
-            // 如果自己正在打牌，不能观战别人
-            const canSpectate = !meIsPlaying;
+            // ★ 核心逻辑：
+            // 条件1：我当前不在“游戏中”（!meIsPlaying）。
+            // 条件2：对方所在房间正在“游戏中”（r.status === "游戏中"）。
+            // 条件3：对方依然在座位上（r.players 里包含他）。
+            // （如果房间在准备中，r.status 就不等于游戏中，所以准备中的房间直接无法观战，符合你“不算在座位中”的需求）。
+            const canSpectate = !meIsPlaying && r.status === "游戏中";
+            
             spectateHtml = `
               <button class="spectate-btn" ${canSpectate ? '' : 'disabled'} 
                       onclick="event.stopPropagation(); if(${canSpectate}) spectateRoomById('${r.room_id}')">
