@@ -569,6 +569,18 @@
       window.location.href = '/boka';
     }
 
+    // ===== 退出房间 =====
+    async function leaveRoom() {
+      const ok = await showConfirm('退出房间', '确定要退出房间吗？', '退出', '取消');
+      if (!ok) return;
+      
+      const res = await fetch(`/boka/room/${ROOM_CODE}/leave_room`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); return; }
+      
+      window.location.href = '/boka';
+    }
+    
     // ===== 添加机器人 =====
     async function addBot() {
       const btn = document.getElementById('addBotBtn');
