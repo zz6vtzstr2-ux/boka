@@ -6,6 +6,19 @@
   <title>搏卡 · 搏卡游戏</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
   <style>
+    
+    /* 彻底强制禁用按钮变成灰色，不管它带了什么颜色类 */
+    button:disabled,
+    button.disabled,
+    .room-btn:disabled {
+      background-color: #e0e0e0 !important; 
+      color: #aaa !important; 
+      border: 1px solid #ccc !important; 
+      box-shadow: none !important; 
+      cursor: not-allowed !important;
+      transform: none !important;
+    }
+    
     * { box-sizing: border-box; }
     body {
       font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
@@ -134,7 +147,6 @@
     .spectate-btn:hover { background: #e09820; }
     .spectate-btn:disabled { background: #e0e0e0 !important; color: #aaa !important; cursor: not-allowed; }
 
-    /* 玩家列表 */
     /* 玩家列表 */
     .room-players { display: flex; flex-direction: column; gap: 8px; }
     .room-player-row { 
