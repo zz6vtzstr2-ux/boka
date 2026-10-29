@@ -126,9 +126,28 @@
     .spectate-btn:disabled { background: #e0e0e0 !important; color: #aaa !important; cursor: not-allowed; }
 
     /* 玩家列表 */
+    /* 玩家列表 */
     .room-players { display: flex; flex-direction: column; gap: 8px; }
-    .room-player-row { display: flex; justify-content: space-between; align-items: center; }
-    .room-player-left { display: flex; align-items: center; gap: 12px; }
+    .room-player-row { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      min-height: 44px; /* ★ 强制每行高度一致，防止高低不平 */
+    }
+    .room-player-left { 
+      display: flex; 
+      align-items: center; 
+      gap: 12px; 
+      text-decoration: none; 
+      color: inherit;
+      padding: 4px 8px; 
+      margin-left: -8px; /* 抵消 padding 带来的右侧偏移 */
+      border-radius: 8px; 
+      transition: background 0.2s;
+    }
+    .room-player-left:hover {
+      background: #f0e8d0;
+    }
     .player-info-text .me-tag { color: #b85a6a; font-size: 12px; font-weight: normal; }
     .owner-tag { color: #d89050; background: #fdf0e0; border: 1px solid #f0d0b0; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-weight: bold; }
 
@@ -308,7 +327,7 @@
           // 如果不是 AI，包裹上 <a> 标签链接到 user_profile
           if (!isAI) {
               playerLeftHtml = `
-                <a href="/user/${p.username}" class="room-player-left" style="text-decoration: none; cursor: pointer; padding: 4px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='#f0e8d0'" onmouseout="this.style.background='transparent'" onclick="event.stopPropagation();">
+                <a href="/user/${p.username}" class="room-player-left" onclick="event.stopPropagation();">
                   ${avatarHtml(p.username)}
                   <div class="player-info-text">
                     ${p.name}${isMe ? '<span class="me-tag">（我）</span>' : ''}${isOwner ? '<span class="owner-tag">房主</span>' : ''}
