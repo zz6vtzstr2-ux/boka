@@ -813,13 +813,20 @@
       }
 
       const allUsernames = [...new Set(displayHistory.flatMap(h => h.played.map(p => p.username)))];
+      
+      // 当前视角的玩家名（如果你之后加了观战功能，把这里换成被观战的用户名即可）
+      const currentViewUsername = myUsername; 
+
       let html = `<table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;">
           <thead><tr>
           <th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8;">轮次</th>`;
       allUsernames.forEach(u => {
         const pInfo = playersData.find(x => x.username === u);
         const name = pInfo ? pInfo.nickname : u;
-        html += `<th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8;">${name}</th>`;
+        // 如果表头是当前视角玩家，给表头也标红方便辨认
+        const isMeHeader = (u === currentViewUsername);
+        const headerColor = isMeHeader ? '#b85a6a' : '#8a6d1f';
+        html += `<th style="padding:8px 6px; color:${headerColor}; background:#fdf6d8;">${name}${isMeHeader ? '(我)' : ''}</th>`;
       });
       html += `<th style="padding:8px 6px; color:#8a6d1f; background:#fdf6d8;">赢家</th></tr></thead><tbody>`;
 
@@ -843,18 +850,28 @@
           html += `<td style="padding:8px 6px; border-bottom:1px solid #e8e0cc;">${cellText}</td>`;
         });
 
+        // 处理赢家列
         const winners = h.winners || [];
-        let winnerText = '/';
-        let winnerCls = 'color:#999; font-weight:bold;';
-        if (winners.length > 0) { 
-          winnerText = winners.map(w => {
+        let winnerHtml = '/';
+        
+        if (winners.length > 0) {
+          // 遍历赢家，把所有人的名字映射出来
+          const winnerNamesHtml = winners.map(w => {
             const wInfo = playersData.find(x => x.username === w);
-            return wInfo ? wInfo.nickname : w;
-          }).join('、'); 
-          winnerCls = 'color:#5cb85c; font-weight:bold;'; 
+            const wName = wInfo ? wInfo.nickname : w;
+            
+            // 如果是当前视角的角色，标红
+            if (w === currentViewUsername) {
+              return `<span style="color:#b85a6a; font-weight:bold;">${wName}</span>`;
+            } else {
+              return `<span style="color:#333; font-weight:bold;">${wName}</span>`;
+            }
+          });
+          winnerHtml = winnerNamesHtml.join('、');
         }
 
-        html += `<td style="padding:8px 6px; border-bottom:1px solid #e8e0cc; ${winnerCls}">${winnerText}</td></tr>`;
+        // 统一赢家列居中的样式，不再使用旧的 winnerCls 绿/红文字
+        html += `<td style="padding:8px 6px; border-bottom:1px solid #e8e0cc;">${winnerHtml}</td></tr>`;
       });
       html += `</tbody></table>`;
       el.innerHTML = html;
