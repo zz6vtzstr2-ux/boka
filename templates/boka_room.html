@@ -561,7 +561,26 @@
 
     // ===== 退出房间 =====
     async function leaveRoom() {
-      const ok = await showConfirm('退出房间', '确定要退出房间吗？', '退出', '取消');
+      // 1. 修改按钮文字
+      document.getElementById('confirmTitle').textContent = '退出房间';
+      document.getElementById('confirmMsg').textContent = '确定要退出房间吗？';
+      
+      const btns = document.getElementById('confirmBtns');
+      btns.innerHTML = `
+        <button class="confirm-btn" onclick="confirmChoose(false)" style="background:#fff; color:#666; border:1px solid #d8d0bc;">取消</button>
+        <button class="confirm-btn" onclick="confirmChoose(true)" style="background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0;">退出</button>
+      `;
+
+      // 2. 弹出弹窗并等待用户选择
+      document.getElementById('confirmModal').classList.add('active');
+      const ok = await new Promise(resolve => { confirmResolver = resolve; });
+      
+      // 3. 无论选了啥，恢复默认的按钮结构（防止影响别的弹窗）
+      btns.innerHTML = `
+        <button class="confirm-btn confirm-secondary" onclick="confirmChoose(false)">取消</button>
+        <button class="confirm-btn confirm-primary" onclick="confirmChoose(true)">确定</button>
+      `;
+
       if (!ok) return;
       
       const res = await fetch(`/boka/room/${ROOM_CODE}/leave_room`, { method: 'POST' });
