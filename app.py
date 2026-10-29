@@ -2239,6 +2239,46 @@ def boka_leave(room_code):
     db.session.commit()
     return jsonify({"success": True})
 
+@app.route('/boka/room/<room_code>/leave_room', methods=['POST'])
+@login_required
+def boka_leave_room(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room:
+        return jsonify({"error": "房间不存在"}), 404
+
+    me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
+    if not me:
+        return jsonify({"error": "你不在房间"}), 400
+
+    # 1. 如果是房主，转移房主
+    if room.owner_username == current_user.username:
+        # 找出除自己外，座位号最小的玩家（第一行的人）
+        next_owner = BokaPlayer.query.filter(BokaPlayer.room_id == room.id, BokaPlayer.username != current_user.username).order_by(BokaPlayer.seat).first()
+        if next_owner:
+            room.owner_username = next_owner.username
+        else:
+            # 如果没别人了，直接解散房间
+            games = BokaGame.query.filter_by(room_id=room.id).all()
+            for g in games:
+                BokaGamePlayer.query.filter_by(game_id=g.id).delete()
+                db.session.delete(g)
+            BokaPlayer.query.filter_by(room_id=room.id).delete()
+            db.session.delete(room)
+            BOKA_ROOM_CACHE.pop(room_code, None)
+            current_user.boka_room_id = None
+            db.session.commit()
+            return jsonify({"success": True})
+
+    # 2. 删除该玩家
+    current_user.boka_room_id = None
+    db.session.delete(me)
+    
+    # 清理缓存
+    if room_code in BOKA_ROOM_CACHE:
+        BOKA_ROOM_CACHE[room_code] = [p for p in BOKA_ROOM_CACHE[room_code] if p["username"] != current_user.username]
+    db.session.commit()
+    return jsonify({"success": True})
+
 @app.route('/boka/room/<room_code>/quit', methods=['POST'])
 @login_required
 def boka_quit(room_code):
