@@ -420,24 +420,26 @@
       const handArea = document.getElementById('myHandArea');
       handArea.innerHTML = '';
       myHand.forEach(c => {
+        // 只要在 myReady 里，就亮起蓝框（不管是否锁定）
         const isSel = myReady.find(x => x.id === c.id);
-        // ★ 加上高亮判断
         let extraCls = isSel ? 'selected ' : '';
+        
         if (window.newDrawnCards && window.newDrawnCards.has(c.id)) {
           extraCls += 'new-drawn';
         }
-        const div = makeHeroCard(c, extraCls); // 传入 extraCls
+        
+        const div = makeHeroCard(c, extraCls);
+        
+        // 只有没锁定时，才绑定点击事件
         if (!locked) {
           div.onclick = () => {
-            songjiangShownForCurrentSelection = false; // 每次点击重置
+            songjiangShownForCurrentSelection = false; 
             const idx = myReady.findIndex(x => x.id === c.id);
             if (idx >= 0) myReady.splice(idx, 1);
             else myReady.push(c);
             renderHand();
             
-            // ★ 调用校验并更新按钮
             updateComboInfo();
-            
             checkSongjiangTrigger();
           };
         }
