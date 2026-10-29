@@ -653,8 +653,8 @@
           // 把名字、标签、踢人按钮放在一起更新
           let contentWrap = item.querySelector('.content-wrap');
           if (!contentWrap) {
-            // 如果没包装，第一次进入时重建一次
-            item.innerHTML = `${avatarHtml(p.username)}<div class="content-wrap" style="display:flex;flex:1;align-items:center;gap:12px;">${nameHtml}</div>`;
+            // 给头像包一层带点击事件的 div
+            item.innerHTML = `<div onclick="showProfile('${p.username}')" style="cursor:pointer;">${avatarHtml(p.username)}</div><div class="content-wrap" style="display:flex;flex:1;align-items:center;gap:12px;">${nameHtml}</div>`;
           } else {
             contentWrap.innerHTML = nameHtml;
           }
@@ -681,7 +681,7 @@
         }
 
         div.innerHTML = `
-          ${avatarHtml(p.username)}
+          <div onclick="showProfile('${p.username}')" style="cursor:pointer;">${avatarHtml(p.username)}</div>
           <div class="content-wrap" style="display:flex;flex:1;align-items:center;gap:12px;">
             <div class="player-name">${p.nickname}${p.is_me ? '<span class="me-suffix">（我）</span>' : ''}</div>
             ${tags.join('')}
@@ -764,6 +764,28 @@
     // 首次加载
     fetchState();
     // startPolling();  // ★ 临时注释掉，测试准备按钮的真实延迟
+ 
+    function showProfile(username) {
+      if (username.startsWith('ai_')) {
+        showToast("这是电脑玩家，没有资料哦~");
+        return;
+      }
+      document.getElementById('profileIframe').src = '/user/' + username;
+      document.getElementById('profileModal').style.display = 'flex';
+    }
+  
   </script>
+
+  <!-- 玩家资料弹窗 -->
+  <div id="profileModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
+    <div style="background:#e8e0cc; width:95%; max-width:500px; height:85vh; border-radius:20px; border:4px double #f0e0a0; position:relative; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.5); display:flex; flex-direction:column;">
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#fffdf5; border-bottom:1px solid #d8d0bc; z-index:10;">
+        <h3 style="margin:0; color:#8a6d1f; font-size:22px;">玩家资料</h3>
+        <button onclick="document.getElementById('profileModal').style.display='none'" style="background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; padding:8px 24px; border-radius:8px; font-size:16px; font-weight:bold; font-family:inherit; cursor:pointer; transition: 0.2s;" onmouseover="this.style.background='#f8d8de'" onmouseout="this.style.background='#fce8ec'">关闭</button>
+      </div>
+      <iframe id="profileIframe" src="" style="flex:1; width:100%; border:none; background:#e8e0cc;"></iframe>
+    </div>
+  </div>
+  
 </body>
 </html>
