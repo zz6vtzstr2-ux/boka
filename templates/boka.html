@@ -177,7 +177,7 @@
 
     <div class="panel">
       <div class="user-block">
-        <a href="/player_profile" class="user-link">
+        <a href="/user/{{ current_user.username }}" class="user-link">
           <div class="avatar-fallback">
             <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.remove()" alt="">
           </div>
