@@ -273,10 +273,10 @@
         if (r.joined) {
           if (isPlaying) {
             mainBtnText = "返回卡桌";
-            mainBtnCls = "room-btn btn-blue";
+            mainBtnCls = "room-btn btn-green";
           } else {
             mainBtnText = "返回房间";
-            mainBtnCls = "room-btn btn-blue";
+            mainBtnCls = "room-btn btn-green";
           }
         } else {
           if (isPlaying) {
@@ -293,7 +293,7 @@
               mainBtnDisabled = true;
             } else {
               // 游离状态，可以加入（后端自动退旧房）
-              mainBtnCls = "room-btn btn-green";
+              mainBtnCls = "room-btn btn-blue";
               mainBtnDisabled = false;
             }
           }
