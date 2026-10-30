@@ -1929,6 +1929,7 @@ def boka_room_state(room_code):
     if not room:
         return jsonify({"error": "房间不存在"}), 404
 
+    # 1. 初始化/读取玩家缓存
     if room_code not in BOKA_ROOM_CACHE:
         db_players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
         BOKA_ROOM_CACHE[room_code] = [
@@ -1946,6 +1947,46 @@ def boka_room_state(room_code):
     players_cache = BOKA_ROOM_CACHE[room_code]
     me = next((p for p in players_cache if p["username"] == current_user.username), None)
 
+    # 2. 如果房间正在游戏，我们需要查出谁还在牌局里（谁被淘汰了）
+    playing_usernames = set()
+    eliminated_usernames = set()
+    
+    if room.status == "playing":
+        game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
+        if game:
+            gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+            for gp in gps:
+                if gp.surrendered or len(json_loads_safe(gp.hand)) == 0:
+                    eliminated_usernames.add(gp.username)
+                else:
+                    playing_usernames.add(gp.username)
+
+    # 3. 组装返回给前端的 players 数据，并注入 status 字段
+    players_data = []
+    for p in players_cache:
+        # 根据房间状态和玩家数据，计算具体的文本状态
+        if room.status == "playing":
+            if p["username"] in playing_usernames:
+                status_text = "搏卡中"
+            elif p["username"] in eliminated_usernames:
+                status_text = "已淘汰"
+            else:
+                # 中途进来的人，没有在 playing_usernames 也没有在 eliminated_usernames 里
+                status_text = "已准备" if p["ready"] else "未准备"
+        else:
+            status_text = "已准备" if p["ready"] else "未准备"
+
+        players_data.append({
+            "username": p["username"],
+            "nickname": p["nickname"],
+            "is_owner": p["is_owner"],
+            "ready": p["ready"],
+            "is_ai": p["is_ai"],
+            "is_me": p["is_me"],
+            "status": status_text  # ★ 新增：把状态传给前端
+        })
+
+    # 4. 返回数据
     return jsonify({
         "room_id": room.room_code,
         "status": room.status,
@@ -1955,17 +1996,7 @@ def boka_room_state(room_code):
         "owner": room.owner_username,
         "is_ready": me["ready"] if me else False,
         "is_owner": (room.owner_username == current_user.username),
-        "players": [
-            {
-                "username": p["username"],
-                "nickname": p["nickname"],
-                "is_owner": p["is_owner"],
-                "ready": p["ready"],
-                "is_ai": p["is_ai"],
-                "is_me": p["is_me"],
-            }
-            for p in players_cache
-        ],
+        "players": players_data # 使用组装好的新列表
     })
 
 @app.route('/boka/room/<room_code>/ready', methods=['POST'])
