@@ -313,16 +313,16 @@
           const isMe = p.username === myUsername;
           const isAI = p.username.startsWith('ai_');
           
-          // 规则4：观战按钮
+          // 规则4：观战按钮（按玩家级 status 判定）
           let spectateHtml = '';
           if (!isMe) {
-            // 条件1：被观战者状态是搏卡中/已淘汰，或者房间本身是游戏中
-            const targetCanSpectate = r.status === "游戏中";
-            // 条件2：观战者（我）不能是搏卡中
-            const iAmNotPlaying = !myCurrentStatus.isPlaying;
+            // 我是否“在局里”（搏卡中或已淘汰）→ 在局里就不能再观战别人
+            const iAmInGame = (myCurrentStatus.isPlaying || myCurrentStatus.isEliminated);
+            // 对方是否真的在局里（搏卡中或已淘汰）→ 中途进的“已准备/未准备”没有观战意义
+            const targetInGame = (p.status === "搏卡中" || p.status === "已淘汰");
 
-            const canSpectate = targetCanSpectate && iAmNotPlaying;
-            
+            const canSpectate = targetInGame && !iAmInGame;
+
             spectateHtml = `
               <button class="spectate-btn" ${canSpectate ? '' : 'disabled'} 
                       onclick="event.stopPropagation(); if(${canSpectate}) spectateRoomById('${r.room_id}')">
