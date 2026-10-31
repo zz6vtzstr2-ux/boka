@@ -2780,11 +2780,12 @@ def resolve_boka_round(game):
             g.finished_order = max_order + 1
 
     alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
+    alive_real = [g for g in alive if not g.username.startswith("ai_")]
     snapshot = {g.username: len(json_loads_safe(g.hand)) for g in gps}
     game.hand_count_snapshot = json_dumps_safe(snapshot)
 
     game.round_resolved = True
-    if len(alive) <= 1:
+    if len(alive) <= 1 or len(alive_real) == 0:
         finish_boka_game(game, alive)
 
     db.session.commit()
@@ -3116,7 +3117,8 @@ def boka_battle_state(room_code):
                 db.session.commit()
 
                 alive = [g for g in gps if len(json_loads_safe(g.hand)) > 0 and not g.surrendered]
-                if len(alive) <= 1:
+                alive_real = [g for g in alive if not g.username.startswith("ai_")]
+                if len(alive) <= 1 or len(alive_real) == 0:
                     if not game.finished_at:
                         finish_boka_game(game, alive)
                         db.session.commit()
@@ -3253,32 +3255,37 @@ def boka_surrender(room_code):
     db.session.commit()
 
     ai_usernames = {bp.username for bp in BokaPlayer.query.filter_by(room_id=room.id).all() if bp.is_ai}
-    real_alive = [g for g in all_players if not g.surrendered and len(json_loads_safe(g.hand)) > 0 and g.username not in ai_usernames]
 
-    # 4. 如果场上没有其他活着的真人了
-    if not real_alive:
+    # 存活 = 未弃卡 且 手牌非空
+    all_alive = [g for g in all_players if not g.surrendered and len(json_loads_safe(g.hand)) > 0]
+    real_alive = [g for g in all_alive if g.username not in ai_usernames]
+    ai_alive_list = [g for g in all_alive if g.username in ai_usernames]
+
+    # 结束条件：存活总数 <= 1，或没有真人存活
+    game_should_end = (len(all_alive) <= 1) or (len(real_alive) == 0)
+
+    if game_should_end:
         remaining_players = [g for g in all_players if g.username != me.username]
-        ai_alive = [g for g in remaining_players if not g.surrendered and len(json_loads_safe(g.hand)) > 0]
-        random.shuffle(ai_alive)
-        finished = [g for g in remaining_players if g.surrendered or len(json_loads_safe(g.hand)) == 0]
-        
-        # 把弃卡的人放在最后面
-        final_order = ai_alive + finished + [me]
-        
-        # ★ 核心：调用算分逻辑
-        finish_boka_game(game, final_order) 
+        ai_survive = [g for g in remaining_players if not g.surrendered and len(json_loads_safe(g.hand)) > 0]
+        random.shuffle(ai_survive)
+        others = [g for g in remaining_players if g not in ai_survive]
+
+        # 存活 AI 排前面，其余按现状，弃卡的人放最后
+        final_order = ai_survive + others + [me]
+
+        finish_boka_game(game, final_order)
         db.session.commit()
-        
+
         return jsonify({
-            "success": True, 
-            "rank": me.surrendered_rank, 
+            "success": True,
+            "rank": me.surrendered_rank,
             "finished": True,
         })
 
-    # 5. 如果游戏没结束（还有其他真人活着）
+    # 游戏未结束（还有其他真人存活，且存活总数 >= 2）
     return jsonify({
-        "success": True, 
-        "rank": me.surrendered_rank, 
+        "success": True,
+        "rank": me.surrendered_rank,
         "finished": False
     })
 
