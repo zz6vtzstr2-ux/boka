@@ -716,7 +716,7 @@
         // ==========================================
         // ★ 结束弹窗渲染（表格化）
         // ==========================================
-        if (data.finished && !window.resultShown && elapsed >= TIME_UPDATE) {
+        if (data.finished && !window.resultShown && (elapsed === -1 || elapsed >= TIME_UPDATE)) {
           window.resultShown = true;
           clearInterval(pollTimer);
           
@@ -922,7 +922,7 @@
 
       if (!ok) return; 
       
-      locked = true; // 防止连点
+      locked = true;
       const res = await fetch(`/boka/room/${roomCode}/surrender`, { method: 'POST' });
       const data = await res.json();
       
@@ -933,31 +933,37 @@
       }
       
       if (data.finished) {
-        // ★ 游戏彻底结束：强行调用 pollState 让它弹出最终的表格结算框
-        window.resultShown = false; 
-        currentElapsed = 8.0;       
-        await pollState();          
-        if (!window.resultShown) {
-           // 如果 pollState 因为某些原因没弹（比如你就在最后结算的动画里），这里做个兜底
-           window.resultShown = true;
-           document.getElementById('resultTitle').textContent = "对局结束";
-           document.getElementById('resultRanks').innerHTML = `<div style="text-align:center; font-weight:bold; color:#b85a6a; font-size:18px;">已弃卡（积分已结算）</div>`;
-           document.getElementById('resultModal').style.display = 'flex';
-           clearInterval(pollTimer);
-        }
+        // ★ 游戏结束：不弹弃卡提示，靠下一轮 pollState 弹统一结算窗
+        // （pollState 已放宽 elapsed === -1 条件）
+        await pollState();
       } else {
-        // ★ 游戏未结束：直接文字显示淘汰并进入观战
+        // ★ 游戏未结束：给弃卡者弹“确认”淘汰提示（非“确认退出”）
         const handArea = document.getElementById('myHandArea');
-handArea.innerHTML = `<div style="color: #b85a6a; font-weight: bold; font-size: 16px; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">你已淘汰，第 ${data.rank} 名</div>`;
-        
+        handArea.innerHTML = `<div style="color: #b85a6a; font-weight: bold; font-size: 16px; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">你已淘汰，第 ${data.rank} 名</div>`;
         document.getElementById('myHandCount').textContent = "0";
         document.getElementById('playBtn').disabled = true;
         document.getElementById('playBtn').textContent = '观战';
         document.getElementById('play-myArea').innerHTML = '';
-        
         myHand = [];
         myReady = [];
-        locked = true; 
+        locked = true;
+
+        // 弹“确认”提示（复用 confirmModal，隐藏取消按钮）
+        document.getElementById('confirmMsg').textContent = `你已弃卡，最终第 ${data.rank} 名。可以留在房间观战，或点顶部“退出”离开。`;
+        const btns2 = document.querySelectorAll('#confirmModal button');
+        btns2[0].textContent = '确认';
+        btns2[0].style.background = '#5bb8e8'; btns2[0].style.color = '#fff'; btns2[0].style.border = 'none';
+        btns2[0].style.flex = '1';
+        btns2[1].style.display = 'none';
+        document.getElementById('confirmModal').style.display = 'flex';
+        await new Promise(resolve => { confirmResolve = resolve; });
+        // 恢复按钮原状（供下次复用）
+        btns2[1].style.display = '';
+        btns2[0].textContent = '取消';
+        btns2[0].style.background = '#fce8ec'; btns2[0].style.color = '#b85a6a'; btns2[0].style.border = '1px solid #e8c8d0';
+        btns2[1].textContent = '确定';
+        btns2[1].style.background = '#5bb8e8'; btns2[1].style.color = '#fff'; btns2[1].style.border = 'none';
+        // 确认后留在房内，不跳转
       }
     }
 
