@@ -2542,13 +2542,24 @@ def _boka_ai_choose_cards(game, gp):
     for pkg in packages:
         pkg["atk"], pkg["def"] = package_stats(pkg)
 
+    TOP_COMBOS = {"五虎将", "八虎骑", "水军三兄弟"}
     atk_pkgs, def_pkgs, func_pkgs = [], [], []
     for pkg in packages:
         if pkg["type"] == "func":
             func_pkgs.append(pkg)
-        elif pkg["atk"] - pkg["def"] >= 35:
+            continue
+        names = [c["name"] for c in pkg["cards"]]
+        combo_name = None
+        if len(pkg["cards"]) > 1:
+            _, _, combo_name = calc_combo_stats(pkg["cards"])
+        diff = pkg["atk"] - pkg["def"]
+        is_single_linchong = (len(pkg["cards"]) == 1 and names[0] == "林冲")
+
+        # 比攻轮候选
+        if combo_name in TOP_COMBOS or is_single_linchong or diff >= 43:
             atk_pkgs.append(pkg)
-        else:
+        # 比防轮候选（单张林冲不进）
+        if combo_name in TOP_COMBOS or (not is_single_linchong and diff <= 47):
             def_pkgs.append(pkg)
 
     if is_atk_round:
