@@ -289,12 +289,34 @@
         `;
 
         let rightHtml = '';
-        if (isPlaying) {
-          if (isMe) rightHtml = `<button class="right-action-btn btn-back" onclick="window.location.href='/boka/room/${ROOM_CODE}/battle'">返回卡桌</button>`;
-          else rightHtml = `<button class="right-action-btn btn-spectate" onclick="window.location.href='/boka/room/${ROOM_CODE}/battle'">观战</button>`;
+        if (isMe) {
+          // 自己：搏卡中/已淘汰 → 返回卡桌；否则显示自己的准备状态 tag
+          if (isPlaying) {
+            rightHtml = `<button class="right-action-btn btn-back" onclick="window.location.href='/boka/room/${ROOM_CODE}/battle'">返回卡桌</button>`;
+          } else if (p.ready) {
+            rightHtml = `<span class="tag tag-ready">已准备</span>`;
+          }
         } else {
-          if (p.ready) rightHtml = `<span class="tag tag-ready">已准备</span>`;
-          else if (IS_OWNER && !isMe) rightHtml = `<button class="right-action-btn btn-kick" onclick="event.stopPropagation();kickPlayer('${p.username}','${p.nickname}')">踢人</button>`;
+          // 他人：按玩家级 status 做互斥三合一
+          const targetInGame = (p.status === "搏卡中" || p.status === "已淘汰");
+          const meData = (lastStatus.players || []).find(x => x.username === MY_USERNAME);
+          const iAmInGame = meData && (meData.status === "搏卡中" || meData.status === "已淘汰");
+          const canSpectate = targetInGame && !iAmInGame;
+
+          if (targetInGame) {
+            // 局内人：一律显示观战按钮（我在局里则置灰）
+            rightHtml = `<button class="right-action-btn btn-spectate" ${canSpectate ? '' : 'disabled'}
+                                   onclick="event.stopPropagation(); if(${canSpectate}) window.location.href='/boka/room/${ROOM_CODE}/battle'">观战</button>`;
+          } else if (p.ready) {
+            // 已准备：显示 tag（房主/非房主一致）
+            rightHtml = `<span class="tag tag-ready">已准备</span>`;
+          } else if (IS_OWNER) {
+            // 未准备且我是房主：踢人（我在局里也保留房主权）
+            rightHtml = `<button class="right-action-btn btn-kick" onclick="event.stopPropagation();kickPlayer('${p.username}','${p.nickname}')">踢人</button>`;
+          } else {
+            // 未准备且我不是房主：空置
+            rightHtml = '';
+          }
         }
 
         div.innerHTML = `${leftHtml}<div style="flex:1;"></div><div style="flex-shrink:0;">${rightHtml}</div>`;
