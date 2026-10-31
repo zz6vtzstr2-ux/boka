@@ -1790,6 +1790,26 @@ def boka_rooms():
     result = []
     for r in rooms:
         players = BokaPlayer.query.filter_by(room_id=r.id).all()
+
+        # 若房间在搏卡中，算出每个玩家是“搏卡中”还是“已淘汰”
+        playing_usernames = set()
+        eliminated_usernames = set()
+        if r.status == "playing":
+            game = BokaGame.query.filter_by(room_id=r.id).order_by(BokaGame.id.desc()).first()
+            if game:
+                for gp in BokaGamePlayer.query.filter_by(game_id=game.id).all():
+                    if gp.surrendered or len(json_loads_safe(gp.hand)) == 0:
+                        eliminated_usernames.add(gp.username)
+                    else:
+                        playing_usernames.add(gp.username)
+
+        def _player_status(p):
+            if p.username in playing_usernames:
+                return "搏卡中"
+            if p.username in eliminated_usernames:
+                return "已淘汰"
+            return "已准备" if p.ready else "未准备"
+
         result.append({
             "room_id": r.room_code,
             "status": "准备中" if r.status == "waiting" else "游戏中",
@@ -1799,7 +1819,8 @@ def boka_rooms():
             "players": [
                 {"name": p.nickname or p.username, "username": p.username,
                  "avatar": f"/static/avatars/{p.username}.jpg",
-                 "is_owner": p.username == r.owner_username}
+                 "is_owner": p.username == r.owner_username,
+                 "status": _player_status(p)}
                 for p in players
             ],
             "joined": any(p.username == current_user.username for p in players),
