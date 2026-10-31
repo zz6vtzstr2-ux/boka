@@ -2342,7 +2342,11 @@ def boka_quit(room_code):
     if room.status == "playing":
         game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
         if game and not game.finished_at:
-            return jsonify({"error": "游戏进行中无法退出，请先弃卡"}), 400
+            # 已弃卡 / 已淘汰（手牌空）的玩家可以退出，不影响对局
+            me_gp = BokaGamePlayer.query.filter_by(game_id=game.id, username=current_user.username).first()
+            is_out = me_gp and (me_gp.surrendered or len(json_loads_safe(me_gp.hand)) == 0)
+            if not is_out:
+                return jsonify({"error": "游戏进行中无法退出，请先弃卡"}), 400
 
     if room.status == "finished":
         room.status = "waiting"
