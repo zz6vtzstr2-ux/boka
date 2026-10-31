@@ -182,12 +182,28 @@
     }
     .avatar-fallback img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-    .player-name { flex: 1; min-width: 0; font-size: 16px; font-weight: bold; color: #2c3e50; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .player-name {
+      flex: 1;
+      min-width: 0;
+      font-size: 16px;
+      font-weight: bold;
+      color: #2c3e50;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
     .player-name .me-suffix { color: #b85a6a; font-size: 14px; margin-left: 4px; }
 
     /* 标签与按钮区 */
     .tag { flex-shrink: 0; font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 8px; letter-spacing: 1px; white-space: nowrap; }
-    .tag-owner { color: #b85a6a; background: #fce8ec; border: 1px solid #e8c8d0; }
+    .tag-owner {
+      color: #d89050;
+      background: #fdf0e0;
+      border: 1px solid #f0d0b0;
+    }
     .tag-ready { color: #5cb85c; background: #e8f5e8; border: 1px solid #b8e0b8; }
     .tag-ai { color: #8a6d1f; background: #fdf6d8; border: 1px solid #f0e0a0; }
     .tag-eliminated { color: #999; background: #eee; border: 1px solid #ccc; }
@@ -466,49 +482,12 @@
     }
 
     // ===== 渲染玩家列表 =====
+    // ===== 渲染玩家列表（精准更新DOM，不刷新图片） =====
+    let lastPlayersData = []; 
+
     function renderPlayers(players, owner) {
       const el = document.getElementById('playerList');
-      const isPlaying = lastStatus && lastStatus.status === "playing";
-      
-      // 获取当前玩家自己的状态
-      const meData = players.find(p => p.username === MY_USERNAME);
-      const isMePlaying = meData && (meData.status === "搏卡中" || meData.status === "已淘汰");
-
-      // 1. 控制上方操作按钮的状态
-      const readyBtn = document.getElementById('readyBtn');
-      const startBtn = document.getElementById('startBtn');
-      const dissolveBtn = document.getElementById('dissolveBtn');
-      const addBotBtn = document.getElementById('addBotBtn');
-
-      if (isPlaying) {
-        // 如果我在局内，准备按钮置灰不可点（但不隐藏）
-        if (isMePlaying) {
-          readyBtn.disabled = true;
-          readyBtn.textContent = '准备';
-        } else {
-          // 我是中途进来的新人，准备按钮依然可点
-          readyBtn.disabled = false;
-          readyBtn.textContent = meData && meData.ready ? '取消准备' : '准备';
-        }
-        // 房主相关按钮全部置灰（因为已经开局了）
-        if (startBtn) startBtn.disabled = true;
-        if (dissolveBtn) dissolveBtn.disabled = true;
-        if (addBotBtn) addBotBtn.disabled = true;
-      } else {
-        // 准备阶段
-        readyBtn.disabled = false;
-        readyBtn.textContent = meData && meData.ready ? '取消准备' : '准备';
-        
-        if (IS_OWNER) {
-          const allReady = players.every(p => p.ready);
-          const enoughPlayers = players.length >= 2;
-          if (startBtn) startBtn.disabled = !(allReady && enoughPlayers);
-          if (dissolveBtn) dissolveBtn.disabled = false;
-          if (addBotBtn) addBotBtn.disabled = false;
-        }
-      }
-
-      // 2. 渲染每一个玩家
+      
       let isSamePlayers = false;
       if (lastPlayersData.length === players.length) {
         isSamePlayers = true;
@@ -518,78 +497,84 @@
           }
         }
       }
-      
-      const buildPlayerHtml = (p) => {
-        const isMe = p.username === MY_USERNAME;
+      
+      // 提取生成名字和右侧标签/按钮的 HTML
+      const buildRightHtml = (p) => {
         const isOwner = p.username === owner;
-        const isAI = p.is_ai;
-        
+        const isMe = p.username === MY_USERNAME;
+        const isPlaying = lastStatus && lastStatus.status === "playing";
+        
+        // 获取当前玩家的状态 (状态是由后端传过来的，如果是准备阶段就没有 status)
+        const pStatus = p.status || ""; 
+        
         let rightHtml = '';
-        
+        
         if (isPlaying) {
-          // ★ 状态：搏卡中
-          if (isMe) {
-            // 我的行：一直显示“返回卡桌”
-            rightHtml = `<button class="action-btn-small back-table" onclick="window.location.href='/boka/room/${ROOM_CODE}/battle'">返回卡桌</button>`;
+          // 游戏已经开始了
+          if (pStatus === "搏卡中" || pStatus === "已淘汰") {
+            // 是局内人，显示观战
+            const disabledAttr = (p.status === "搏卡中") ? 'disabled' : ''; 
+            rightHtml = `<button class="right-action-btn btn-spectate" ${disabledAttr} onclick="event.stopPropagation(); window.location.href='/boka/room/${ROOM_CODE}/battle'">观战</button>`;
           } else {
-            // 别人的行
-            if (p.status === "搏卡中" || p.status === "已淘汰") {
-              // 局内的人，显示“观战”按钮
-              // 如果我自己在局内，观战按钮置灰
-              const disabledAttr = isMePlaying ? 'disabled' : '';
-              rightHtml = `<button class="action-btn-small spectate" ${disabledAttr} onclick="if(!${isMePlaying}) window.location.href='/boka/room/${ROOM_CODE}/battle'">观战</button>`;
-            } else {
-              // 中途进来的新人，不显示观战，显示状态标签
-              if (p.ready) rightHtml = '<span class="tag tag-ready">已准备</span>';
-              else rightHtml = '<span class="tag">未准备</span>';
-            }
+            // 中途进来的人，显示已准备/未准备
+            if (p.ready) rightHtml = '<span class="tag tag-ready">已准备</span>';
+            else rightHtml = '<span class="tag" style="color:#aaa; border:1px solid #eee;">未准备</span>';
           }
         } else {
-          // ★ 状态：准备中
-          if (p.username === owner) rightHtml += '<span class="tag tag-owner">房主</span>';
-          if (p.is_ai) rightHtml += '<span class="tag tag-ai">AI</span>';
-          if (p.ready && !p.is_ai) rightHtml += '<span class="tag tag-ready">已准备</span>';
-          
-          if (IS_OWNER && p.username !== MY_USERNAME) {
-            rightHtml += `<button class="kick-btn" onclick="event.stopPropagation();kickPlayer('${p.username}','${p.nickname}')">踢出</button>`;
+          // 游戏在准备中
+          if (p.ready) {
+            rightHtml = '<span class="tag tag-ready">已准备</span>';
+          } else if (IS_OWNER && !isMe) {
+            // 没准备，且我是房主在看别人，显示踢人
+            rightHtml = `<button class="right-action-btn btn-kick" onclick="event.stopPropagation();kickPlayer('${p.username}','${p.nickname}')">踢人</button>`;
           }
         }
-
-        return `
-          <div onclick="showProfile('${p.username}')" style="cursor:pointer;">${avatarHtml(p.username)}</div>
-          <div class="content-wrap" style="display:flex;flex:1;align-items:center;gap:12px;">
-            <div class="player-name">${p.nickname}${isMe ? '<span class="me-suffix">（我）</span>' : ''}</div>
+        
+        // 组装名字区 + 标签 + 右侧按钮
+        const nameHtml = `
+          <div class="player-name">
+            ${p.nickname}${isMe ? '<span class="me-suffix">（我）</span>' : ''}
+            ${isOwner ? '<span class="tag tag-owner">房主</span>' : ''}
+            ${p.is_ai ? '<span class="tag tag-ai">AI</span>' : ''}
+          </div>
+          <div style="flex-shrink: 0;">
             ${rightHtml}
           </div>
         `;
+        return nameHtml;
       };
 
       if (isSamePlayers) {
         players.forEach((p, i) => {
           const item = el.children[i];
           if (!item) return;
+          
           let contentWrap = item.querySelector('.content-wrap');
           if (!contentWrap) {
-            item.innerHTML = buildPlayerHtml(p);
+            // 首次渲染，生成包含头像和内容的完整结构
+            item.innerHTML = `<div onclick="showProfile('${p.username}')" style="cursor:pointer;">${avatarHtml(p.username)}</div><div class="content-wrap" style="display:flex;flex:1;align-items:center;justify-content:space-between;gap:12px;">${buildRightHtml(p)}</div>`;
           } else {
-            // 仅替换右侧内容，保留头像不刷新
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = buildPlayerHtml(p);
-            const newWrap = tempDiv.querySelector('.content-wrap');
-            if(newWrap) contentWrap.innerHTML = newWrap.innerHTML;
+            // 仅更新内容
+            contentWrap.innerHTML = buildRightHtml(p);
           }
         });
         return;
       }
 
-      // 整体重建
+      // 如果玩家列表变了，整体重建
       lastPlayersData = players;
       el.innerHTML = '';
-      
+      
       players.forEach(p => {
         const div = document.createElement('div');
         div.className = 'player-item' + (p.username === MY_USERNAME ? ' is-me' : '');
-        div.innerHTML = buildPlayerHtml(p);
+        
+        div.innerHTML = `
+          <div onclick="showProfile('${p.username}')" style="cursor:pointer;">${avatarHtml(p.username)}</div>
+          <div class="content-wrap" style="display:flex;flex:1;align-items:center;justify-content:space-between;gap:12px;">
+            ${buildRightHtml(p)}
+          </div>
+        `;
         el.appendChild(div);
       });
 
