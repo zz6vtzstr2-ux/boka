@@ -941,7 +941,7 @@ def challenge_play():
     game["my_ready"] = list(card_ids)
     game["my_hand"] = [c for c in my_hand if c not in card_ids]
 
-    ai_choice = _ai_pick_card(game)
+    ai_choice = _ai_pick_card(game, level)
     game["ai_ready"] = ai_choice
     if ai_choice:
         game["ai_hand"] = [c for c in game.get("ai_hand", []) if c not in ai_choice]
@@ -1091,8 +1091,11 @@ def challenge_state():
         "all_loser": game.get("all_loser", False),
     })
 
-
-def _ai_pick_card(game):
+def challenge_ai_thresholds(level):
+    step = max(0, (800 - max(1, min(800, level))) // 100)
+    return 43 - step, 47 - step
+    
+def _ai_pick_card(game, level):
     ai_hand = game.get("ai_hand", [])
     if not ai_hand:
         return []
@@ -1124,6 +1127,7 @@ def _ai_pick_card(game):
     songjiang = hand_by_name.get("宋江", [])
     songjiang_card = songjiang[0] if songjiang else None
 
+    # ===== 宋江自动抽卡换袋（与搏卡一致）=====
     pool = game.get("card_pool", [])
     if pool and songjiang_card:
         pool_powers = []
@@ -1143,8 +1147,21 @@ def _ai_pick_card(game):
             avg_power = sum(pool_powers) / len(pool_powers)
             sj_power = songjiang_card["atk"] + songjiang_card["def"]
             if avg_power > sj_power:
-                return [songjiang_card["id"]]
+                idx = random.randrange(len(pool))
+                picked = pool.pop(idx)
+                if isinstance(picked, dict):
+                    picked_id = picked["id"]
+                    picked_level = picked.get("level", 1)
+                else:
+                    picked_id = picked
+                    picked_level = 1
+                pool.append({"id": songjiang_card["id"], "level": songjiang_card["level"]})
+                game["ai_hand"] = [cid for cid in ai_hand if cid != songjiang_card["id"]] + [picked_id]
+                game["ai_level_map"][str(picked_id)] = picked_level
+                game["card_pool"] = pool
+                return _ai_pick_card(game, level)
 
+    # ===== 组包（与搏卡一致）=====
     used_ids = set()
     packages = []
 
@@ -1231,17 +1248,25 @@ def _ai_pick_card(game):
     for pkg in packages:
         pkg["atk"], pkg["def"] = package_stats(pkg)
 
-    atk_pkgs = []
-    def_pkgs = []
-    func_pkgs = []
+    # ===== 分类 + 选组（搏卡版 + 阈值参数化）=====
+    atk_thr, def_thr = challenge_ai_thresholds(level)
+    TOP_COMBOS = {"五虎将", "八虎骑", "水军三兄弟"}
+    atk_pkgs, def_pkgs, func_pkgs = [], [], []
     for pkg in packages:
         if pkg["type"] == "func":
             func_pkgs.append(pkg)
-        else:
-            if pkg["atk"] - pkg["def"] >= 35:
-                atk_pkgs.append(pkg)
-            else:
-                def_pkgs.append(pkg)
+            continue
+        names = [c["name"] for c in pkg["cards"]]
+        combo_name = None
+        if len(pkg["cards"]) > 1:
+            _, _, combo_name = calc_combo_stats(pkg["cards"])
+        diff = pkg["atk"] - pkg["def"]
+        is_single_linchong = (len(pkg["cards"]) == 1 and names[0] == "林冲")
+
+        if combo_name in TOP_COMBOS or is_single_linchong or diff >= atk_thr:
+            atk_pkgs.append(pkg)
+        if combo_name in TOP_COMBOS or (not is_single_linchong and diff <= def_thr):
+            def_pkgs.append(pkg)
 
     if is_atk_round:
         candidates = atk_pkgs + func_pkgs
@@ -1255,9 +1280,7 @@ def _ai_pick_card(game):
     else:
         all_pkgs = atk_pkgs + def_pkgs
         if not all_pkgs:
-            if songjiang_card:
-                return [songjiang_card["id"]]
-            return []
+            return [hand[0]["id"]]
         all_pkgs.sort(key=lambda p: p[fallback_key])
         chosen = all_pkgs[0]
 
