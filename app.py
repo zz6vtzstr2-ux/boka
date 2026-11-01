@@ -2018,15 +2018,22 @@ def boka_room_state(room_code):
                 game_player_map[gp.username] = gp
 
     for p in players_cache:
-        # ... (保留你原有的 status_text 判断逻辑) ...
-        
-        # ★ 新增：获取座位号（如果在游戏中）
+        # ★ 核心：计算 status_text
+        if room.status == "playing":
+            if p["username"] in playing_usernames:
+                status_text = "搏卡中"
+            elif p["username"] in eliminated_usernames:
+                status_text = "已淘汰"
+            else:
+                status_text = "已准备" if p["ready"] else "未准备"
+        else:
+            status_text = "已准备" if p["ready"] else "未准备"
+
+        # ★ 获取座位号（如果有的话）
         game_seat = None
         if p["username"] in game_player_map:
             game_seat = game_player_map[p["username"]].seat if hasattr(game_player_map[p["username"]], 'seat') else 0
-            # 如果没有 seat 字段，直接用 username 做唯一标识也行
-            # 或者用 p["id"] (BokaPlayer 的 id)
-            
+
         players_data.append({
             "username": p["username"],
             "nickname": p["nickname"],
@@ -2034,9 +2041,9 @@ def boka_room_state(room_code):
             "ready": p["ready"],
             "is_ai": p["is_ai"],
             "is_me": p["is_me"],
-            "status": status_text,
-            "game_seat": game_seat,  # ★ 新增
-            "is_auto": False         # ★ 新增，暂写死，下一条改
+            "status": status_text,  # 加上这句之后就不报错了
+            "game_seat": game_seat,
+            "is_auto": False
         })
 
     # 4. 返回数据
