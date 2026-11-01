@@ -466,7 +466,8 @@
 
     function updatePlayBtn() {
       const btn = document.getElementById('playBtn');
-      btn.disabled = locked || myReady.length === 0 || !window.lastComboValid;
+      const isAuto = document.getElementById('myAutoBtn').textContent === '托管中';
+      btn.disabled = locked || myReady.length === 0 || !window.lastComboValid || isAuto;
       btn.textContent = locked ? '锁定' : '出战';
     }
 
