@@ -2009,19 +2009,24 @@ def boka_room_state(room_code):
 
     # 3. 组装返回给前端的 players 数据，并注入 status 字段
     players_data = []
-    for p in players_cache:
-        # 根据房间状态和玩家数据，计算具体的文本状态
-        if room.status == "playing":
-            if p["username"] in playing_usernames:
-                status_text = "搏卡中"
-            elif p["username"] in eliminated_usernames:
-                status_text = "已淘汰"
-            else:
-                # 中途进来的人，没有在 playing_usernames 也没有在 eliminated_usernames 里
-                status_text = "已准备" if p["ready"] else "未准备"
-        else:
-            status_text = "已准备" if p["ready"] else "未准备"
+    # 查出本局所有玩家的座位表（提前查一次）
+    game_player_map = {}
+    if room.status == "playing":
+        game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
+        if game:
+            for gp in BokaGamePlayer.query.filter_by(game_id=game.id).all():
+                game_player_map[gp.username] = gp
 
+    for p in players_cache:
+        # ... (保留你原有的 status_text 判断逻辑) ...
+        
+        # ★ 新增：获取座位号（如果在游戏中）
+        game_seat = None
+        if p["username"] in game_player_map:
+            game_seat = game_player_map[p["username"]].seat if hasattr(game_player_map[p["username"]], 'seat') else 0
+            # 如果没有 seat 字段，直接用 username 做唯一标识也行
+            # 或者用 p["id"] (BokaPlayer 的 id)
+            
         players_data.append({
             "username": p["username"],
             "nickname": p["nickname"],
@@ -2029,7 +2034,9 @@ def boka_room_state(room_code):
             "ready": p["ready"],
             "is_ai": p["is_ai"],
             "is_me": p["is_me"],
-            "status": status_text  # ★ 新增：把状态传给前端
+            "status": status_text,
+            "game_seat": game_seat,  # ★ 新增
+            "is_auto": False         # ★ 新增，暂写死，下一条改
         })
 
     # 4. 返回数据
@@ -3222,6 +3229,8 @@ def boka_battle_state(room_code):
         players_info.append({
             "username": g.username, "nickname": g.nickname or g.username,
             "hand_count": h_count, "locked": g.locked, "is_me": g.username == current_user.username,
+            "is_auto": g.is_auto,  # ★ 新增
+            "seat": g.id           # ★ 新增：用数据库自增id当固定座位号
         })
 
     # ★ 核心追加：游戏结束时，打包所有人的结算数据
@@ -3326,6 +3335,24 @@ def boka_surrender(room_code):
         "rank": me.surrendered_rank,
         "finished": False
     })
+
+@app.route('/boka/room/<room_code>/toggle_auto', methods=['POST'])
+@login_required
+def boka_toggle_auto(room_code):
+    room = BokaRoom.query.filter_by(room_code=room_code).first()
+    if not room: return jsonify({"error": "房间不存在"}), 404
+    game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
+    if not game or game.phase == "finished":
+        return jsonify({"error": "当前无法操作"}), 400
+        
+    me = BokaGamePlayer.query.filter_by(game_id=game.id, username=current_user.username).first()
+    if not me: return jsonify({"error": "你不在本局"}), 403
+    
+    # 切换状态
+    me.is_auto = not me.is_auto
+    db.session.commit()
+    
+    return jsonify({"success": True, "is_auto": me.is_auto})
 
 # ========== 世界 Boss ==========
 @app.route('/world_boss')
