@@ -269,8 +269,7 @@
     function renderPlayers(players, owner) {
       const el = document.getElementById('playerList');
       el.innerHTML = '';
-      const isPlaying = lastStatus && lastStatus.status === "playing";
-
+      
       players.forEach(p => {
         const div = document.createElement('div');
         div.className = 'player-item' + (p.username === MY_USERNAME ? ' is-me' : '');
@@ -290,10 +289,8 @@
 
         let rightHtml = '';
         if (isMe) {
-          // 自己：搏卡中/已淘汰 → 返回卡桌；否则显示自己的准备状态 tag
-          if (isPlaying) {
-            rightHtml = `<button class="right-action-btn btn-back" onclick="window.location.href='/boka/room/${ROOM_CODE}/battle'">返回卡桌</button>`;
-          } else if (p.ready) {
+          // 自己：直接显示准备状态
+          if (p.ready) {
             rightHtml = `<span class="tag tag-ready">已准备</span>`;
           }
         } else {
