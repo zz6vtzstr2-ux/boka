@@ -162,6 +162,32 @@
     .play-btn:disabled { background: #ccc; cursor: not-allowed; }
 
     .hand-label { font-size: 12px; color: #888; padding-left: 4px; margin-bottom: 0; }
+
+    /* 新增：右侧操作区及等比按钮 */
+    .opponent-action-col {
+      display: flex; flex-direction: column; gap: 6px; width: 48px; justify-content: center;
+    }
+    .action-btn-rect {
+      width: 100%; height: 24px; border-radius: 6px; border: 1px solid transparent;
+      font-size: 12px; font-weight: bold; font-family: inherit; display: flex;
+      align-items: center; justify-content: center; padding: 0;
+    }
+    .action-btn-rect.spectate { background: #fff; color: #f5a623; border-color: #f5a623; cursor: pointer; }
+    .action-btn-rect.spectate:disabled { background: #e8e8e8 !important; color: #aaa !important; border-color: #ccc !important; cursor: not-allowed; }
+    .action-btn-rect.fighting { background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; display: none; }
+    .action-btn-rect.auto { background: #fdf6d8; color: #8a6d1f; border-color: #f0e0a0; display: none; }
+
+    /* 调整亮牌区下移 */
+    .arena { padding-top: 10px; } /* 给顶部一点呼吸感 */
+    .played-area { height: 140px; margin-top: 10px; } /* 原本 160px，缩小一点避免挤出屏幕 */
+    .center-banner { margin: 0px 0 20px 0; }
+    
+    /* 我的托管按钮 */
+    .my-auto-btn {
+      background: #fce8ec; color: #b85a6a; border: 1px solid #e8c8d0;
+      border-radius: 8px; padding: 4px 12px; font-size: 14px; font-weight: bold; cursor: pointer;
+    }
+    
   </style>
 </head>
 <body>
@@ -185,36 +211,32 @@
     <!-- 对手区 -->
     {% set opponent = players | rejectattr("username", "equalto", current_user.username) | first %}
     {% if opponent %}
-    <div class="side ai" style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+    <div class="side ai" style="width: 100%; display: flex; align-items: stretch; justify-content: center; gap: 16px; margin-top: 10px;">
       
-      <!-- ★ 加上 onclick，点击整个头部弹出资料 -->
-      <div class="player-head" style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+      <!-- 对手信息（左中右布局：头像上方，名字手牌下方，右侧按钮） -->
+      <div style="display: flex; align-items: stretch; gap: 12px;" onclick="showProfile('{{ opponent.username }}')" style="cursor: pointer;">
         
-        <!-- 左侧：头像 + 名字 + 手牌（保留点击看资料功能） -->
-        <div style="display: flex; align-items: center; gap: 10px;" onclick="showProfile('{{ opponent.username }}')" style="cursor: pointer;" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
+        <!-- 左侧：头像及下方文字 -->
+        <div style="display: flex; flex-direction: column; align-items: center; width: 64px;">
           {% if opponent.username.startswith('ai_') %}
-            <div class="ai-avatar-placeholder" style="padding: 0 14px;">对手</div>
+            <div class="ai-avatar-placeholder" style="width: 56px; height: 56px; font-size: 14px; border-radius: 12px;">对手</div>
           {% else %}
-            <img src="/static/avatars/{{ opponent.username }}.jpg" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-            <div class="ai-avatar-placeholder" style="display: none; padding: 0 14px;">对手</div>
+            <img src="/static/avatars/{{ opponent.username }}.jpg" style="width: 56px; height: 56px; border-radius: 12px; border: 2px solid #5bb8e8; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            <div class="ai-avatar-placeholder" style="display: none; width: 56px; height: 56px; border-radius: 12px;">对手</div>
           {% endif %}
-          
-          <div class="player-text-info">
-            <div class="pname">{{ opponent.nickname }}</div>
-            <div class="hand-count">手牌 <span id="count-{{ opponent.username }}">{{ opponent.hand_count }}</span></div>
-          </div>
+          <div class="pname" style="font-size: 14px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 64px;">{{ opponent.nickname }}</div>
+          <div class="hand-count" style="font-size: 12px; color: #888;">手牌 <span id="count-{{ opponent.username }}">{{ opponent.hand_count }}</span></div>
         </div>
 
-        <!-- 右侧：观战 + 托管（上下排列） -->
-        <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
-          <!-- 观战按钮：默认亮，JS 控制 disabled -->
-          <button class="right-action-btn btn-spectate" id="spectate-{{ opponent.username }}" style="padding: 2px 8px; font-size: 12px; height: 24px;" onclick="spectatePlayer('{{ opponent.username }}')">观战</button>
-          <!-- 托管标签：默认隐藏，JS 控制显示 -->
-          <span class="tag tag-ready" id="auto-tag-{{ opponent.username }}" style="display: none; padding: 2px 8px; font-size: 12px; height: 24px; line-height: 18px;">托管中</span>
+        <!-- 右侧：上下按钮区（与左侧头像+文字等高） -->
+        <div class="opponent-action-col" onclick="event.stopPropagation();">
+          <button class="action-btn-rect spectate" id="spectate-{{ opponent.username }}" onclick="spectatePlayer('{{ opponent.username }}')">观战</button>
+          <span class="action-btn-rect fighting" id="fighting-tag-{{ opponent.username }}">搏卡中</span>
+          <span class="action-btn-rect auto" id="auto-tag-{{ opponent.username }}">托管中</span>
         </div>
 
       </div>
-      
+
       <!-- 对手出牌区 -->
       <div class="played-area" id="play-{{ opponent.username }}"></div>
     </div>
@@ -230,13 +252,12 @@
   <div class="bottom-area">
     <!-- 头像、提示、出战按钮（背景透明，跟上面亮卡区连成一体） -->
     <div class="ready-row">
-      <div class="my-avatar-block" style="position: relative;">
-        <div onclick="showProfile('{{ current_user.username }}')" style="cursor: pointer;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="my-avatar-block" onclick="showProfile('{{ current_user.username }}')" style="cursor: pointer;">
           <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'">
+          <div class="pname">{{ current_user.nickname or current_user.username }}</div>
         </div>
-        <div class="pname">{{ current_user.nickname or current_user.username }}</div>
-        <!-- ★ 托管按钮 -->
-        <button id="myAutoBtn" onclick="toggleMyAuto()" style="position: absolute; right: -50px; top: 10px; padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid #ccc; background: #fff; color: #666; cursor: pointer;">托管</button>
+        <button id="myAutoBtn" class="my-auto-btn" onclick="toggleMyAuto()">托管</button>
       </div>
       <div class="combo-info" id="comboInfo">请选择卡牌</div>
       <button class="play-btn" id="playBtn" onclick="submitPlay()" disabled>出战</button>
@@ -695,35 +716,36 @@
             document.getElementById('poolInfo').textContent = `卡袋 ${poolCount}`;
 
             if (data.players_info) {
-              let myIsPlaying = false; // 记录我是否在局中，方便判断观战置灰
-              
+              let myIsPlaying = false;
               data.players_info.forEach(p => {
                 if (p.is_me) {
                   document.getElementById('myHandCount').textContent = p.hand_count;
-                  // 检查我是否在打牌（手牌 > 0 代表在局内）
                   if (p.hand_count > 0) myIsPlaying = true;
                 } else {
                   const countEl = document.getElementById(`count-${p.username}`);
                   if (countEl) countEl.textContent = p.hand_count;
                   
-                  // ★ 新增：更新托管标签
+                  // 更新托管标签
                   const autoTag = document.getElementById(`auto-tag-${p.username}`);
                   if (autoTag) {
-                    autoTag.style.display = p.is_auto ? 'inline-block' : 'none';
+                    autoTag.style.display = p.is_auto ? 'flex' : 'none';
+                  }
+                  // 更新搏卡中标签
+                  const fightTag = document.getElementById(`fighting-tag-${p.username}`);
+                  if (fightTag) {
+                    fightTag.style.display = p.hand_count > 0 ? 'flex' : 'none';
                   }
                 }
               });
 
-              // 统一处理观战按钮置灰逻辑（等所有玩家扫完再判断）
+              // 处理观战按钮置灰
               data.players_info.forEach(p => {
                 if (!p.is_me) {
                   const spBtn = document.getElementById(`spectate-${p.username}`);
                   if (spBtn) {
-                    // 规则：我在局中，或对方手牌为0（已淘汰/没打），观战置灰
                     const isTargetOut = (p.hand_count === 0);
                     const canSpectate = !myIsPlaying && !isTargetOut;
                     spBtn.disabled = !canSpectate;
-                    spBtn.style.opacity = canSpectate ? '1' : '0.5';
                   }
                 }
               });
@@ -812,6 +834,11 @@
       }
     }
 
+    // 点击观战（占位）
+    function spectatePlayer(username) {
+      alert('观战功能开发中，即将观战：' + username);
+    }
+
     // 点击托管按钮
     async function toggleMyAuto() {
       const btn = document.getElementById('myAutoBtn');
@@ -823,7 +850,6 @@
         const data = await res.json();
         if (data.error) { alert(data.error); return; }
         
-        // 更新按钮样式
         updateMyAutoUI(data.is_auto);
         // 更新出战按钮状态
         document.getElementById('playBtn').disabled = data.is_auto || myReady.length === 0 || !window.lastComboValid;
@@ -835,21 +861,22 @@
       }
     }
 
-    // 更新托管 UI 状态
     function updateMyAutoUI(isAuto) {
       const btn = document.getElementById('myAutoBtn');
       if (isAuto) {
         btn.textContent = '托管中';
-        btn.style.background = '#f5a623';
-        btn.style.color = '#fff';
-        btn.style.borderColor = '#e09820';
+        btn.style.background = '#fce8ec';
+        btn.style.color = '#b85a6a';
+        btn.style.borderColor = '#e8c8d0';
+        btn.style.opacity = '0.7';
         document.getElementById('comboInfo').textContent = '已托管，AI 代打中';
       } else {
         btn.textContent = '托管';
-        btn.style.background = '#fff';
-        btn.style.color = '#666';
-        btn.style.borderColor = '#ccc';
-        updateComboInfo(); // 恢复正常提示
+        btn.style.background = '#fce8ec';
+        btn.style.color = '#b85a6a';
+        btn.style.borderColor = '#e8c8d0';
+        btn.style.opacity = '1';
+        updateComboInfo(); 
       }
     }
     
