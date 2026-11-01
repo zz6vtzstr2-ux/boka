@@ -2387,7 +2387,8 @@ def boka_quit(room_code):
 
     if room.status == "finished":
         room.status = "waiting"
-        BokaPlayer.query.filter_by(room_id=room.id).update({"ready": False})
+        # 只把真人设成未准备，AI 保持已准备
+        BokaPlayer.query.filter_by(room_id=room.id, is_ai=False).update({"ready": False})
         game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
         if game:
             BokaGamePlayer.query.filter_by(game_id=game.id).delete()
