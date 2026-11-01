@@ -102,10 +102,8 @@
 
     .played-area { 
       position: relative; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; 
-      height: 120px; /* 适度下调高度 */
-      margin-top: -10px; /* 往上提一点 */
-      margin-bottom: 0;
-      padding-top: 10px;
+      height: 140px; 
+      margin-top: 0px; margin-bottom: 0; padding-top: 10px;
     }
     .center-banner { font-size: 20px; font-weight: bold; color: #fff; letter-spacing: 6px; text-indent: 6px; padding: 6px 24px; border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); white-space: nowrap; margin: 10px 0 20px 0; }
     .center-banner.atk { background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b); border: 2px solid #8a4a1f; }
@@ -118,7 +116,7 @@
     .hero-card .atk-orb, .hero-card .def-orb { position: absolute; bottom: 20px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.6); z-index: 2; }
     .hero-card .atk-orb { left: -4px; background: radial-gradient(circle at 30% 30%, #f5b76e, #c1783b); border: 2px solid #8a4a1f; }
     .hero-card .def-orb { right: -4px; background: radial-gradient(circle at 30% 30%, #8bc0e8, #4a7db8); border: 2px solid #2a4a7a; }
-    .hero-card .card-name { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 12px; font-weight: bold; color: #4a4a4a; white-space: nowrap; }
+    .hero-card .card-name { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 12px; font-weight: bold; color: #4a4a4a; white-space: nowrap; }
     .hero-card.selected .oval-wrap { outline: 4px solid #5bb8e8; outline-offset: -4px; box-shadow: 0 0 0 4px rgba(91,184,232,0.35), 0 3px 8px rgba(0,0,0,0.2); }
     .hero-card.winner .oval-wrap { border-color: #f5c542; box-shadow: 0 0 12px #f5c542, 0 0 24px rgba(245,197,66,0.6); }
     .hero-card.loser .oval-wrap { opacity: 0.5; filter: grayscale(0.5); }
@@ -152,27 +150,16 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 64px;
     }
     .combo-info { 
-      flex: 1; text-align: center; font-size: 14px; color: #666; 
+      flex: 1; display: flex; align-items: center; justify-content: center; 
+      font-size: 14px; color: #666; 
     }
     .play-btn {
-      height: 24px; padding: 0 16px; border-radius: 12px; border: none;
-      background: #5bb8e8; color: #fff; font-size: 13px; font-weight: bold;
-      cursor: pointer; flex-shrink: 0; letter-spacing: 1px; font-family: inherit;
+      width: 80px; padding: 10px 0; border-radius: 12px; border: none;
+      background: #5bb8e8; color: #fff; font-size: 15px; font-weight: bold;
+      cursor: pointer; flex-shrink: 0; font-family: inherit;
     }
     .play-btn:disabled { background: #ccc; cursor: not-allowed; }
-    .my-avatar-block { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 64px; }
-    .my-avatar-block img { width: 40px; height: 40px; border-radius: 10px; border: 2px solid #5bb8e8; }
-    .my-avatar-block .pname { font-size: 14px; font-weight: bold; margin-top: 4px; }
-    .combo-info { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #666; }
-    .play-btn { padding: 0 20px; border-radius: 12px; border: none; background: #5bb8e8; color: #fff; font-size: 15px; font-weight: bold; cursor: pointer; font-family: inherit; }
-    .play-btn:disabled { background: #ccc; cursor: not-allowed; }
-
     .hand-label { font-size: 12px; color: #888; padding-left: 4px; margin-bottom: 0; }
-
-    /* 新增：右侧操作区及等比按钮 */
-    .opponent-action-col {
-      display: flex; flex-direction: column; gap: 6px; width: 48px; justify-content: center;
-    }
     .action-btn-rect {
       width: 100%; height: 24px; border-radius: 6px; border: 1px solid transparent;
       font-size: 12px; font-weight: bold; font-family: inherit; display: flex;
@@ -182,33 +169,23 @@
     .action-btn-rect.spectate:disabled { background: #e8e8e8 !important; color: #aaa !important; border-color: #ccc !important; cursor: not-allowed; }
     .action-btn-rect.fighting { background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; display: none; }
     .action-btn-rect.auto { background: #fdf6d8; color: #8a6d1f; border-color: #f0e0a0; display: none; }
-
-    /* 对手操作区（右侧上下排列） */
-    .opponent-action-col { 
-      display: flex; flex-direction: column; gap: 6px; 
-      justify-content: center; align-items: flex-start; 
-    }
-    
-    /* 统一胶囊按钮（用于观战、托管中） */
+    /* 统一胶囊按钮（严格对齐右上角弃卡：高28px，字号13px，内边距 0 12px） */
     .pill-btn {
-      height: 24px; padding: 0 10px; border-radius: 12px; border: 1px solid transparent;
+      height: 28px; padding: 0 12px; border-radius: 8px; border: 1px solid transparent;
       font-size: 13px; font-weight: bold; font-family: inherit; display: flex;
       align-items: center; justify-content: center; white-space: nowrap; letter-spacing: 1px;
     }
-    /* 观战（浅灰） */
-    .pill-btn.pill-spectate { background: #f5f5f5; color: #666; border-color: #ddd; cursor: pointer; }
-    .pill-btn.pill-spectate:disabled { background: #e8e8e8 !important; color: #bbb !important; border-color: #ccc !important; cursor: not-allowed; }
-    
-    /* 托管中（粉色） */
-    .pill-btn.pill-auto { background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; display: none; }
-
-    /* 我的托管按钮（跟弃卡一样） */
-    .my-auto-btn {
-      background: #fce8ec; color: #b85a6a; border: 1px solid #e8c8d0;
-      border-radius: 12px; height: 24px; padding: 0 12px; font-size: 13px; 
-      font-weight: bold; cursor: pointer; font-family: inherit; letter-spacing: 1px;
+    /* 双方托管（跟弃卡颜色一模一样） */
+    .pill-btn.pill-pink, .my-auto-btn { 
+      background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; cursor: pointer; 
     }
+    .pill-btn.pill-pink:disabled { background: #e8e8e8 !important; color: #aaa !important; border-color: #ccc !important; cursor: not-allowed; }
+    /* 观战（浅灰） */
+    .pill-btn.pill-gray { background: #f5f5f5; color: #666; border-color: #ddd; cursor: pointer; }
+    .pill-btn.pill-gray:disabled { background: #e8e8e8 !important; color: #bbb !important; border-color: #ccc !important; cursor: not-allowed; }
     
+    /* 容器 */
+    .opponent-action-col { display: flex; flex-direction: column; gap: 6px; justify-content: flex-start; align-items: flex-start; }
   </style>
 </head>
 <body>
@@ -232,49 +209,53 @@
     <!-- 对手区 -->
     {% set opponent = players | rejectattr("username", "equalto", current_user.username) | first %}
     {% if opponent %}
-    <div class="side ai" style="width: 100%; display: flex; align-items: flex-start; justify-content: center; gap: 12px; margin-top: 5px;">
+    <div class="side ai" style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: 5px;">
       
-      <!-- 左侧：头像与文字（与我的头像对齐） -->
-      <div style="display: flex; flex-direction: column; align-items: center; width: 64px;" onclick="showProfile('{{ opponent.username }}')" style="cursor: pointer;">
+      <!-- 对手信息块（头像+名字居中，右侧绝对定位按钮） -->
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center;" onclick="showProfile('{{ opponent.username }}')">
         {% if opponent.username.startswith('ai_') %}
-          <div class="ai-avatar-placeholder" style="width: 40px; height: 40px; font-size: 12px; border-radius: 10px;">对手</div>
+          <div class="ai-avatar-placeholder" style="width: 40px !important; height: 40px !important; font-size: 12px; border-radius: 10px;">对手</div>
         {% else %}
-          <img src="/static/avatars/{{ opponent.username }}.jpg" style="width: 40px; height: 40px; border-radius: 10px; border: 2px solid #e8c8d0; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-          <div class="ai-avatar-placeholder" style="display: none; width: 40px; height: 40px; border-radius: 10px;">对手</div>
+          <img src="/static/avatars/{{ opponent.username }}.jpg" style="width: 40px !important; height: 40px !important; border-radius: 10px; border: 2px solid #e8c8d0; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          <div class="ai-avatar-placeholder" style="display: none; width: 40px !important; height: 40px !important; border-radius: 10px;">对手</div>
         {% endif %}
-        <div class="pname" style="font-size: 14px; font-weight: bold; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 64px; color: #4a4a4a;">{{ opponent.nickname }}</div>
+        <div class="pname" style="font-size: 14px; font-weight: bold; margin-top: 4px; white-space: nowrap; color: #4a4a4a;">{{ opponent.nickname }}</div>
         <div class="hand-count" style="font-size: 12px; color: #888;">手牌 <span id="count-{{ opponent.username }}">{{ opponent.hand_count }}</span></div>
+        
+        <!-- 右侧按钮区（绝对定位到头像右侧，不影响头像居中） -->
+        <div class="opponent-action-col" style="position: absolute; left: 100%; margin-left: 16px; top: 5px;" onclick="event.stopPropagation();">
+          <button class="pill-btn pill-gray" id="spectate-{{ opponent.username }}" onclick="spectatePlayer('{{ opponent.username }}')">观战</button>
+          <span class="pill-btn pill-pink" id="auto-tag-{{ opponent.username }}" style="display: none;">托管中</span>
+        </div>
       </div>
 
-      <!-- 右侧：上下按钮（观战 + 托管中） -->
-      <div class="opponent-action-col" onclick="event.stopPropagation();">
-        <button class="pill-btn pill-spectate" id="spectate-{{ opponent.username }}" onclick="spectatePlayer('{{ opponent.username }}')">观战</button>
-        <span class="pill-btn pill-auto" id="auto-tag-{{ opponent.username }}">托管中</span>
-      </div>
-
-      <!-- 对手出牌区（靠右） -->
-      <div class="played-area" id="play-{{ opponent.username }}" style="flex: 1; justify-content: flex-end; padding-right: 10px;"></div>
+      <!-- 对手出牌区 -->
+      <div class="played-area" id="play-{{ opponent.username }}" style="width: 100%;"></div>
     </div>
     {% endif %}
 
+    <!-- 中间比攻/比防 -->
     <div class="center-banner atk" id="centerBanner" style="margin: 10px 0 20px 0;"></div>
 
+    <!-- 我方出牌区 -->
     <div class="side me" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
-      <div class="played-area" id="play-myArea"></div>
+      <div class="played-area" id="play-myArea" style="width: 100%;"></div>
     </div>
   </div>
 
   <div class="bottom-area">
     <!-- 头像、提示、出战按钮（背景透明，跟上面亮卡区连成一体） -->
-    <div class="ready-row">
+    <div class="ready-row" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; min-height: 56px;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <div class="my-avatar-block" onclick="showProfile('{{ current_user.username }}')" style="cursor: pointer; width: 64px;">
           <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'" style="width: 40px; height: 40px; border-radius: 10px; border: 2px solid #5bb8e8; object-fit: cover;">
           <div class="pname" style="font-size: 14px; font-weight: bold; margin-top: 4px; text-align: center;">{{ current_user.nickname or current_user.username }}</div>
         </div>
-        <button id="myAutoBtn" class="pill-btn pill-default" onclick="toggleMyAuto()" style="margin-bottom: 18px;">托管</button>
+        <button id="myAutoBtn" class="my-auto-btn" onclick="toggleMyAuto()" style="margin-bottom: 18px;">托管</button>
       </div>
+      
       <div class="combo-info" id="comboInfo">请选择卡牌</div>
+      
       <button class="play-btn" id="playBtn" onclick="submitPlay()" disabled>出战</button>
     </div>
     
@@ -743,7 +724,7 @@
                   // 只更新托管标签（没托管就隐藏）
                   const autoTag = document.getElementById(`auto-tag-${p.username}`);
                   if (autoTag) {
-                    autoTag.style.display = p.is_auto ? 'flex' : 'none';
+                    autoTag.style.display = p.is_auto ? 'inline-flex' : 'none';
                   }
                 }
               });
@@ -875,16 +856,10 @@
       const btn = document.getElementById('myAutoBtn');
       if (isAuto) {
         btn.textContent = '托管中';
-        btn.style.background = '#fce8ec';
-        btn.style.color = '#b85a6a';
-        btn.style.borderColor = '#e8c8d0';
-        btn.style.opacity = '0.7';
+        btn.style.opacity = '0.6'; // 变暗一点表示激活状态
         document.getElementById('comboInfo').textContent = '已托管，AI 代打中';
       } else {
         btn.textContent = '托管';
-        btn.style.background = '#fce8ec';
-        btn.style.color = '#b85a6a';
-        btn.style.borderColor = '#e8c8d0';
         btn.style.opacity = '1';
         updateComboInfo(); 
       }
