@@ -212,14 +212,15 @@
     <div class="side ai" style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: 5px;">
       
       <!-- 对手信息块（头像+名字居中，右侧绝对定位按钮） -->
-      <div style="position: relative; display: flex; flex-direction: column; align-items: center;" onclick="showProfile('{{ opponent.username }}')">
+      <!-- 这里加上 width: 64px，和你的 my-avatar-block 完全对齐 -->
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; width: 64px;" onclick="showProfile('{{ opponent.username }}')">
         {% if opponent.username.startswith('ai_') %}
-          <div class="ai-avatar-placeholder" style="width: 40px !important; height: 40px !important; font-size: 12px; border-radius: 10px;">对手</div>
+          <div class="ai-avatar-placeholder" style="width: 40px !important; height: 40px !important; font-size: 12px; border-radius: 10px; margin: 0 auto;">对手</div>
         {% else %}
-          <img src="/static/avatars/{{ opponent.username }}.jpg" style="width: 40px !important; height: 40px !important; border-radius: 10px; border: 2px solid #e8c8d0; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-          <div class="ai-avatar-placeholder" style="display: none; width: 40px !important; height: 40px !important; border-radius: 10px;">对手</div>
+          <img src="/static/avatars/{{ opponent.username }}.jpg" style="width: 40px !important; height: 40px !important; border-radius: 10px; border: 2px solid #e8c8d0; object-fit: cover; margin: 0 auto;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          <div class="ai-avatar-placeholder" style="display: none; width: 40px !important; height: 40px !important; border-radius: 10px; margin: 0 auto;">对手</div>
         {% endif %}
-        <div class="pname" style="font-size: 14px; font-weight: bold; margin-top: 4px; white-space: nowrap; color: #4a4a4a;">{{ opponent.nickname }}</div>
+        <div class="pname" style="font-size: 14px; font-weight: bold; margin-top: 4px; white-space: nowrap; color: #4a4a4a; text-align: center; width: 100%;">{{ opponent.nickname }}</div>
         <div class="hand-count" style="font-size: 12px; color: #888;">手牌 <span id="count-{{ opponent.username }}">{{ opponent.hand_count }}</span></div>
         
         <!-- 右侧按钮区（绝对定位到头像右侧，不影响头像居中） -->
@@ -251,7 +252,8 @@
           <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'" style="width: 40px; height: 40px; border-radius: 10px; border: 2px solid #5bb8e8; object-fit: cover;">
           <div class="pname" style="font-size: 14px; font-weight: bold; margin-top: 4px; text-align: center;">{{ current_user.nickname or current_user.username }}</div>
         </div>
-        <button id="myAutoBtn" class="my-auto-btn" onclick="toggleMyAuto()" style="margin-bottom: 18px;">托管</button>
+        <!-- 直接加上 pill-btn 类，这样它就是标准的胶囊大小了 -->
+        <button id="myAutoBtn" class="pill-btn my-auto-btn" onclick="toggleMyAuto()" style="margin-left: 8px;">托管</button>
       </div>
       
       <div class="combo-info" id="comboInfo">请选择卡牌</div>
