@@ -3871,6 +3871,7 @@ with app.app_context():
         'ALTER TABLE "boka_room" ADD COLUMN IF NOT EXISTS pool_capacity INTEGER DEFAULT 0',
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS hand_count_snapshot TEXT DEFAULT \'{}\'',
         'ALTER TABLE "boka_game" ADD COLUMN IF NOT EXISTS round_resolved BOOLEAN DEFAULT FALSE',
+        'ALTER TABLE "boka_game_player" ADD COLUMN IF NOT EXISTS beauty_used INTEGER DEFAULT 0',
     ]
     try:
         with db.engine.begin() as conn:
