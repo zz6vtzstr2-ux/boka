@@ -269,16 +269,19 @@
         let mainBtnText = "加入房间";
         let mainBtnCls = "room-btn btn-green"; 
         let mainBtnDisabled = false;
+        let jumpUrl = `/boka/room/${r.room_id}`; // 默认跳房间
 
         if (r.joined) {
           if (isPlaying) {
             mainBtnText = "返回卡桌";
             mainBtnCls = "room-btn btn-green";
+            jumpUrl = `/boka/room/${r.room_id}/battle`; // ★ 核心：直接跳战斗
           } else {
             mainBtnText = "返回房间";
             mainBtnCls = "room-btn btn-green";
           }
         } else {
+          // ... (下面加入房间的逻辑保持不变) ...
           if (isPlaying) {
             // 房间搏卡中，不能中途进
             mainBtnText = "加入房间";
@@ -301,7 +304,7 @@
 
         const mainBtnHtml = `
           <button class="${mainBtnCls}" ${mainBtnDisabled ? 'disabled' : ''} 
-                  onclick="event.stopPropagation(); if(${!mainBtnDisabled}) joinRoomById('${r.room_id}')">
+                  onclick="event.stopPropagation(); if(${!mainBtnDisabled}) window.location.href='${jumpUrl}'">
             ${mainBtnText}
           </button>
         `;
