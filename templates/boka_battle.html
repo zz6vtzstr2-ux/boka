@@ -33,6 +33,7 @@
     }
 
     .ready-row { /* 头像、提示、出战按钮 */
+      position: relative; /* ★ 加上这句 */
       display: flex; 
       align-items: stretch; 
       justify-content: space-between;
@@ -139,18 +140,23 @@
       display: flex; 
       flex-direction: column; 
       align-items: center; 
+      justify-content: flex-start;
       width: 64px; 
+      height: 56px; /* 锁死高度 */
+    }
+    .my-avatar-block .pname { 
+      font-size: 14px; font-weight: bold; margin-top: 4px; text-align: center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
     }
     .my-avatar-block img { 
       width: 40px; height: 40px; border-radius: 10px; 
       border: 2px solid #5bb8e8; background: #fff; object-fit: cover;
     }
-    .my-avatar-block .pname { 
-      font-size: 14px; font-weight: bold; margin-top: 4px; text-align: center;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 64px;
-    }
     .combo-info { 
-      flex: 1; display: flex; align-items: center; justify-content: center; 
+      position: absolute; 
+      left: 50%; 
+      transform: translateX(-50%); 
+      display: flex; align-items: center; justify-content: center; 
       font-size: 14px; color: #666; 
     }
     .play-btn {
@@ -224,7 +230,7 @@
         <div class="hand-count" style="font-size: 12px; color: #888;">手牌 <span id="count-{{ opponent.username }}">{{ opponent.hand_count }}</span></div>
         
         <!-- 右侧按钮区（绝对定位到头像右侧，不影响头像居中） -->
-        <div class="opponent-action-col" style="position: absolute; left: 100%; margin-left: 16px; top: 5px;" onclick="event.stopPropagation();">
+        <div class="opponent-action-col" style="position: absolute; left: 100%; margin-left: 4px; top: 5px;" onclick="event.stopPropagation();">
           <button class="pill-btn pill-gray" id="spectate-{{ opponent.username }}" onclick="spectatePlayer('{{ opponent.username }}')">观战</button>
           <span class="pill-btn pill-pink" id="auto-tag-{{ opponent.username }}" style="display: none;">托管中</span>
         </div>
@@ -247,13 +253,13 @@
   <div class="bottom-area">
     <!-- 头像、提示、出战按钮（背景透明，跟上面亮卡区连成一体） -->
     <div class="ready-row" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; min-height: 56px;">
-      <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="display: flex; align-items: center; justify-content: flex-start;">
         <div class="my-avatar-block" onclick="showProfile('{{ current_user.username }}')" style="cursor: pointer; width: 64px;">
           <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'" style="width: 40px; height: 40px; border-radius: 10px; border: 2px solid #5bb8e8; object-fit: cover;">
           <div class="pname" style="font-size: 14px; font-weight: bold; margin-top: 4px; text-align: center;">{{ current_user.nickname or current_user.username }}</div>
         </div>
         <!-- 直接加上 pill-btn 类，这样它就是标准的胶囊大小了 -->
-        <button id="myAutoBtn" class="pill-btn my-auto-btn" onclick="toggleMyAuto()" style="margin-left: 8px;">托管</button>
+        <button id="myAutoBtn" class="pill-btn my-auto-btn" onclick="toggleMyAuto()" style="margin-left: 4px;">托管</button>
       </div>
       
       <div class="combo-info" id="comboInfo">请选择卡牌</div>
