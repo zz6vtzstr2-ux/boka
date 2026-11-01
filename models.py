@@ -244,6 +244,7 @@ class BokaGamePlayer(db.Model):
     nickname = db.Column(db.String(50), default="")
     hand = db.Column(db.Text, default="[]")
     ready_card = db.Column(db.Text, default="[]")
+    is_auto = db.Column(db.Boolean, default=False)  # 是否托管
     locked = db.Column(db.Boolean, default=False)
     rank = db.Column(db.Integer, nullable=True)
     score_change = db.Column(db.Integer, default=0)
