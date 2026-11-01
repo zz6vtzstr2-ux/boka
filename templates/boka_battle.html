@@ -135,32 +135,24 @@
     .qmark-card .qmark-wrap { width: 100%; height: calc(100% - 22px); border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%; background: radial-gradient(circle at 30% 30%, #3a4a5a, #1a2a3a); border: 4px solid #c8b878; display: flex; align-items: center; justify-content: center; }
     .qmark-card .qmark-wrap::before { content: "?"; font-size: 56px; color: #e8d8a0; font-weight: bold; }
     
-    /* ===== 我方头像区改造 ===== */
-    .my-avatar-block { 
-      display: flex; 
-      flex-direction: column; 
-      align-items: center; 
-      /* 去掉宽度限制，让里面的内容自然撑开 */
-    }
-    .my-avatar-block img { 
-      width: 50px; height: 50px; /* ★ 头像改为 50x50 */
-      border-radius: 10px; 
-      border: 2px solid #5bb8e8; background: #fff; object-fit: cover;
-    }
-    .my-avatar-block .pname { 
-      font-size: 14px; font-weight: bold; margin-top: 4px; text-align: center;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+    /* ===== 按钮统一加高 ===== */
+    .pill-btn {
+      height: 32px; /* ★ 稍微加高一点（原 28px） */
+      padding: 0 14px; /* 宽度也稍微撑开一点 */
+      border-radius: 8px; border: 1px solid transparent;
+      font-size: 13px; font-weight: bold; font-family: inherit; display: flex;
+      align-items: center; justify-content: center; white-space: nowrap; letter-spacing: 1px;
     }
 
-    /* ===== 出战按钮改造 ===== */
+    /* ===== 出战按钮 60x60 ===== */
     .play-btn {
-      width: 50px;        /* ★ 宽度跟头像一样 */
-      height: 50px;       /* ★ 高度跟头像一样，变成正方形 */
+      width: 60px;        /* ★ 宽度加到 60px */
+      height: 60px;       /* ★ 高度加到 60px */
       border-radius: 12px; 
       border: none;
       background: #5bb8e8; 
       color: #fff; 
-      font-size: 15px; 
+      font-size: 16px;    /* 字号稍微大一点点配合大按钮 */
       font-weight: bold;
       cursor: pointer; 
       flex-shrink: 0; 
@@ -171,6 +163,22 @@
       padding: 0;
     }
     .play-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+    /* ===== 我的头像块不变 ===== */
+    .my-avatar-block { 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+    }
+    .my-avatar-block img { 
+      width: 50px; height: 50px;
+      border-radius: 10px; 
+      border: 2px solid #5bb8e8; background: #fff; object-fit: cover;
+    }
+    .my-avatar-block .pname { 
+      font-size: 14px; font-weight: bold; margin-top: 4px; text-align: center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+    }
     .combo-info { 
       position: absolute; 
       left: 50%; 
@@ -202,9 +210,7 @@
     /* 观战（浅灰） */
     .pill-btn.pill-gray { background: #f5f5f5; color: #666; border-color: #ddd; cursor: pointer; }
     .pill-btn.pill-gray:disabled { background: #e8e8e8 !important; color: #bbb !important; border-color: #ccc !important; cursor: not-allowed; }
-    
-    /* 容器 */
-    .opponent-action-col { display: flex; flex-direction: column; gap: 6px; justify-content: flex-start; align-items: flex-start; }
+  
   </style>
 </head>
 <body>
@@ -233,21 +239,18 @@
       <!-- 对手信息块 -->
       <div style="position: relative; display: flex; flex-direction: column; align-items: center;" onclick="showProfile('{{ opponent.username }}')">
         {% if opponent.username.startswith('ai_') %}
-          <!-- 头像改为 50px -->
           <div class="ai-avatar-placeholder" style="width: 50px !important; height: 50px !important; font-size: 14px; border-radius: 10px;">对手</div>
         {% else %}
-          <!-- 头像改为 50px -->
           <img src="/static/avatars/{{ opponent.username }}.jpg" style="width: 50px !important; height: 50px !important; border-radius: 10px; border: 2px solid #e8c8d0; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
           <div class="ai-avatar-placeholder" style="display: none; width: 50px !important; height: 50px !important; border-radius: 10px; font-size: 14px;">对手</div>
         {% endif %}
         
         <div class="pname" style="font-size: 14px; font-weight: bold; margin-top: 4px; white-space: nowrap; color: #4a4a4a;">{{ opponent.nickname }}</div>
-        <!-- 对方手牌数保持现状（在昵称下面） -->
-        <div class="hand-count" style="font-size: 12px; color: #888;">手牌 <span id="count-{{ opponent.username }}">{{ opponent.hand_count }}</span></div>
+        <!-- 对方手牌数（在昵称下面） -->
+        <div class="hand-count" style="font-size: 12px; color: #888; margin-top: 2px;">手牌 <span id="count-{{ opponent.username }}">{{ opponent.hand_count }}</span></div>
         
-        <!-- ★ 按钮区：left: 100% 配合负数 margin，强行贴到头像右边！ -->
-        <!-- 原本你是 16px，后来改成了 4px 还是远，是因为他容器有宽度。现在直接给负数或者 0 -->
-        <div class="opponent-action-col" style="position: absolute; left: 100%; margin-left: 2px; top: 5px;" onclick="event.stopPropagation();">
+        <!-- ★ 按钮区：margin-left 加大到 8px，离头像更远；gap 设置 6px 防止叠在一起 -->
+        <div class="opponent-action-col" style="position: absolute; left: 100%; margin-left: 8px; top: 5px; display: flex; flex-direction: column; gap: 6px;" onclick="event.stopPropagation();">
           <button class="pill-btn pill-gray" id="spectate-{{ opponent.username }}" onclick="spectatePlayer('{{ opponent.username }}')">观战</button>
           <span class="pill-btn pill-pink" id="auto-tag-{{ opponent.username }}" style="display: none;">托管中</span>
         </div>
@@ -270,19 +273,19 @@
   <div class="bottom-area">
     <!-- 头像、提示、出战按钮（背景透明，跟上面亮卡区连成一体） -->
     <div class="ready-row" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; min-height: 56px;">
-      <!-- 左侧：头像 + 昵称（托管按钮被绝对定位甩出去了） -->
+      <!-- 左侧：头像 + 昵称 -->
       <div class="my-avatar-block" onclick="showProfile('{{ current_user.username }}')" style="cursor: pointer; position: relative;">
         <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'">
         <div class="pname">{{ current_user.nickname or current_user.username }}</div>
         
-        <!-- ★ 你的托管按钮：跟对方一模一样的绝对定位逻辑 -->
-        <button id="myAutoBtn" class="pill-btn my-auto-btn" onclick="toggleMyAuto()" style="position: absolute; left: 100%; margin-left: 2px; top: 5px;">托管</button>
+        <!-- ★ 我的托管按钮：margin-left 加大，top 改到 18px 往下移 -->
+        <button id="myAutoBtn" class="pill-btn my-auto-btn" onclick="toggleMyAuto()" style="position: absolute; left: 100%; margin-left: 8px; top: 18px;">托管</button>
       </div>
       
       <!-- 中间文字 -->
       <div class="combo-info" id="comboInfo" style="position: absolute; left: 50%; transform: translateX(-50%);">请选择卡牌</div>
       
-      <!-- 右侧：出战按钮（因为外层是 align-items: center，它自然居中） -->
+      <!-- 右侧：出战按钮 -->
       <button class="play-btn" id="playBtn" onclick="submitPlay()" disabled>出战</button>
       
     </div>
