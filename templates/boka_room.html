@@ -32,7 +32,11 @@
     .room-code-big { text-align: center; font-family: monospace; font-size: 42px; font-weight: bold; color: #2c3e50; letter-spacing: 8px; margin: 10px 0 18px 0; }
     .copy-row { display: flex; gap: 10px; margin-bottom: 20px; }
     .copy-input { flex: 1; padding: 12px 14px; border: 1px solid #d8d0bc; border-radius: 10px; background: #f9f5e8; font-size: 14px; color: #666; outline: none; }
-    .copy-btn { padding: 12px 20px; border: none; border-radius: 10px; background: #5bb8e8; color: #fff; font-size: 15px; font-weight: bold; cursor: pointer; white-space: nowrap; }
+    .copy-btn { 
+      padding: 12px 20px; border: none; border-radius: 10px; background: #5bb8e8; color: #fff; 
+      font-size: 15px; font-weight: bold; cursor: pointer; white-space: nowrap; 
+      font-family: inherit; letter-spacing: 2px; text-indent: 2px; /* ★ 加上字体继承和间距 */
+    }
 
     /* 准备区 */
     .ready-block { border-top: 1px solid #e8e0cc; padding-top: 18px; }
@@ -175,8 +179,19 @@
 
     async function copyInvite() {
       const input = document.getElementById('inviteUrl');
-      try { await navigator.clipboard.writeText(input.value); showToast('已复制'); } 
-      catch (e) { input.select(); document.execCommand('copy'); showToast('已复制'); }
+      try { 
+        await navigator.clipboard.writeText(input.value); 
+        showToast('已复制'); 
+      } catch (e) { 
+        input.select(); 
+        input.setSelectionRange(0, 99999); // 移动端兼容
+        try {
+            document.execCommand('copy'); 
+            showToast('已复制');
+        } catch (err) {
+            showToast('复制失败，请长按选中复制');
+        }
+      }
     }
 
     async function toggleReady() {
