@@ -207,26 +207,19 @@
       color: #b85a6a; 
       border: 1px solid #e8c8d0;
       border-radius: 8px; 
-      height: 28px; 
-      padding: 0 14px; 
-      font-size: 13px; 
+      height: 32px; /* ★ 高度增加到 32px */
+      padding: 0 18px; /* ★ 宽度加宽 */
+      font-size: 14px; /* ★ 字体稍微放大 */
       font-weight: bold; 
       cursor: pointer; 
       font-family: inherit; 
       letter-spacing: 1px;
       white-space: nowrap;
-      /* ★ 核心：加阴影和过渡效果，让它像按钮 */
       box-shadow: 0 2px 6px rgba(184, 90, 106, 0.15);
       transition: all 0.2s ease;
     }
-    /* 鼠标悬停时稍微变色，按下去有反馈 */
-    .my-auto-btn:hover {
-      background: #f8d8de;
-    }
-    .my-auto-btn:active {
-      transform: translateY(1px);
-      box-shadow: 0 1px 3px rgba(184, 90, 106, 0.15);
-    }
+    .my-auto-btn:hover { background: #f8d8de; }
+    .my-auto-btn:active { transform: translateY(1px); box-shadow: 0 1px 3px rgba(184, 90, 106, 0.15); }
     
   </style>
 </head>
@@ -292,13 +285,13 @@
     <div class="ready-row" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; min-height: 56px;">
       
       <!-- 左侧：头像和托管按钮水平并排 -->
-      <div style="display: flex; align-items: center; gap: 2px;">
+      <div style="display: flex; align-items: center; gap: 0px;">
         <div class="my-avatar-block" onclick="showProfile('{{ current_user.username }}')" style="cursor: pointer; width: 64px; margin: 0;">
           <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'" style="width: 40px; height: 40px; border-radius: 10px; border: 2px solid #5bb8e8; object-fit: cover;">
           <div class="pname" style="font-size: 14px; font-weight: bold; margin-top: 4px; text-align: center;">{{ current_user.nickname or current_user.username }}</div>
         </div>
-        <!-- 移除了原来的 margin-bottom，或者可以改成 -2px 微调 -->
-        <button id="myAutoBtn" class="my-auto-btn" onclick="event.stopPropagation(); toggleMyAuto();" style="margin-left: 2px; margin-bottom: 16px;">托管</button>
+        <!-- 去掉 margin-left，稍微往上提一点点与头像居中 -->
+        <button id="myAutoBtn" class="my-auto-btn" onclick="event.stopPropagation(); toggleMyAuto();" style="margin-bottom: 18px;">托管</button>
       </div>
       
       <div class="combo-info" id="comboInfo">请选择卡牌</div>
@@ -909,16 +902,12 @@
       if (isAuto) {
         btn.textContent = '托管中';
         btn.style.opacity = '0.6';
-        document.getElementById('comboInfo').textContent = '已托管，AI 代打中';
-        
-        // 托管时：手牌区置灰且不可点击
+        document.getElementById('comboInfo').textContent = ''; // ★ 清空文字
         handArea.style.opacity = '0.5';
         handArea.style.pointerEvents = 'none';
       } else {
         btn.textContent = '托管';
         btn.style.opacity = '1';
-        
-        // 取消托管：恢复手牌区
         handArea.style.opacity = '1';
         handArea.style.pointerEvents = 'auto';
         updateComboInfo(); 
