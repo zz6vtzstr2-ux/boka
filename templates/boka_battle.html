@@ -135,15 +135,6 @@
     .qmark-card .qmark-wrap { width: 100%; height: calc(100% - 22px); border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%; background: radial-gradient(circle at 30% 30%, #3a4a5a, #1a2a3a); border: 4px solid #c8b878; display: flex; align-items: center; justify-content: center; }
     .qmark-card .qmark-wrap::before { content: "?"; font-size: 56px; color: #e8d8a0; font-weight: bold; }
     
-    /* ===== 按钮统一加高 ===== */
-    .pill-btn {
-      height: 32px; /* ★ 稍微加高一点（原 28px） */
-      padding: 0 14px; /* 宽度也稍微撑开一点 */
-      border-radius: 8px; border: 1px solid transparent;
-      font-size: 13px; font-weight: bold; font-family: inherit; display: flex;
-      align-items: center; justify-content: center; white-space: nowrap; letter-spacing: 1px;
-    }
-
     /* ===== 出战按钮 60x60 ===== */
     .play-btn {
       width: 60px;        /* ★ 宽度加到 60px */
@@ -210,7 +201,14 @@
     /* 观战（浅灰） */
     .pill-btn.pill-gray { background: #f5f5f5; color: #666; border-color: #ddd; cursor: pointer; }
     .pill-btn.pill-gray:disabled { background: #e8e8e8 !important; color: #bbb !important; border-color: #ccc !important; cursor: not-allowed; }
-  
+
+    .my-auto-btn {
+      background: #fce8ec; color: #b85a6a; border: 1px solid #e8c8d0;
+      border-radius: 8px; height: 28px; padding: 0 12px; font-size: 13px; 
+      font-weight: bold; cursor: pointer; font-family: inherit; letter-spacing: 1px;
+      white-space: nowrap;
+    }
+    
   </style>
 </head>
 <body>
@@ -273,21 +271,24 @@
   <div class="bottom-area">
     <!-- 头像、提示、出战按钮（背景透明，跟上面亮卡区连成一体） -->
     <div class="ready-row" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; min-height: 56px;">
-      <!-- 左侧：头像 + 昵称 -->
-      <div class="my-avatar-block" onclick="showProfile('{{ current_user.username }}')" style="cursor: pointer; position: relative;">
-        <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'">
-        <div class="pname">{{ current_user.nickname or current_user.username }}</div>
+      
+      <!-- 左侧：头像和托管按钮水平并排 -->
+      <div style="display: flex; align-items: center; gap: 8px;">
         
-        <!-- ★ 我的托管按钮：margin-left 加大，top 改到 18px 往下移 -->
+        <!-- 头像 -->
+        <div class="my-avatar-block" onclick="showProfile('{{ current_user.username }}')" style="cursor: pointer; width: 64px; margin: 0;">
+          <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'" style="width: 40px; height: 40px; border-radius: 10px; border: 2px solid #5bb8e8; object-fit: cover;">
+          <div class="pname" style="font-size: 14px; font-weight: bold; margin-top: 4px; text-align: center;">{{ current_user.nickname or current_user.username }}</div>
+        </div>
+
+        <!-- 托管按钮（加了 margin-bottom 让它跟头像保持视觉居中，加了 stopPropagation 防止弹资料） -->
         <button id="myAutoBtn" class="my-auto-btn" onclick="event.stopPropagation(); toggleMyAuto();" style="margin-bottom: 18px;">托管</button>
+        
       </div>
       
-      <!-- 中间文字 -->
-      <div class="combo-info" id="comboInfo" style="position: absolute; left: 50%; transform: translateX(-50%);">请选择卡牌</div>
+      <div class="combo-info" id="comboInfo">请选择卡牌</div>
       
-      <!-- 右侧：出战按钮 -->
       <button class="play-btn" id="playBtn" onclick="submitPlay()" disabled>出战</button>
-      
     </div>
     
     <!-- 手牌区（纯白底） -->
