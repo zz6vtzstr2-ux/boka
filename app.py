@@ -3150,6 +3150,44 @@ def boka_battle_state(room_code):
     snapshot = json_loads_safe(game.hand_count_snapshot) if game.hand_count_snapshot else {}
     pool_count = len(json_loads_safe(game.card_pool))
 
+    # ★ 核心：托管玩家自动出牌逻辑
+    if game.phase == "selecting":
+        auto_changed = False
+        for gp in gps:
+            if gp.is_auto and not gp.locked and len(json_loads_safe(gp.hand)) > 0:
+                # 1. 调用 AI 大脑帮他选牌
+                ai_cards = _boka_ai_choose_cards(game, gp)
+                if ai_cards:
+                    # 2. 扣除手牌，记录出牌，并锁定
+                    hand = json_loads_safe(gp.hand)
+                    gp.hand = json_dumps_safe([cid for cid in hand if cid not in ai_cards])
+                    gp.ready_card = json_dumps_safe(ai_cards)
+                    gp.locked = True
+                    auto_changed = True
+
+        if auto_changed:
+            # 3. 检查是不是所有真人都出了？如果是，直接推进到亮牌阶段
+            bp_list = BokaPlayer.query.filter_by(room_id=room.id).all()
+            real_usernames = {bp.username for bp in bp_list if not bp.is_ai}
+            all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+            locked_real_count = sum(1 for p in all_players if p.locked and p.username in real_usernames)
+
+            if locked_real_count == len(real_usernames):
+                # 把 AI 的牌也扣了，进入结算
+                ai_usernames = {bp.username for bp in bp_list if bp.is_ai}
+                if not game.round_resolved and game.phase != "revealing":
+                    for p in all_players:
+                        if p.username in ai_usernames and not p.locked:
+                            ai_h = json_loads_safe(p.hand)
+                            r_cards = json_loads_safe(p.ready_card)
+                            if r_cards:
+                                p.hand = json_dumps_safe([cid for cid in ai_h if cid not in r_cards])
+                                p.locked = True
+                    
+                    game.phase = "revealing"
+                    game.revealed_at = datetime.now()
+            db.session.commit()
+    
     if game.phase == "revealing" and game.revealed_at:
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
 
