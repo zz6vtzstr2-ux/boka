@@ -748,6 +748,9 @@
                 if (p.is_me) {
                   document.getElementById('myHandCount').textContent = p.hand_count;
                   if (p.hand_count > 0) myIsPlaying = true;
+                  
+                  // ★ 新增：每次轮询同步自己的托管 UI 状态
+                  updateMyAutoUI(p.is_auto);
                 } else {
                   const countEl = document.getElementById(`count-${p.username}`);
                   if (countEl) countEl.textContent = p.hand_count;
@@ -885,13 +888,23 @@
 
     function updateMyAutoUI(isAuto) {
       const btn = document.getElementById('myAutoBtn');
+      const handArea = document.getElementById('myHandArea');
+      
       if (isAuto) {
         btn.textContent = '托管中';
-        btn.style.opacity = '0.6'; // 变暗一点表示激活状态
+        btn.style.opacity = '0.6';
         document.getElementById('comboInfo').textContent = '已托管，AI 代打中';
+        
+        // 托管时：手牌区置灰且不可点击
+        handArea.style.opacity = '0.5';
+        handArea.style.pointerEvents = 'none';
       } else {
         btn.textContent = '托管';
         btn.style.opacity = '1';
+        
+        // 取消托管：恢复手牌区
+        handArea.style.opacity = '1';
+        handArea.style.pointerEvents = 'auto';
         updateComboInfo(); 
       }
     }
