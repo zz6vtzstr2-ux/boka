@@ -279,7 +279,7 @@
         <div class="pname">{{ current_user.nickname or current_user.username }}</div>
         
         <!-- ★ 我的托管按钮：margin-left 加大，top 改到 18px 往下移 -->
-        <button id="myAutoBtn" class="pill-btn my-auto-btn" onclick="toggleMyAuto()" style="position: absolute; left: 100%; margin-left: 8px; top: 18px;">托管</button>
+        <button id="myAutoBtn" class="my-auto-btn" onclick="event.stopPropagation(); toggleMyAuto();" style="margin-bottom: 18px;">托管</button>
       </div>
       
       <!-- 中间文字 -->
@@ -339,7 +339,7 @@
       <h2 style="margin:0 0 16px 0; color:#8a6d1f;" id="resultTitle">对局结束</h2>
       <div style="font-size:15px; color:#555; margin-bottom:10px;" id="resultLine"></div>
       <div style="font-size:15px; color:#333; margin-bottom:20px; text-align:left; line-height:1.8;" id="resultRanks"></div>
-<button onclick="exitResult()" style="width:100%; padding:14px; border-radius:12px; background:#5bb8e8; color:#fff; font-size:16px; font-weight:bold; border:none; cursor:pointer; font-family: inherit;">确认退出</button>
+      <button onclick="exitResult()" style="width:100%; padding:14px; border-radius:12px; background:#5bb8e8; color:#fff; font-size:16px; font-weight:bold; border:none; cursor:pointer; font-family: inherit;">确认退出</button>
     </div>
   </div>
 
@@ -921,10 +921,12 @@
     }
 
     async function exitResult() {
-      // 玩家点击确认后，主动发请求让后端重置房间
-      await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' });
-      // 跳回房间准备页
-      window.location.href = '/boka/room/' + roomCode;
+      try {
+        await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' });
+        window.location.href = '/boka/room/' + roomCode;
+      } catch (e) {
+        alert('退出失败，请刷新页面');
+      }
     }
     
     // ===== 记录功能 =====
