@@ -167,7 +167,7 @@
       const btns = document.getElementById('confirmBtns');
       btns.innerHTML = `
         <button class="confirm-btn" style="background:#fff; color:#666; border:1px solid #d8d0bc;" onclick="confirmChoose(false)">${cancelText}</button>
-        <button class="confirm-btn" style="background:#5bb8e8; color:#fff;" onclick="confirmChoose(true)">${okText}</button>
+        <button class="confirm-btn" style="background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0;" onclick="confirmChoose(true)">${okText}</button>
       `;
       document.getElementById('confirmModal').classList.add('active');
       return new Promise(resolve => { confirmResolver = resolve; });
