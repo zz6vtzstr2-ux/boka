@@ -317,8 +317,7 @@
 
           if (targetInGame) {
             // 局内人：一律显示观战按钮（我在局里则置灰）
-            rightHtml = `<button class="right-action-btn btn-spectate" ${canSpectate ? '' : 'disabled'}
-                                   onclick="event.stopPropagation(); if(${canSpectate}) window.location.href='/boka/room/${ROOM_CODE}/battle'">观战</button>`;
+            rightHtml = `<button class="right-action-btn btn-spectate" ${canSpectate ? '' : 'disabled'} onclick="event.stopPropagation(); if(${canSpectate}) window.location.href='/boka/room/${ROOM_CODE}/battle?spectate=${p.username}'">观战</button>`;
           } else if (p.ready) {
             // 已准备：显示 tag（房主/非房主一致）
             rightHtml = `<span class="tag tag-ready">已准备</span>`;
