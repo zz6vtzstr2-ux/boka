@@ -2373,7 +2373,14 @@ def boka_leave_room(room_code):
 @app.route('/boka/room/<room_code>/quit', methods=['POST'])
 @login_required
 def boka_quit(room_code):
+    from flask import session
+    # ★ 如果是观战者，直接跳出观战，回到房间
+    if session.get('spectating_from_room') == room_code:
+        session.pop('spectating_from_room', None)
+        return jsonify({"success": True, "action": "return_to_room"})
+
     room = BokaRoom.query.filter_by(room_code=room_code).first()
+    # ... 下面保持你原来的代码 ...
     if not room: return jsonify({"error": "房间不存在"}), 404
 
     if room.status == "playing":
@@ -2988,22 +2995,47 @@ def boka_battle(room_code):
     game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
     if not game:
         return redirect(url_for('boka_room', room_code=room_code))
+    
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
-    layout = calc_boka_layout(len(gps), current_user.username, gps)
+    
+    # ★ 核心新增：处理观战逻辑
+    spectate_target = request.args.get('spectate')
+    is_spectator = False
+    
+    # 看看我自己在不在局里
     me = next((g for g in gps if g.username == current_user.username), None)
+    
+    if not me and spectate_target:
+        # 我不在局里，但是带了观战参数
+        target_gp = next((g for g in gps if g.username == spectate_target), None)
+        if target_gp:
+            is_spectator = True
+            me = target_gp # ★ 把被观战者的数据赋给 me，这样下面就能读取他的手牌
+            
+            # ★ 记录状态：如果当前用户没有记录过观战位置，且他在房间里，就存一下
+            if current_user.boka_room_id == room.id:
+                # 这里为了省事，我们用 session 存一下他原来所在的房间，退出时好还原
+                from flask import session
+                session['spectating_from_room'] = room.room_code
+
+    if not me:
+        # 既不在局里，也没指定合法的观战对象
+        return redirect(url_for('boka_room', room_code=room_code))
+        
+    layout = calc_boka_layout(len(gps), me.username, gps) # ★ 布局要以被观战者视角排布
+    
     my_hand_ids = json_loads_safe(me.hand) if me else []
     my_hand = [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)]
+    
     players_view = []
     for g in gps:
         players_view.append({
             "username": g.username, "nickname": g.nickname,
-            "is_me": g.username == current_user.username,
+            "is_me": g.username == me.username, # ★ 这里把被观战者当自己，方便前端显示
             "hand_count": len(json_loads_safe(g.hand)),
             "locked": g.locked,
         })
     round_phase = "比攻" if game.round_no % 2 == 1 else "比防"
-    
-    # (在 return render_template 之前加上这句)
     pool_count = len(json_loads_safe(game.card_pool))
     
     return render_template('boka_battle.html',
@@ -3011,8 +3043,10 @@ def boka_battle(room_code):
                            round_no=game.round_no, round_phase=round_phase,
                            phase=game.phase, players=players_view,
                            layout=layout, my_hand=my_hand,
-                           pool_count=pool_count,  # ★ 加上这个
-                           my_ready=json_loads_safe(me.ready_card) if me else [])
+                           pool_count=pool_count,
+                           my_ready=json_loads_safe(me.ready_card) if me else [],
+                           is_spectator=is_spectator, # ★ 传给前端一个标志位
+                           spectate_target=spectate_target) # ★ 传给前端目标名字
     
 @app.route('/boka/room/<room_code>/validate_combo', methods=['POST'])
 @login_required
