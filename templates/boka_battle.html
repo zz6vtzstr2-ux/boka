@@ -719,35 +719,32 @@
     function initSpectatorUI() {
       if (!isSpectator) return;
 
-      // 1. 顶部按钮禁用
-      document.getElementById('exitBtn').disabled = false; // 退出可用
-      document.querySelector('.top-btn[onclick="temporaryLeave()"]').disabled = true; // 暂离禁用
-      document.querySelector('.top-btn[onclick="discardCards()"]').disabled = true; // 弃卡禁用
-
-      // 2. 中间提示区（推荐方案：亮卡区下方）
+      // 1. 中间信息区显示提示
       const comboInfo = document.getElementById('comboInfo');
       comboInfo.textContent = `正在观战：${spectateTarget}`;
-      comboInfo.style.color = '#f5a623'; // 用个醒目的颜色
+      comboInfo.style.color = '#f5a623';
 
-      // 3. 把手牌区变暗禁用（防止观战者以为能点）
+      // 2. 顶部暂离、弃卡置灰，退出保持可点
+      document.querySelector('.top-btn[onclick="temporaryLeave()"]').disabled = true;
+      document.querySelector('.top-btn[onclick="discardCards()"]').disabled = true;
+
+      // 3. 托管按钮保留，但不能点
+      const autoBtn = document.getElementById('myAutoBtn');
+      if (autoBtn) {
+        autoBtn.style.pointerEvents = 'none';
+        autoBtn.style.opacity = '0.5'; // 稍微变暗一点点，告知不可点
+      }
+
+      // 4. 手牌区：保持原有的视觉颜色，只禁用点击
       const handArea = document.getElementById('myHandArea');
-      handArea.style.opacity = '0.4';
-      handArea.style.pointerEvents = 'none';
+      handArea.style.pointerEvents = 'none'; // 不能点选牌
+      // ★ 注意：这里去掉了 opacity 变淡，保留原样
 
-      // 4. 观战者不能点托管
-      document.getElementById('myAutoBtn').style.display = 'none';
-
-      // 5. 出战按钮改成“观战中”并置灰
+      // 5. 出战按钮：文字不变，只禁用
       const playBtn = document.getElementById('playBtn');
-      playBtn.textContent = '观战中';
-      playBtn.disabled = true;
-      playBtn.style.background = '#f5a623'; 
+      playBtn.style.pointerEvents = 'none'; 
+      playBtn.disabled = true; // disabled 会让它变灰一点，属于正常反馈
     }
-
-    // 在原本的 renderHand(); startPolling(); 之前调用
-    initSpectatorUI();
-    renderHand();
-    startPolling();
     
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
@@ -764,7 +761,15 @@
       try {
         const res = await fetch(`/boka/room/${roomCode}/battle_state`);
         const data = await res.json();
-        if (data.error) { isPolling = false; return; }
+        
+        // ★ 核心处理：如果后端查不到人（被观战者退出了），直接踢回房间
+        if (data.error) { 
+          if (isSpectator) {
+            window.location.href = '/boka/room/' + roomCode;
+          }
+          isPolling = false; 
+          return; 
+        }
 
         if (data.history) lastHistory = data.history;
         
@@ -793,8 +798,10 @@
                   document.getElementById('myHandCount').textContent = p.hand_count;
                   if (p.hand_count > 0) myIsPlaying = true;
                   
-                  // ★ 新增：每次轮询同步自己的托管 UI 状态
-                  updateMyAutoUI(p.is_auto);
+                  // ★ 观战者不更新自己的托管状态，保持只读
+                  if (!isSpectator) {
+                    updateMyAutoUI(p.is_auto);
+                  }
                 } else {
                   const countEl = document.getElementById(`count-${p.username}`);
                   if (countEl) countEl.textContent = p.hand_count;
@@ -818,11 +825,33 @@
                   }
                 }
               });
+
+              // ★ 新增：观战者看到被观战者被淘汰的提示弹窗（只弹一次）
+              if (isSpectator) {
+                  const targetInfo = data.players_info.find(p => p.username === spectateTarget);
+                  if (targetInfo && targetInfo.hand_count === 0 && !window.spectateEliminatedShown) {
+                      window.spectateEliminatedShown = true;
+                      document.getElementById('confirmMsg').textContent = `你观战的玩家已被淘汰。你可以点击确定继续留在原位观战。`;
+                      
+                      const btns2 = document.querySelectorAll('#confirmModal button');
+                      btns2[0].textContent = '确定';
+                      btns2[0].style.background = '#5bb8e8'; btns2[0].style.color = '#fff'; btns2[0].style.border = 'none';
+                      btns2[0].style.flex = '1';
+                      btns2[1].style.display = 'none';
+                      
+                      document.getElementById('confirmModal').style.display = 'flex';
+                      btns2[0].onclick = () => { 
+                          document.getElementById('confirmModal').style.display = 'none'; 
+                          btns2[1].style.display = '';
+                      };
+                  }
+              }
             }
         }
 
         if (data.phase === 'selecting') {
             if (lastRound !== data.round_no || myHand.length !== data.my_hand.length || locked) {
+                // 观战者不重置自己的手牌，直接覆盖为后端给的手牌数据
                 myHand = data.my_hand || [];
                 myReady = [];
                 locked = false;
@@ -901,13 +930,8 @@
       } finally {
         isPolling = false;
       }
-    }
-
-    // 点击观战（占位）
-    function spectatePlayer(username) {
-      alert('观战功能开发中，即将观战：' + username);
-    }
-
+    } 
+    
     // 点击托管按钮
     async function toggleMyAuto() {
       const btn = document.getElementById('myAutoBtn');
@@ -964,9 +988,11 @@
       const res = await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' });
       const data = await res.json();
       if (data.action === 'return_to_room') {
-        window.location.href = '/boka/room/' + roomCode; // 观战退出
+        window.location.href = '/boka/room/' + roomCode; // 游荡者退回房间页
+      } else if (data.action === 'return_to_battle') {
+        window.location.href = '/boka/room/' + roomCode + '/battle'; // 座位上的人退回自己的座位
       } else {
-        window.location.href = '/boka'; // 房主/玩家正常退出
+        window.location.href = '/boka'; // 正常退出回大厅
       }
     }
 
@@ -979,6 +1005,8 @@
       const data = await res.json();
       if (data.action === 'return_to_room') {
         window.location.href = '/boka/room/' + roomCode; 
+      } else if (data.action === 'return_to_battle') {
+        window.location.href = '/boka/room/' + roomCode + '/battle'; 
       } else {
         window.location.href = '/boka'; 
       }
