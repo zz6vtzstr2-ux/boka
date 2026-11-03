@@ -2373,20 +2373,24 @@ def boka_leave_room(room_code):
 @app.route('/boka/room/<room_code>/quit', methods=['POST'])
 @login_required
 def boka_quit(room_code):
-    from flask import session
-    # ★ 如果是观战者，直接跳出观战，回到房间
-    if session.get('spectating_from_room') == room_code:
-        session.pop('spectating_from_room', None)
-        return jsonify({"success": True, "action": "return_to_room"})
-
     room = BokaRoom.query.filter_by(room_code=room_code).first()
-    # ... 下面保持你原来的代码 ...
     if not room: return jsonify({"error": "房间不存在"}), 404
 
+    # ★ 核心修复：观战者退出判断
+    spectate_target = request.args.get('spectate')
+    game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
+    
+    if spectate_target and game:
+        # 查一下他原来是不是在这个座位上的人（哪怕已弃卡/淘汰，只要在记录里就算）
+        is_seated = BokaGamePlayer.query.filter_by(game_id=game.id, username=current_user.username).first()
+        if is_seated:
+            return jsonify({"success": True, "action": "return_to_battle"}) # 回战斗页原位
+        else:
+            return jsonify({"success": True, "action": "return_to_room"}) # 回房间页
+
+    # 下面是非观战者的正常退出逻辑
     if room.status == "playing":
-        game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
         if game and not game.finished_at:
-            # 已弃卡 / 已淘汰（手牌空）的玩家可以退出，不影响对局
             me_gp = BokaGamePlayer.query.filter_by(game_id=game.id, username=current_user.username).first()
             is_out = me_gp and (me_gp.surrendered or len(json_loads_safe(me_gp.hand)) == 0)
             if not is_out:
@@ -2394,17 +2398,14 @@ def boka_quit(room_code):
 
     if room.status == "finished":
         room.status = "waiting"
-        # 只把真人设成未准备，AI 保持已准备
         BokaPlayer.query.filter_by(room_id=room.id, is_ai=False).update({"ready": False})
-        game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
         if game:
             BokaGamePlayer.query.filter_by(game_id=game.id).delete()
             db.session.delete(game)
         BOKA_ROOM_CACHE.pop(room_code, None)
         db.session.commit()
-        return jsonify({"success": True})
+        return jsonify({"success": True, "action": "return_to_lobby"})
 
-    # 如果是等待中退出
     me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
     if not me: return jsonify({"error": "你不在房间"}), 400
 
@@ -2426,7 +2427,7 @@ def boka_quit(room_code):
         if room_code in BOKA_ROOM_CACHE:
             BOKA_ROOM_CACHE[room_code] = [p for p in BOKA_ROOM_CACHE[room_code] if p["username"] != current_user.username]
     db.session.commit()
-    return jsonify({"success": True})
+    return jsonify({"success": True, "action": "return_to_lobby"})
 
 # ========== 战斗页 ==========
 # ========== 搏卡战斗核心 ==========
@@ -2998,31 +2999,22 @@ def boka_battle(room_code):
     
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
     
-    # ★ 核心新增：处理观战逻辑
     spectate_target = request.args.get('spectate')
     is_spectator = False
     
-    # 看看我自己在不在局里
+    # 1. 先查我自己是不是在本局座位里
     me = next((g for g in gps if g.username == current_user.username), None)
     
-    if not me and spectate_target:
-        # 我不在局里，但是带了观战参数
+    if spectate_target:
         target_gp = next((g for g in gps if g.username == spectate_target), None)
         if target_gp:
             is_spectator = True
-            me = target_gp # ★ 把被观战者的数据赋给 me，这样下面就能读取他的手牌
-            
-            # ★ 记录状态：如果当前用户没有记录过观战位置，且他在房间里，就存一下
-            if current_user.boka_room_id == room.id:
-                # 这里为了省事，我们用 session 存一下他原来所在的房间，退出时好还原
-                from flask import session
-                session['spectating_from_room'] = room.room_code
-
+            me = target_gp # 把被观战者的数据当成自己，用于渲染
+    
     if not me:
-        # 既不在局里，也没指定合法的观战对象
         return redirect(url_for('boka_room', room_code=room_code))
         
-    layout = calc_boka_layout(len(gps), me.username, gps) # ★ 布局要以被观战者视角排布
+    layout = calc_boka_layout(len(gps), me.username, gps)
     
     my_hand_ids = json_loads_safe(me.hand) if me else []
     my_hand = [CARD_BY_ID.get(cid) for cid in my_hand_ids if CARD_BY_ID.get(cid)]
@@ -3031,7 +3023,7 @@ def boka_battle(room_code):
     for g in gps:
         players_view.append({
             "username": g.username, "nickname": g.nickname,
-            "is_me": g.username == me.username, # ★ 这里把被观战者当自己，方便前端显示
+            "is_me": g.username == me.username, # 视角核心
             "hand_count": len(json_loads_safe(g.hand)),
             "locked": g.locked,
         })
@@ -3045,8 +3037,8 @@ def boka_battle(room_code):
                            layout=layout, my_hand=my_hand,
                            pool_count=pool_count,
                            my_ready=json_loads_safe(me.ready_card) if me else [],
-                           is_spectator=is_spectator, # ★ 传给前端一个标志位
-                           spectate_target=spectate_target) # ★ 传给前端目标名字
+                           is_spectator=is_spectator, 
+                           spectate_target=spectate_target or me.username)
     
 @app.route('/boka/room/<room_code>/validate_combo', methods=['POST'])
 @login_required
@@ -3177,22 +3169,28 @@ def boka_battle_state(room_code):
     game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
     if not game: return jsonify({"error": "无对局"}), 404
     gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
+    
+    spectate_target = request.args.get('spectate')
     me = next((g for g in gps if g.username == current_user.username), None)
-    if not me: return jsonify({"error": "你不在本局"}), 403
+    
+    if spectate_target:
+        target_gp = next((g for g in gps if g.username == spectate_target), None)
+        if target_gp:
+            me = target_gp
+
+    if not me: 
+        return jsonify({"error": "你不在本局"}), 403
 
     elapsed_since_reveal = -1
     snapshot = json_loads_safe(game.hand_count_snapshot) if game.hand_count_snapshot else {}
     pool_count = len(json_loads_safe(game.card_pool))
 
-    # ★ 核心：托管玩家自动出牌逻辑
     if game.phase == "selecting":
         auto_changed = False
         for gp in gps:
             if gp.is_auto and not gp.locked and len(json_loads_safe(gp.hand)) > 0:
-                # 1. 调用 AI 大脑帮他选牌
                 ai_cards = _boka_ai_choose_cards(game, gp)
                 if ai_cards:
-                    # 2. 扣除手牌，记录出牌，并锁定
                     hand = json_loads_safe(gp.hand)
                     gp.hand = json_dumps_safe([cid for cid in hand if cid not in ai_cards])
                     gp.ready_card = json_dumps_safe(ai_cards)
@@ -3200,14 +3198,12 @@ def boka_battle_state(room_code):
                     auto_changed = True
 
         if auto_changed:
-            # 3. 检查是不是所有真人都出了？如果是，直接推进到亮牌阶段
             bp_list = BokaPlayer.query.filter_by(room_id=room.id).all()
             real_usernames = {bp.username for bp in bp_list if not bp.is_ai}
             all_players = BokaGamePlayer.query.filter_by(game_id=game.id).all()
             locked_real_count = sum(1 for p in all_players if p.locked and p.username in real_usernames)
 
             if locked_real_count == len(real_usernames):
-                # 把 AI 的牌也扣了，进入结算
                 ai_usernames = {bp.username for bp in bp_list if bp.is_ai}
                 if not game.round_resolved and game.phase != "revealing":
                     for p in all_players:
@@ -3217,7 +3213,6 @@ def boka_battle_state(room_code):
                             if r_cards:
                                 p.hand = json_dumps_safe([cid for cid in ai_h if cid not in r_cards])
                                 p.locked = True
-                    
                     game.phase = "revealing"
                     game.revealed_at = datetime.now()
             db.session.commit()
@@ -3225,18 +3220,24 @@ def boka_battle_state(room_code):
     if game.phase == "revealing" and game.revealed_at:
         elapsed_since_reveal = (datetime.now() - game.revealed_at).total_seconds()
 
-        # ★ 3 秒节点：开始算胜负
         if elapsed_since_reveal >= BOKA_TIME_REVEAL and not game.round_resolved:
             resolve_boka_round(game)
             db.session.commit()
+            
+            # 安全重查
             gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
             snapshot = json_loads_safe(game.hand_count_snapshot) if game.hand_count_snapshot else {}
             history_data = json_loads_safe(game.history)
-            me = next((g for g in gps if g.username == current_user.username), None)
+            
+            # 动态从最新 gps 中找回来，防 StopIteration
+            if spectate_target:
+                me = next((g for g in gps if g.username == spectate_target), None)
+            else:
+                me = next((g for g in gps if g.username == current_user.username), None)
+            if not me:
+                return jsonify({"error": "你不在本局"}), 403
 
-        # ★ 8 秒节点：清场
         if elapsed_since_reveal >= BOKA_TIME_UPDATE:
-            # ★ 核心防并发锁：立刻把 revealed_at 清空，防止并发请求重复推进轮次
             if game.revealed_at is not None:
                 game.revealed_at = None
                 db.session.commit()
@@ -3260,7 +3261,6 @@ def boka_battle_state(room_code):
                     db.session.commit()
                     elapsed_since_reveal = -1
 
-                    # 帮 AI 提前算好下一轮（只算不扣）
                     bp_list = BokaPlayer.query.filter_by(room_id=room.id).all()
                     ai_usernames = {bp.username for bp in bp_list if bp.is_ai}
                     for gp in gps:
@@ -3279,16 +3279,13 @@ def boka_battle_state(room_code):
     if game.phase == "revealing" and game.round_resolved and len(history_data) > 0:
         if not history_data[-1].get("winners"): all_loser = True
 
-    # ★ 核心新增：组装出牌展示数据（无论算没算完，都发给前端亮牌用）
     all_played = {}
     for g in gps:
         card_ids = json_loads_safe(g.ready_card)
         if card_ids:
-            # 还没算完，或者算完了但 ready_card 还在，直接用 ready_card 里的卡
             played_cards = [CARD_BY_ID.get(cid) for cid in card_ids if CARD_BY_ID.get(cid)]
             all_played[g.username] = {"cards": played_cards}
         elif game.round_resolved and history_data:
-            # 算完了，并且 ready_card 已经被清了，从 history 拿
             last_round = history_data[-1]
             entry = next((p for p in last_round.get("played", []) if p["username"] == g.username), None)
             if entry and entry.get("card"):
@@ -3301,35 +3298,34 @@ def boka_battle_state(room_code):
         else:
             all_played[g.username] = {"cards": []}
 
-    # 8 秒前用手牌快照，8 秒后用真实手牌
     use_snapshot = (game.phase == "revealing" and 0 <= elapsed_since_reveal < BOKA_TIME_UPDATE)
     players_info = []
     for g in gps:
         h_count = snapshot.get(g.username, len(json_loads_safe(g.hand))) if use_snapshot else len(json_loads_safe(g.hand))
         players_info.append({
             "username": g.username, "nickname": g.nickname or g.username,
-            "hand_count": h_count, "locked": g.locked, "is_me": g.username == current_user.username,
-            "is_auto": g.is_auto,  # ★ 新增
-            "seat": g.id           # ★ 新增：用数据库自增id当固定座位号
+            "hand_count": h_count, "locked": g.locked, 
+            "is_me": g.username == me.username, 
+            "is_auto": g.is_auto,
+            "seat": g.id
         })
 
-    # ★ 核心追加：游戏结束时，打包所有人的结算数据
     all_ranks_data = []
     if game.finished_at:
         all_gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
         all_gps.sort(key=lambda x: x.rank or 99)
-        
         for g in all_gps:
             if g.username.startswith("ai_"):
                 all_ranks_data.append({
                     "username": g.username, "nickname": g.nickname or g.username,
-                    "rank": g.rank, "score_change": 0, "materials": 0, "is_me": False,
+                    "rank": g.rank, "score_change": 0, "materials": 0, 
+                    "is_me": g.username == me.username,
                 })
             else:
                 all_ranks_data.append({
                     "username": g.username, "nickname": g.nickname or g.username,
                     "rank": g.rank, "score_change": g.score_change or 0, "materials": 50, 
-                    "is_me": g.username == current_user.username,
+                    "is_me": g.username == me.username,
                 })
     
     return jsonify({
@@ -3343,7 +3339,7 @@ def boka_battle_state(room_code):
         "my_rank": me.rank if me else None, "my_score_change": me.score_change if me else 0,
         "players_info": players_info, "all_loser": all_loser, "pool_count": pool_count,
         "all_played": all_played,
-        "all_ranks": all_ranks_data, # ★ 加上这一行
+        "all_ranks": all_ranks_data,
     })
 
 @app.route('/boka/room/<room_code>/surrender', methods=['POST'])
