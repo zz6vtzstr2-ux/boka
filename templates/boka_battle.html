@@ -261,7 +261,7 @@
         
         <!-- ★ 按钮区：margin-left 加大到 8px，离头像更远；gap 设置 6px 防止叠在一起 -->
         <div class="opponent-action-col" style="position: absolute; left: 100%; margin-left: 8px; top: 5px; display: flex; flex-direction: column; gap: 6px;" onclick="event.stopPropagation();">
-          <button class="pill-btn pill-gray" id="spectate-{{ opponent.username }}" onclick="spectatePlayer('{{ opponent.username }}')">观战</button>
+          <button class="pill-btn pill-gray" id="spectate-{{ opponent.username }}" onclick="window.location.href='/boka/room/${ROOM_CODE}/battle?spectate=${p.username}'">观战</button>
           <span class="pill-btn pill-pink" id="auto-tag-{{ opponent.username }}" style="display: none;">托管中</span>
         </div>
       </div>
@@ -376,6 +376,8 @@
   <script>
     const roomCode = "{{ room_code }}";
     const myUsername = "{{ current_user.username }}";
+    const isSpectator = {{ 'true' if is_spectator else 'false' }};
+    const spectateTarget = "{{ spectate_target or '' }}";
     let myHand = {{ my_hand | tojson | default('[]', true) }};
     let myReady = [];
     let locked = false;
@@ -714,6 +716,39 @@
       }
     }
 
+    function initSpectatorUI() {
+      if (!isSpectator) return;
+
+      // 1. 顶部按钮禁用
+      document.getElementById('exitBtn').disabled = false; // 退出可用
+      document.querySelector('.top-btn[onclick="temporaryLeave()"]').disabled = true; // 暂离禁用
+      document.querySelector('.top-btn[onclick="discardCards()"]').disabled = true; // 弃卡禁用
+
+      // 2. 中间提示区（推荐方案：亮卡区下方）
+      const comboInfo = document.getElementById('comboInfo');
+      comboInfo.textContent = `正在观战：${spectateTarget}`;
+      comboInfo.style.color = '#f5a623'; // 用个醒目的颜色
+
+      // 3. 把手牌区变暗禁用（防止观战者以为能点）
+      const handArea = document.getElementById('myHandArea');
+      handArea.style.opacity = '0.4';
+      handArea.style.pointerEvents = 'none';
+
+      // 4. 观战者不能点托管
+      document.getElementById('myAutoBtn').style.display = 'none';
+
+      // 5. 出战按钮改成“观战中”并置灰
+      const playBtn = document.getElementById('playBtn');
+      playBtn.textContent = '观战中';
+      playBtn.disabled = true;
+      playBtn.style.background = '#f5a623'; 
+    }
+
+    // 在原本的 renderHand(); startPolling(); 之前调用
+    initSpectatorUI();
+    renderHand();
+    startPolling();
+    
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(pollState, 1000); // ★ 确保是 500
@@ -926,11 +961,26 @@
     }
 
     async function exitResult() {
-      try {
-        await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' });
-        window.location.href = '/boka/room/' + roomCode;
-      } catch (e) {
-        alert('退出失败，请刷新页面');
+      const res = await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' });
+      const data = await res.json();
+      if (data.action === 'return_to_room') {
+        window.location.href = '/boka/room/' + roomCode; // 观战退出
+      } else {
+        window.location.href = '/boka'; // 房主/玩家正常退出
+      }
+    }
+
+    function quitGame() { document.getElementById('quitModal').style.display = 'flex'; }
+    function closeQuitModal() { document.getElementById('quitModal').style.display = 'none'; }
+    
+    async function doQuit() { 
+      closeQuitModal(); 
+      const res = await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' }); 
+      const data = await res.json();
+      if (data.action === 'return_to_room') {
+        window.location.href = '/boka/room/' + roomCode; 
+      } else {
+        window.location.href = '/boka'; 
       }
     }
     
@@ -1040,10 +1090,6 @@
     function temporaryLeave() { document.getElementById('leaveModal').style.display = 'flex'; }
     function closeLeaveModal() { document.getElementById('leaveModal').style.display = 'none'; }
     async function doLeave() { closeLeaveModal(); await fetch(`/boka/room/${roomCode}/leave`, { method: 'POST' }); window.location.href = '/boka'; }
-
-    function quitGame() { document.getElementById('quitModal').style.display = 'flex'; }
-    function closeQuitModal() { document.getElementById('quitModal').style.display = 'none'; }
-    async function doQuit() { closeQuitModal(); await fetch(`/boka/room/${roomCode}/quit`, { method: 'POST' }); window.location.href = '/boka'; }
 
     async function discardCards() {
       document.getElementById('confirmMsg').textContent = "确定要弃卡认输吗？";
