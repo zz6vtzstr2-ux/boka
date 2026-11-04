@@ -287,8 +287,8 @@
       <!-- 左侧：头像和托管按钮水平并排 -->
       <div style="display: flex; align-items: center; gap: 0px;">
         <div class="my-avatar-block" onclick="showProfile('{{ current_user.username }}')" style="cursor: pointer; width: 64px; margin: 0;">
-          <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'" style="width: 40px; height: 40px; border-radius: 10px; border: 2px solid #5bb8e8; object-fit: cover;">
-          <div class="pname" style="font-size: 14px; font-weight: bold; margin-top: 4px; text-align: center;">{{ current_user.nickname or current_user.username }}</div>
+          <img src="/static/avatars/{{ view_username }}.jpg" onerror="this.src='/static/avatars/default.jpg'" style="width: 40px; height: 40px; border-radius: 10px; border: 2px solid #5bb8e8; object-fit: cover;">
+          <div class="pname" style="font-size: 14px; font-weight: bold; margin-top: 4px; text-align: center;">{{ view_nickname }}</div>
         </div>
         <!-- 去掉 margin-left，稍微往上提一点点与头像居中 -->
         <button id="myAutoBtn" class="my-auto-btn" onclick="event.stopPropagation(); toggleMyAuto();" style="margin-bottom: 18px;">托管</button>
@@ -759,7 +759,8 @@
       isPolling = true;
 
       try {
-        const res = await fetch(`/boka/room/${roomCode}/battle_state`);
+        const url = isSpectator ? `/boka/room/${roomCode}/battle_state?spectate=${spectateTarget}` : `/boka/room/${roomCode}/battle_state`;
+        const res = await fetch(url);
         const data = await res.json();
         
         // ★ 核心处理：如果后端查不到人（被观战者退出了），直接踢回房间
