@@ -279,13 +279,15 @@
         }
 
         if (r.joined) {
-          // 如果有座位，并且游戏正在打，就返回卡桌
-          if (isPlaying && myGameStatus) {
+          // 核心修复：只有明确是“搏卡中”或“已淘汰”，才算在局内（有座位）
+          const isSeated = (myGameStatus === "搏卡中" || myGameStatus === "已淘汰");
+          
+          if (isPlaying && isSeated) {
             mainBtnText = "返回卡桌";
             mainBtnCls = "room-btn btn-green";
             jumpUrl = `/boka/room/${r.room_id}/battle`; 
           } else {
-            // 如果没有座位（只是游荡/旁观），或者游戏没开始，就返回房间
+            // 如果没座位（比如未准备/已准备），或者游戏没开始，就返回房间
             mainBtnText = "返回房间";
             mainBtnCls = "room-btn btn-green";
             jumpUrl = `/boka/room/${r.room_id}`;
