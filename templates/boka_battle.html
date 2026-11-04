@@ -719,31 +719,40 @@
     function initSpectatorUI() {
       if (!isSpectator) return;
 
-      // 1. 中间信息区显示提示
+      // 1. 顶部暂离、弃卡置灰（禁用点击）
+      const leaveBtn = document.querySelector('.top-btn[onclick="temporaryLeave()"]');
+      if (leaveBtn) leaveBtn.disabled = true;
+      
+      const discardBtn = document.querySelector('.top-btn[onclick="discardCards()"]');
+      if (discardBtn) discardBtn.disabled = true;
+
+      // 2. 中间文字提示（这里我没改颜色，只改了字，你之前说不要淡）
       const comboInfo = document.getElementById('comboInfo');
-      comboInfo.textContent = `正在观战：${spectateTarget}`;
-      comboInfo.style.color = '#f5a623';
-
-      // 2. 顶部暂离、弃卡置灰，退出保持可点
-      document.querySelector('.top-btn[onclick="temporaryLeave()"]').disabled = true;
-      document.querySelector('.top-btn[onclick="discardCards()"]').disabled = true;
-
-      // 3. 托管按钮保留，但不能点
-      const autoBtn = document.getElementById('myAutoBtn');
-      if (autoBtn) {
-        autoBtn.style.pointerEvents = 'none';
-        autoBtn.style.opacity = '0.5'; // 稍微变暗一点点，告知不可点
+      if (comboInfo) {
+          comboInfo.textContent = `正在观战：${spectateTarget}`;
+          comboInfo.style.color = '#f5a623';
       }
 
-      // 4. 手牌区：保持原有的视觉颜色，只禁用点击
+      // 3. 手牌区禁用点击（轻微变淡 0.85）
       const handArea = document.getElementById('myHandArea');
-      handArea.style.pointerEvents = 'none'; // 不能点选牌
-      // ★ 注意：这里去掉了 opacity 变淡，保留原样
+      if (handArea) {
+          handArea.style.pointerEvents = 'none';
+          handArea.style.opacity = '0.85';
+      }
 
-      // 5. 出战按钮：文字不变，只禁用
+      // 4. 出战按钮禁用
       const playBtn = document.getElementById('playBtn');
-      playBtn.style.pointerEvents = 'none'; 
-      playBtn.disabled = true; // disabled 会让它变灰一点，属于正常反馈
+      if (playBtn) {
+          playBtn.style.pointerEvents = 'none';
+          playBtn.disabled = true; 
+      }
+
+      // 5. 托管按钮禁用
+      const autoBtn = document.getElementById('myAutoBtn');
+      if (autoBtn) {
+          autoBtn.style.pointerEvents = 'none';
+          autoBtn.style.opacity = '0.5';
+      }
     }
     
     function startPolling() {
@@ -1187,6 +1196,8 @@
       }
     }
 
+    // 在原本的 renderHand(); startPolling(); 之前调用
+    initSpectatorUI(); 
     renderHand();
     startPolling();
   </script>
