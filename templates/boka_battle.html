@@ -1053,8 +1053,14 @@
 
       const allUsernames = [...new Set(displayHistory.flatMap(h => h.played.map(p => p.username)))];
       
-      // 当前视角的玩家名（如果你之后加了观战功能，把这里换成被观战的用户名即可）
-      const currentViewUsername = myUsername; 
+      // ★ 核心修改：如果是观战，从玩家列表中找出被观战者的用户名；否则是自己
+      let currentViewUsername = myUsername;
+      if (isSpectator) {
+          const targetPlayer = playersData.find(p => p.is_me);
+          if (targetPlayer) {
+              currentViewUsername = targetPlayer.username;
+          }
+      }
 
       let html = `<table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center;">
           <thead><tr>
