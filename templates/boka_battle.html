@@ -717,43 +717,61 @@
     }
 
     function initSpectatorUI() {
+      const exitBtn = document.getElementById('exitBtn');
+      
+      // 1. 如果是观战者，点亮蓝色的退出按钮
+      if (isSpectator && exitBtn) {
+        exitBtn.disabled = false;
+        exitBtn.style.background = '#5bb8e8'; 
+        exitBtn.style.color = '#fff'; 
+        exitBtn.style.borderColor = '#4aa8d8';
+        exitBtn.classList.remove('danger');
+      }
+
+      // 2. 如果是正常打牌，并且游戏没结束，把退出按钮锁死变灰
+      if (!isSpectator && exitBtn) {
+        exitBtn.disabled = true;
+        exitBtn.style.background = '#e8e8e8';
+        exitBtn.style.color = '#aaa';
+        exitBtn.style.borderColor = '#ccc';
+      }
+
+      // ===== 以下是对观战者特有的 UI 锁定 =====
       if (!isSpectator) return;
 
-      // 1. 顶部暂离、弃卡置灰（禁用点击）
+      // 顶部暂离、弃卡置灰（禁用点击）
       const leaveBtn = document.querySelector('.top-btn[onclick="temporaryLeave()"]');
       if (leaveBtn) leaveBtn.disabled = true;
       
       const discardBtn = document.querySelector('.top-btn[onclick="discardCards()"]');
       if (discardBtn) discardBtn.disabled = true;
 
-      // 2. 中间文字提示
+      // 中间文字提示
       const comboInfo = document.getElementById('comboInfo');
       if (comboInfo) {
-          // ★ 核心1：从玩家列表里找被观战者的昵称
           const targetPlayer = playersData.find(p => p.username === spectateTarget);
           const displayName = targetPlayer ? targetPlayer.nickname : spectateTarget;
-
           comboInfo.textContent = `正在观战：${displayName}`;
-          comboInfo.style.color = '#5cb85c'; // ★ 核心2：改成统一的绿色
-          comboInfo.style.fontWeight = 'bold'; // 加粗
-          comboInfo.style.marginTop = '40px';  // ★ 核心3：往下挪 24px，完美避开左上角的“托管中”
+          comboInfo.style.color = '#5cb85c';
+          comboInfo.style.fontWeight = 'bold';
+          comboInfo.style.marginTop = '40px';
       }
 
-      // 3. 手牌区禁用点击（轻微变淡 0.85）
+      // 手牌区禁用点击（轻微变淡 0.85）
       const handArea = document.getElementById('myHandArea');
       if (handArea) {
           handArea.style.pointerEvents = 'none';
           handArea.style.opacity = '0.85';
       }
 
-      // 4. 出战按钮禁用
+      // 出战按钮禁用
       const playBtn = document.getElementById('playBtn');
       if (playBtn) {
           playBtn.style.pointerEvents = 'none';
           playBtn.disabled = true; 
       }
 
-      // 5. 托管按钮禁用
+      // 托管按钮禁用
       const autoBtn = document.getElementById('myAutoBtn');
       if (autoBtn) {
           autoBtn.style.pointerEvents = 'none';
@@ -1189,8 +1207,18 @@
         myReady = [];
         locked = true;
 
-        // 弹“确认”提示（复用 confirmModal，隐藏取消按钮）
+        // ... 弹“确认”提示 ...
         document.getElementById('confirmMsg').textContent = `你已弃卡，最终第 ${data.rank} 名。可以留在房间观战，或点顶部“退出”离开。`;
+        
+        // ★ 新增：弃卡后点亮退出按钮
+        const exitBtn = document.getElementById('exitBtn');
+        if (exitBtn) {
+            exitBtn.disabled = false;
+            exitBtn.style.background = '#5bb8e8';
+            exitBtn.style.color = '#fff';
+            exitBtn.style.borderColor = '#4aa8d8';
+        }
+
         const btns2 = document.querySelectorAll('#confirmModal button');
         btns2[0].textContent = '确认';
         btns2[0].style.background = '#5bb8e8'; btns2[0].style.color = '#fff'; btns2[0].style.border = 'none';
