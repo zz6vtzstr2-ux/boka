@@ -726,11 +726,17 @@
       const discardBtn = document.querySelector('.top-btn[onclick="discardCards()"]');
       if (discardBtn) discardBtn.disabled = true;
 
-      // 2. 中间文字提示（这里我没改颜色，只改了字，你之前说不要淡）
+      // 2. 中间文字提示
       const comboInfo = document.getElementById('comboInfo');
       if (comboInfo) {
-          comboInfo.textContent = `正在观战：${spectateTarget}`;
-          comboInfo.style.color = '#f5a623';
+          // ★ 核心1：从玩家列表里找被观战者的昵称
+          const targetPlayer = playersData.find(p => p.username === spectateTarget);
+          const displayName = targetPlayer ? targetPlayer.nickname : spectateTarget;
+
+          comboInfo.textContent = `正在观战：${displayName}`;
+          comboInfo.style.color = '#5cb85c'; // ★ 核心2：改成统一的绿色
+          comboInfo.style.fontWeight = 'bold'; // 加粗
+          comboInfo.style.marginTop = '24px';  // ★ 核心3：往下挪 24px，完美避开左上角的“托管中”
       }
 
       // 3. 手牌区禁用点击（轻微变淡 0.85）
