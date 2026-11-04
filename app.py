@@ -602,11 +602,15 @@ def level_to_ai_power_range(level):
     level = max(1, min(CHALLENGE_MAX_LEVEL, level))
     return (184 + level, 233 + level)
 
-
-def gen_ai_deck(target_min, target_max, max_tries=2000):
+def gen_ai_deck(target_min, target_max, level, max_tries=2000):
     pool = [c for c in CARDS if c["name"] not in AI_EXCLUDE_NAMES]
     best = None
     best_diff = None
+
+    # ★ 计算当前关卡的加成值
+    step = max(0, (800 - max(1, min(800, level))) // 100)
+    bs_bonus = 90 - step * 10  # 白胜
+    sn_bonus = 78 - step * 10  # 孙二娘
 
     for _ in range(max_tries):
         picked = random.sample(pool, 6)
@@ -620,7 +624,20 @@ def gen_ai_deck(target_min, target_max, max_tries=2000):
                 "atk": c["atk"] + bonus,
                 "def": c["def"] + bonus,
             })
-        total = sum(c["atk"] + c["def"] for c in cards)
+        
+        # ★ 计算总战力（包含特殊卡的额外加成）
+        total = 0
+        for c in cards:
+            base_power = c["atk"] + c["def"]
+            if c["name"] == "扈三娘":
+                total += base_power + 40
+            elif c["name"] == "白胜":
+                total += base_power + bs_bonus
+            elif c["name"] == "孙二娘":
+                total += base_power + sn_bonus
+            else:
+                total += base_power
+
         if target_min <= total <= target_max:
             cards.sort(key=lambda x: x["atk"], reverse=True)
             for c in cards[:3]:
@@ -628,6 +645,7 @@ def gen_ai_deck(target_min, target_max, max_tries=2000):
             for c in cards[3:]:
                 c["role"] = "def"
             return cards
+        
         diff = (target_min - total) if total < target_min else (total - target_max)
         if best_diff is None or diff < best_diff:
             best_diff = diff
@@ -640,8 +658,7 @@ def gen_ai_deck(target_min, target_max, max_tries=2000):
         for c in best[3:]:
             c["role"] = "def"
     return best
-
-
+    
 def ensure_challenge_today_reset(user):
     now = datetime.now()
     today_6 = now.replace(hour=6, minute=0, second=0, microsecond=0)
@@ -785,7 +802,7 @@ def challenge_start():
         my_deck.append(c2)
 
     mn, mx = level_to_ai_power_range(level)
-    ai_deck = gen_ai_deck(mn, mx)
+    ai_deck = gen_ai_deck(mn, mx, level)
     if not ai_deck:
         return jsonify({"error": "AI 卡组生成失败，请重试"}), 500
 
@@ -1131,6 +1148,11 @@ def _ai_pick_card(game, level):
     pool = game.get("card_pool", [])
     if pool and songjiang_card:
         pool_powers = []
+        # ★ 计算挑战模式的阈值（最高 701-800 为 +90/+78，每 100 关递减 10）
+        step = max(0, (800 - max(1, min(800, level))) // 100)
+        bs_bonus = 90 - step * 10  # 白胜
+        sn_bonus = 78 - step * 10  # 孙二娘
+
         for entry in pool:
             if isinstance(entry, dict):
                 pid = entry.get("id")
@@ -1142,7 +1164,17 @@ def _ai_pick_card(game, level):
             if not pbase:
                 continue
             pbonus = plevel - 1
-            pool_powers.append(pbase["atk"] + pbonus + pbase["def"] + pbonus)
+            base_power = pbase["atk"] + pbonus + pbase["def"] + pbonus
+            
+            # ★ 根据关卡加成
+            if pbase["name"] == "扈三娘":
+                pool_powers.append(base_power + 40)
+            elif pbase["name"] == "白胜":
+                pool_powers.append(base_power + bs_bonus)
+            elif pbase["name"] == "孙二娘":
+                pool_powers.append(base_power + sn_bonus)
+            else:
+                pool_powers.append(base_power)
         if pool_powers:
             avg_power = sum(pool_powers) / len(pool_powers)
             sj_power = songjiang_card["atk"] + songjiang_card["def"]
@@ -1668,7 +1700,7 @@ def challenge_test_ai_deck():
     lines = []
     for lvl in [1, 2, 10, 100, 400, 800]:
         mn, mx = level_to_ai_power_range(lvl)
-        deck = gen_ai_deck(mn, mx)
+        deck = gen_ai_deck(mn, mx, lvl)
         if not deck:
             lines.append(f"第 {lvl} 关：生成失败")
             continue
@@ -2493,12 +2525,20 @@ def _boka_ai_choose_cards(game, gp):
     pool = json_loads_safe(game.card_pool)
     
     if songjiang_card and pool:
-        pool_powers = []
         for entry in pool:
             pid = entry.get("id") if isinstance(entry, dict) else entry
             pbase = CARD_BY_ID.get(pid)
             if pbase:
-                pool_powers.append(pbase["atk"] + pbase["def"])
+                base_power = pbase["atk"] + pbase["def"]
+                # ★ 搏卡固定最高档加成
+                if pbase["name"] == "扈三娘":
+                    pool_powers.append(base_power + 40)
+                elif pbase["name"] == "白胜":
+                    pool_powers.append(base_power + 90)
+                elif pbase["name"] == "孙二娘":
+                    pool_powers.append(base_power + 78)
+                else:
+                    pool_powers.append(base_power)
         if pool_powers:
             avg_power = sum(pool_powers) / len(pool_powers)
             sj_power = songjiang_card["atk"] + songjiang_card["def"]
