@@ -271,14 +271,24 @@
         let mainBtnDisabled = false;
         let jumpUrl = `/boka/room/${r.room_id}`; // 默认跳房间
 
+        // ★ 核心修改：判断我在这局里是否有“座位”
+        let myGameStatus = null;
+        const meInRoom = (r.players || []).find(p => p.username === myUsername);
+        if (meInRoom) {
+            myGameStatus = meInRoom.status; // "搏卡中" 或 "已淘汰"
+        }
+
         if (r.joined) {
-          if (isPlaying) {
+          // 如果有座位，并且游戏正在打，就返回卡桌
+          if (isPlaying && myGameStatus) {
             mainBtnText = "返回卡桌";
             mainBtnCls = "room-btn btn-green";
-            jumpUrl = `/boka/room/${r.room_id}/battle`; // ★ 核心：直接跳战斗
+            jumpUrl = `/boka/room/${r.room_id}/battle`; 
           } else {
+            // 如果没有座位（只是游荡/旁观），或者游戏没开始，就返回房间
             mainBtnText = "返回房间";
             mainBtnCls = "room-btn btn-green";
+            jumpUrl = `/boka/room/${r.room_id}`;
           }
         } else {
           // ... (下面加入房间的逻辑保持不变) ...
