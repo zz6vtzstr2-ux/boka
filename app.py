@@ -3019,16 +3019,16 @@ def boka_battle(room_code):
     spectate_target = request.args.get('spectate')
     is_spectator = False
     
-    # 1. 先查我自己是不是在本局座位里
+    # 先找自己
     me = next((g for g in gps if g.username == current_user.username), None)
     
     if spectate_target:
+        # 如果带了观战目标，强制用目标替代自己
         target_gp = next((g for g in gps if g.username == spectate_target), None)
         if target_gp:
             is_spectator = True
-            me = target_gp # 把被观战者的数据当成自己，用于渲染
-    
-    if not me:
+            me = target_gp # ★ 核心：此时 me 变成被观战者
+    elif not me:
         return redirect(url_for('boka_room', room_code=room_code))
         
     layout = calc_boka_layout(len(gps), me.username, gps)
@@ -3040,12 +3040,17 @@ def boka_battle(room_code):
     for g in gps:
         players_view.append({
             "username": g.username, "nickname": g.nickname,
-            "is_me": g.username == me.username, # 视角核心
+            "is_me": g.username == me.username, # ★ 被观战者在列表中标记为 me
             "hand_count": len(json_loads_safe(g.hand)),
             "locked": g.locked,
         })
+        
     round_phase = "比攻" if game.round_no % 2 == 1 else "比防"
     pool_count = len(json_loads_safe(game.card_pool))
+    
+    # ★ 为了让前端显示的是被观战者的名字和头像，我们把传入的 user_info 替换掉
+    display_nickname = me.nickname or me.username
+    display_username = me.username
     
     return render_template('boka_battle.html',
                            room_code=room_code, room_id=room.id, game_id=game.id,
@@ -3055,7 +3060,10 @@ def boka_battle(room_code):
                            pool_count=pool_count,
                            my_ready=json_loads_safe(me.ready_card) if me else [],
                            is_spectator=is_spectator, 
-                           spectate_target=spectate_target or me.username)
+                           spectate_target=spectate_target or me.username,
+                           # ★ 新增：把这个传给前端替换 current_user 的显示
+                           view_username=display_username,
+                           view_nickname=display_nickname)
     
 @app.route('/boka/room/<room_code>/validate_combo', methods=['POST'])
 @login_required
@@ -3240,13 +3248,10 @@ def boka_battle_state(room_code):
         if elapsed_since_reveal >= BOKA_TIME_REVEAL and not game.round_resolved:
             resolve_boka_round(game)
             db.session.commit()
-            
-            # 安全重查
             gps = BokaGamePlayer.query.filter_by(game_id=game.id).all()
             snapshot = json_loads_safe(game.hand_count_snapshot) if game.hand_count_snapshot else {}
             history_data = json_loads_safe(game.history)
-            
-            # 动态从最新 gps 中找回来，防 StopIteration
+            # 重新安全获取 me
             if spectate_target:
                 me = next((g for g in gps if g.username == spectate_target), None)
             else:
@@ -3322,7 +3327,7 @@ def boka_battle_state(room_code):
         players_info.append({
             "username": g.username, "nickname": g.nickname or g.username,
             "hand_count": h_count, "locked": g.locked, 
-            "is_me": g.username == me.username, 
+            "is_me": g.username == me.username, # ★ 视角核心
             "is_auto": g.is_auto,
             "seat": g.id
         })
