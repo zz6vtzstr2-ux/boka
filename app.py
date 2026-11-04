@@ -1918,12 +1918,31 @@ def boka_room(room_code):
         
     me = BokaPlayer.query.filter_by(room_id=room.id, username=current_user.username).first()
     
-    # 如果我不在这个房间的数据库里，就尝试加入
+    # 如果我不在这个房间的数据库里，尝试加入
     if not me:
         # 如果我在别的房间，先退掉那个房间
         if current_user.boka_room_id and current_user.boka_room_id != room.id:
             leave_any_room(current_user)
             
+        # ★ 核心修复：如果游戏正在进行，不允许加入 BokaPlayer 占座位，直接以旁观者身份渲染页面
+        if room.status == "playing":
+            players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+            return render_template('boka_room.html',
+                                   room_code=room.room_code,
+                                   room_id=room.id,
+                                   invite_url=request.url,
+                                   ready_count=sum(1 for p in players if p.ready),
+                                   player_count=len(players),
+                                   is_ready=False, # 旁观者不算准备
+                                   is_owner=(room.owner_username == current_user.username),
+                                   players=[
+                                       {"username": p.username, "nickname": p.nickname or p.username,
+                                        "is_owner": p.username == room.owner_username,
+                                        "ready": p.ready}
+                                       for p in players
+                                   ])
+            
+        # 如果房间还在准备中，正常检查人数并加入
         player_count = BokaPlayer.query.filter_by(room_id=room.id).count()
         if player_count >= room.max_players:
             return "房间已满", 403
@@ -1946,9 +1965,7 @@ def boka_room(room_code):
         me.status_changed_at = datetime.now()
         db.session.commit()
 
-    # ★ 核心修复：不管房间是准备中还是搏卡中，都不在这里自动重定向进战斗！
-    # 交给前端自己去控制（或者房主点开始游戏触发跳转，或者点观战按钮触发）
-    
+    # 房间准备阶段的正常渲染
     players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
     ready_count = sum(1 for p in players if p.ready)
     is_owner = room.owner_username == current_user.username
