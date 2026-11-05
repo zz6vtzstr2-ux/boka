@@ -261,7 +261,7 @@
         
         <!-- ★ 按钮区：margin-left 加大到 8px，离头像更远；gap 设置 6px 防止叠在一起 -->
         <div class="opponent-action-col" style="position: absolute; left: 100%; margin-left: 8px; top: 5px; display: flex; flex-direction: column; gap: 6px;" onclick="event.stopPropagation();">
-          <button class="pill-btn pill-gray" id="spectate-{{ opponent.username }}" onclick="window.location.href='/boka/room/${ROOM_CODE}/battle?spectate=${p.username}'">观战</button>
+          <button class="pill-btn pill-gray" id="spectate-{{ opponent.username }}" onclick="switchSpectateTarget('{{ opponent.username }}')">观战</button>
           <span class="pill-btn pill-pink" id="auto-tag-{{ opponent.username }}" style="display: none;">托管中</span>
         </div>
       </div>
@@ -778,6 +778,15 @@
           autoBtn.style.opacity = '0.5';
       }
     }
+
+    function switchSpectateTarget(targetUsername) {
+      // 如果目标就是当前观战的人，不做反应
+      if (targetUsername === spectateTarget) return;
+      
+      // 直接跳转到新目标的观战链接（哪怕是 ai_xxx 也直接跳）
+      window.location.href = `/boka/room/${roomCode}/battle?spectate=${targetUsername}`;
+    }
+
     
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
@@ -848,14 +857,13 @@
                 }
               });
 
-              // 处理观战按钮置灰
+              // 处理观战按钮置灰（一视同仁：只要是座位上的活人/活AI，都能看）
               data.players_info.forEach(p => {
                 if (!p.is_me) {
                   const spBtn = document.getElementById(`spectate-${p.username}`);
                   if (spBtn) {
-                    const isTargetOut = (p.hand_count === 0);
-                    const canSpectate = !myIsPlaying && !isTargetOut;
-                    spBtn.disabled = !canSpectate;
+                    // 只要这个人还没彻底退出对局（不管是真人还是AI，不管是不是淘汰），都能点
+                    spBtn.disabled = false; 
                   }
                 }
               });
