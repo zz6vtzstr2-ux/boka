@@ -2401,12 +2401,12 @@ def boka_leave_room(room_code):
 
     # 1. 如果是房主，转移房主
     if room.owner_username == current_user.username:
-        # 找出除自己外，座位号最小的玩家（第一行的人）
-        next_owner = BokaPlayer.query.filter(BokaPlayer.room_id == room.id, BokaPlayer.username != current_user.username).order_by(BokaPlayer.seat).first()
+        # 优先转移给除自己外的第一个真人
+        next_owner = BokaPlayer.query.filter(BokaPlayer.room_id == room.id, BokaPlayer.username != current_user.username, BokaPlayer.is_ai == False).order_by(BokaPlayer.seat).first()
         if next_owner:
             room.owner_username = next_owner.username
         else:
-            # 如果没别人了，直接解散房间
+            # 如果没有其他真人了，直接解散房间
             games = BokaGame.query.filter_by(room_id=room.id).all()
             for g in games:
                 BokaGamePlayer.query.filter_by(game_id=g.id).delete()
@@ -2426,6 +2426,19 @@ def boka_leave_room(room_code):
     if room_code in BOKA_ROOM_CACHE:
         BOKA_ROOM_CACHE[room_code] = [p for p in BOKA_ROOM_CACHE[room_code] if p["username"] != current_user.username]
     db.session.commit()
+
+    # ★ 核心修复：判断我走后，房间里是否还有真人？如果全是 AI 或空房，直接销毁！
+    remain_real = BokaPlayer.query.filter_by(room_id=room.id, is_ai=False).count()
+    if remain_real == 0:
+        games = BokaGame.query.filter_by(room_id=room.id).all()
+        for g in games:
+            BokaGamePlayer.query.filter_by(game_id=g.id).delete()
+            db.session.delete(g)
+        BokaPlayer.query.filter_by(room_id=room.id).delete()
+        db.session.delete(room)
+        BOKA_ROOM_CACHE.pop(room_code, None)
+        db.session.commit()
+
     return jsonify({"success": True})
 
 @app.route('/boka/room/<room_code>/quit', methods=['POST'])
@@ -2434,17 +2447,15 @@ def boka_quit(room_code):
     room = BokaRoom.query.filter_by(room_code=room_code).first()
     if not room: return jsonify({"error": "房间不存在"}), 404
 
-    # ★ 核心修复：观战者退出判断
     spectate_target = request.args.get('spectate')
     game = BokaGame.query.filter_by(room_id=room.id).order_by(BokaGame.id.desc()).first()
     
     if spectate_target and game:
-        # 查一下他原来是不是在这个座位上的人（哪怕已弃卡/淘汰，只要在记录里就算）
         is_seated = BokaGamePlayer.query.filter_by(game_id=game.id, username=current_user.username).first()
         if is_seated:
-            return jsonify({"success": True, "action": "return_to_battle"}) # 回战斗页原位
+            return jsonify({"success": True, "action": "return_to_battle"})
         else:
-            return jsonify({"success": True, "action": "return_to_room"}) # 回房间页
+            return jsonify({"success": True, "action": "return_to_room"})
 
     # 下面是非观战者的正常退出逻辑
     if room.status == "playing":
@@ -2469,22 +2480,43 @@ def boka_quit(room_code):
 
     is_owner = (room.owner_username == current_user.username)
     if is_owner:
-        players = BokaPlayer.query.filter_by(room_id=room.id).all()
-        for p in players:
-            u = User.query.filter_by(username=p.username).first()
-            if u: u.boka_room_id = None
+        # 优先转移给剩下的真人
+        next_owner = BokaPlayer.query.filter(BokaPlayer.room_id == room.id, BokaPlayer.username != current_user.username, BokaPlayer.is_ai == False).order_by(BokaPlayer.seat).first()
+        if next_owner:
+            room.owner_username = next_owner.username
+        else:
+            # 没有真人了，直接解散
+            players = BokaPlayer.query.filter_by(room_id=room.id).all()
+            for p in players:
+                u = User.query.filter_by(username=p.username).first()
+                if u: u.boka_room_id = None
+            games = BokaGame.query.filter_by(room_id=room.id).all()
+            for g in games:
+                BokaGamePlayer.query.filter_by(game_id=g.id).delete()
+                db.session.delete(g)
+            BokaPlayer.query.filter_by(room_id=room.id).delete()
+            db.session.delete(room)
+            db.session.commit()
+            return jsonify({"success": True, "action": "return_to_lobby"})
+
+    current_user.boka_room_id = None
+    db.session.delete(me)
+    if room_code in BOKA_ROOM_CACHE:
+        BOKA_ROOM_CACHE[room_code] = [p for p in BOKA_ROOM_CACHE[room_code] if p["username"] != current_user.username]
+    db.session.commit()
+
+    # ★ 核心修复：再次检查，如果走后没真人了，直接销毁房间！
+    remain_real = BokaPlayer.query.filter_by(room_id=room.id, is_ai=False).count()
+    if remain_real == 0:
         games = BokaGame.query.filter_by(room_id=room.id).all()
         for g in games:
             BokaGamePlayer.query.filter_by(game_id=g.id).delete()
             db.session.delete(g)
         BokaPlayer.query.filter_by(room_id=room.id).delete()
         db.session.delete(room)
-    else:
-        current_user.boka_room_id = None
-        db.session.delete(me)
-        if room_code in BOKA_ROOM_CACHE:
-            BOKA_ROOM_CACHE[room_code] = [p for p in BOKA_ROOM_CACHE[room_code] if p["username"] != current_user.username]
-    db.session.commit()
+        BOKA_ROOM_CACHE.pop(room_code, None)
+        db.session.commit()
+
     return jsonify({"success": True, "action": "return_to_lobby"})
 
 # ========== 战斗页 ==========
