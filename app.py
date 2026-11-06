@@ -1844,7 +1844,8 @@ def boka_rooms():
     rooms = BokaRoom.query.order_by(BokaRoom.created_at.desc()).all()
     result = []
     for r in rooms:
-        players = BokaPlayer.query.filter_by(room_id=r.id).all()
+        # ★ 核心：大厅显示按座位号排序
+        players = BokaPlayer.query.filter_by(room_id=r.id).order_by(BokaPlayer.seat).all()
 
         # 若房间在搏卡中，算出每个玩家是“搏卡中”还是“已淘汰”
         playing_usernames = set()
@@ -1979,12 +1980,16 @@ def boka_room(room_code):
         if player_count >= room.max_players:
             return "房间已满", 403
             
+        # ★ 核心：新人进房排到最大座位号 + 1（不会因为别人走了而占坑）
+        max_seat = db.session.query(db.func.max(BokaPlayer.seat)).filter_by(room_id=room.id).scalar()
+        next_seat = (max_seat + 1) if max_seat is not None else 0
+
         me = BokaPlayer(
             room_id=room.id,
             username=current_user.username,
             nickname=current_user.nickname or current_user.username,
             ready=False,
-            seat=player_count,
+            seat=next_seat, # ★ 用 next_seat
             joined_at=datetime.now(),
             status_changed_at=datetime.now(),
             is_ai=False,
@@ -2203,12 +2208,16 @@ def boka_add_bot(room_code):
         ai_username = f"ai_{ai_name}_{suffix}"
         suffix += 1
 
+    # ★ 核心：机器人也排到最后
+    max_seat = db.session.query(db.func.max(BokaPlayer.seat)).filter_by(room_id=room.id).scalar()
+    next_seat = (max_seat + 1) if max_seat is not None else 0
+
     p = BokaPlayer(
         room_id=room.id,
         username=ai_username,
         nickname=ai_name,
         ready=True,
-        seat=player_count,
+        seat=next_seat,
         joined_at=datetime.now(),
         status_changed_at=datetime.now(),
         is_ai=True,
