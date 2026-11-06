@@ -194,16 +194,19 @@
       }
     }
 
+    let isTogglingReady = false; // ★ 新增一个绝对锁变量
+
     async function toggleReady() {
       const btn = document.getElementById('readyBtn');
       if (btn.disabled) return;
       
+      isTogglingReady = true; // ★ 锁死，不让轮询碰我的 UI
       const isNowReady = (btn.textContent.trim() === '准备');
       
-      // ★ 1. 立刻改变按钮文字
+      // 1. 立刻改变按钮文字
       btn.textContent = isNowReady ? '取消准备' : '准备';
       
-      // ★ 2. 立刻改变我这行的状态标签（乐观更新）
+      // 2. 立刻改变我这行的状态标签
       const myPlayerItems = document.querySelectorAll('.player-item');
       myPlayerItems.forEach(item => {
           if (item.innerHTML.includes('me-suffix')) {
@@ -217,14 +220,14 @@
       btn.disabled = true;
       try {
         await fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' });
-        // 成功后立刻拉一次最新状态同步总数
-        fetchState();
+        // 请求成功后，在后台安静地拉一次最新数据，不闪烁
+        await fetchState(true); 
       } catch (e) {
         showToast('网络异常');
-        // 失败了就把文字改回来
         btn.textContent = isNowReady ? '准备' : '取消准备';
       } finally {
         btn.disabled = false;
+        isTogglingReady = false; // ★ 请求彻底结束，解除锁
       }
     }
 
@@ -341,25 +344,21 @@
       });
     }
 
-    let lastActionTime = 0; // 记录你最后一次点击准备的时间
-
-    async function fetchState() {
+    async function fetchState(isFromToggle = false) { // ★ 接收参数，区分是不是刚点完准备
       try {
         const res = await fetch(`/boka/room/${ROOM_CODE}/state`);
         const data = await res.json();
         if (data.error) return;
         
-        // 如果刚刚点过准备（2秒内），且后端返回的我自己状态和前端不一致，先不重绘，防止闪烁
         const me = (data.players || []).find(p => p.username === MY_USERNAME);
         const readyBtn = document.getElementById('readyBtn');
         
         if (me) {
-            const frontendReady = (readyBtn.textContent.trim() === '取消准备');
-            if (Date.now() - lastActionTime < 2000 && me.ready !== frontendReady) {
-                return; // 忽略旧数据，等下一次轮询
-            }
-            if (!readyBtn.disabled) {
-                readyBtn.textContent = me.ready ? '取消准备' : '准备';
+            // ★ 核心：如果正在点准备，或者刚刚点完（isFromToggle），绝对不去覆盖按钮和标签
+            if (!isTogglingReady && !isFromToggle) {
+                if (!readyBtn.disabled) {
+                    readyBtn.textContent = me.ready ? '取消准备' : '准备';
+                }
             }
         }
         
@@ -372,7 +371,10 @@
           document.getElementById('startBtn').disabled = !(allReady && data.count >= 2);
         }
         
-        renderPlayers(data.players || [], data.owner);
+        // ★ 核心：如果正在点准备，或者刚刚点完，先不重绘整个列表，防止我的标签闪烁
+        if (!isTogglingReady && !isFromToggle) {
+            renderPlayers(data.players || [], data.owner);
+        }
       } catch (e) { console.error(e); }
     }
 
