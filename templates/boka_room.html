@@ -198,40 +198,50 @@
       const btn = document.getElementById('readyBtn');
       if (btn.disabled) return;
       btn.disabled = true;
-      const oldText = btn.textContent;
-      btn.textContent = '处理中...';
+      
+      // ★ 核心优化：不等后端，前端立刻假装它变了！
+      const isNowReady = (btn.textContent.trim() === '准备');
+      btn.textContent = isNowReady ? '取消准备' : '准备';
+      
+      // 立刻更新我自己的右侧状态
+      const myPlayerItems = document.querySelectorAll('.player-item');
+      myPlayerItems.forEach(item => {
+          if (item.innerHTML.includes('me-suffix')) {
+              const rightDiv = item.querySelector('.flex-shrink-0');
+              if (rightDiv) {
+                  if (isNowReady) {
+                      rightDiv.innerHTML = `<span class="tag tag-ready">已准备</span>`;
+                  } else {
+                      rightDiv.innerHTML = ''; 
+                  }
+              }
+          }
+      });
+
+      // 后台静默发请求
       try {
         const res = await fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' });
         const data = await res.json();
-        if (data.error) { showToast(data.error); btn.textContent = oldText; return; }
+        
+        if (data.error) { 
+            showToast(data.error); 
+            // 如果失败了，还原按钮文字
+            btn.textContent = isNowReady ? '准备' : '取消准备';
+            return; 
+        }
+        
+        // 如果成功，用后端最新数据更新一下顶部已准备人数和开始按钮状态
         lastStatus = data;
         document.getElementById('readyCount').textContent = data.ready_count;
         document.getElementById('playerCount').textContent = data.count;
-        btn.textContent = data.is_ready ? '取消准备' : '准备';
         if (IS_OWNER) {
           const allReady = data.players.every(p => p.ready);
           document.getElementById('startBtn').disabled = !(allReady && data.count >= 2);
         }
         
-        // ★ 终极修复：只精准修改“我自己”那个玩家的 DOM 内容，绝不重绘整个列表！
-        const myPlayerItems = document.querySelectorAll('.player-item');
-        myPlayerItems.forEach(item => {
-            // 找到包含 “（我）” 的那个 DOM 块
-            if (item.innerHTML.includes('me-suffix')) {
-                const rightDiv = item.querySelector('.flex-shrink-0'); // 右侧容器
-                if (rightDiv) {
-                    if (data.is_ready) {
-                        rightDiv.innerHTML = `<span class="tag tag-ready">已准备</span>`;
-                    } else {
-                        // 如果取消准备了，就清空（除非你是房主，否则未准备就是空的）
-                        rightDiv.innerHTML = ''; 
-                    }
-                }
-            }
-        });
-        fetchState();
       } catch (e) {
-        showToast('网络异常'); btn.textContent = oldText;
+        showToast('网络异常'); 
+        btn.textContent = isNowReady ? '准备' : '取消准备';
       } finally {
         btn.disabled = false;
       }
