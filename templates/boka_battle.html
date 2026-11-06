@@ -220,6 +220,23 @@
     }
     .my-auto-btn:hover { background: #f8d8de; }
     .my-auto-btn:active { transform: translateY(1px); box-shadow: 0 1px 3px rgba(184, 90, 106, 0.15); }
+
+    /* ★ 为顶部按钮和观战按钮添加点击反馈 */
+    .top-btn, .pill-btn {
+      transition: transform 0.1s ease, box-shadow 0.1s ease !important;
+    }
+    
+    /* 鼠标悬停时微微变色/上浮 */
+    .top-btn:hover:not(:disabled), .pill-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+    }
+    
+    /* 鼠标按下去的那一瞬间，缩小并取消阴影（就是你要的“弹一下”的感觉） */
+    .top-btn:active:not(:disabled), .pill-btn:active:not(:disabled) {
+      transform: scale(0.92) !important;
+      box-shadow: none !important;
+    }
     
   </style>
 </head>
