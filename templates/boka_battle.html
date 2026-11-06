@@ -221,21 +221,22 @@
     .my-auto-btn:hover { background: #f8d8de; }
     .my-auto-btn:active { transform: translateY(1px); box-shadow: 0 1px 3px rgba(184, 90, 106, 0.15); }
 
-    /* ★ 为顶部按钮和观战按钮添加点击反馈 */
+    /* ★ 核心：给顶部的记录/退出按钮，以及场上的观战按钮，加上大厅那种“实体感” */
     .top-btn, .pill-btn {
-      transition: transform 0.1s ease, box-shadow 0.1s ease !important;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08) !important;
+      transition: all 0.15s ease-in-out !important;
     }
-    
-    /* 鼠标悬停时微微变色/上浮 */
+
+    /* 鼠标悬停时，稍微上浮一点点，阴影变大 */
     .top-btn:hover:not(:disabled), .pill-btn:hover:not(:disabled) {
       transform: translateY(-1px);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12) !important;
     }
-    
-    /* 鼠标按下去的那一瞬间，缩小并取消阴影（就是你要的“弹一下”的感觉） */
+
+    /* 鼠标按下去的时候，稍微沉下去一点点（模拟实体按压） */
     .top-btn:active:not(:disabled), .pill-btn:active:not(:disabled) {
-      transform: scale(0.92) !important;
-      box-shadow: none !important;
+      transform: translateY(1px);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
     }
     
   </style>
