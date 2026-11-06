@@ -197,50 +197,31 @@
     async function toggleReady() {
       const btn = document.getElementById('readyBtn');
       if (btn.disabled) return;
-      btn.disabled = true;
       
-      // ★ 核心优化：不等后端，前端立刻假装它变了！
       const isNowReady = (btn.textContent.trim() === '准备');
+      
+      // ★ 1. 立刻改变按钮文字
       btn.textContent = isNowReady ? '取消准备' : '准备';
       
-      // 立刻更新我自己的右侧状态
+      // ★ 2. 立刻改变我这行的状态标签（乐观更新）
       const myPlayerItems = document.querySelectorAll('.player-item');
       myPlayerItems.forEach(item => {
           if (item.innerHTML.includes('me-suffix')) {
               const rightDiv = item.querySelector('.flex-shrink-0');
               if (rightDiv) {
-                  if (isNowReady) {
-                      rightDiv.innerHTML = `<span class="tag tag-ready">已准备</span>`;
-                  } else {
-                      rightDiv.innerHTML = ''; 
-                  }
+                  rightDiv.innerHTML = isNowReady ? `<span class="tag tag-ready">已准备</span>` : '';
               }
           }
       });
 
-      // 后台静默发请求
+      btn.disabled = true;
       try {
-        const res = await fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' });
-        const data = await res.json();
-        
-        if (data.error) { 
-            showToast(data.error); 
-            // 如果失败了，还原按钮文字
-            btn.textContent = isNowReady ? '准备' : '取消准备';
-            return; 
-        }
-        
-        // 如果成功，用后端最新数据更新一下顶部已准备人数和开始按钮状态
-        lastStatus = data;
-        document.getElementById('readyCount').textContent = data.ready_count;
-        document.getElementById('playerCount').textContent = data.count;
-        if (IS_OWNER) {
-          const allReady = data.players.every(p => p.ready);
-          document.getElementById('startBtn').disabled = !(allReady && data.count >= 2);
-        }
-        
+        await fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' });
+        // 成功后立刻拉一次最新状态同步总数
+        fetchState();
       } catch (e) {
-        showToast('网络异常'); 
+        showToast('网络异常');
+        // 失败了就把文字改回来
         btn.textContent = isNowReady ? '准备' : '取消准备';
       } finally {
         btn.disabled = false;
@@ -360,24 +341,37 @@
       });
     }
 
+    let lastActionTime = 0; // 记录你最后一次点击准备的时间
+
     async function fetchState() {
       try {
         const res = await fetch(`/boka/room/${ROOM_CODE}/state`);
         const data = await res.json();
         if (data.error) return;
+        
+        // 如果刚刚点过准备（2秒内），且后端返回的我自己状态和前端不一致，先不重绘，防止闪烁
+        const me = (data.players || []).find(p => p.username === MY_USERNAME);
+        const readyBtn = document.getElementById('readyBtn');
+        
+        if (me) {
+            const frontendReady = (readyBtn.textContent.trim() === '取消准备');
+            if (Date.now() - lastActionTime < 2000 && me.ready !== frontendReady) {
+                return; // 忽略旧数据，等下一次轮询
+            }
+            if (!readyBtn.disabled) {
+                readyBtn.textContent = me.ready ? '取消准备' : '准备';
+            }
+        }
+        
         lastStatus = data;
         document.getElementById('readyCount').textContent = data.ready_count;
         document.getElementById('playerCount').textContent = data.count;
-        
-        const me = (data.players || []).find(p => p.username === MY_USERNAME);
-        const readyBtn = document.getElementById('readyBtn');
-        if (me && !readyBtn.disabled) readyBtn.textContent = me.ready ? '取消准备' : '准备';
-        
+        
         if (IS_OWNER) {
           const allReady = data.players.every(p => p.ready);
           document.getElementById('startBtn').disabled = !(allReady && data.count >= 2);
         }
-        
+        
         renderPlayers(data.players || [], data.owner);
       } catch (e) { console.error(e); }
     }
