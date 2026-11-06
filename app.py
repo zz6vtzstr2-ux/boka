@@ -1953,7 +1953,7 @@ def boka_room(room_code):
     
     # 如果我不在这个房间的数据库里，立刻尝试加入
     if not me:
-        # 如果我在别的房间，先退掉那个房间
+        # 1. 如果我在别的房间，先退掉那个房间
         if current_user.boka_room_id and current_user.boka_room_id != room.id:
             leave_any_room(current_user)
             
@@ -1961,7 +1961,7 @@ def boka_room(room_code):
         if player_count >= room.max_players:
             return "房间已满", 403
             
-        # 顺排到最后
+        # 2. 顺排到最后
         max_seat = db.session.query(db.func.max(BokaPlayer.seat)).filter_by(room_id=room.id).scalar()
         next_seat = (max_seat + 1) if max_seat is not None else 0
 
@@ -1978,6 +1978,22 @@ def boka_room(room_code):
         db.session.add(me)
         current_user.boka_room_id = room.id
         db.session.commit()
+        
+        # ★ 核心修复：如果有旧的缓存，强制刷新它！
+        if room_code in BOKA_ROOM_CACHE:
+            # 重新从数据库加载一次缓存
+            db_players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+            BOKA_ROOM_CACHE[room_code] = [
+                {
+                    "username": p.username,
+                    "nickname": p.nickname or p.username,
+                    "is_owner": p.username == room.owner_username,
+                    "ready": p.ready,
+                    "is_ai": p.is_ai,
+                    "is_me": p.username == current_user.username,
+                    "id": p.id
+                } for p in db_players
+            ]
     else:
         # 如果我已经在房间里，更新一下时间并保存
         me.status_changed_at = datetime.now()
