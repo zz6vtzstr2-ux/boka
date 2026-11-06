@@ -212,7 +212,8 @@
           const allReady = data.players.every(p => p.ready);
           document.getElementById('startBtn').disabled = !(allReady && data.count >= 2);
         }
-        renderPlayers(data.players || [], data.owner);
+        // ★ 去掉这里的 renderPlayers，直接交给 3 秒一次的轮询去精准刷新，防止闪烁
+        fetchState();
       } catch (e) {
         showToast('网络异常'); btn.textContent = oldText;
       } finally {
