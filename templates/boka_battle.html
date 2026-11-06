@@ -76,6 +76,7 @@
       font-family: inherit; letter-spacing: 1px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.08); white-space: nowrap;
       transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+      -webkit-appearance: none; appearance: none;
     }
 
     .top-btn.danger {
@@ -90,7 +91,7 @@
     .top-btn.danger:hover:not(:disabled) { background: #f8d8de !important; }
 
     .top-btn:active:not(:disabled) {
-      transform: translateY(1px);
+      transform: translateY(1px) scale(0.95);
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 
@@ -173,12 +174,16 @@
       align-items: center; justify-content: center; white-space: nowrap; letter-spacing: 1px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
       transition: all 0.15s ease-in-out;
+      -webkit-appearance: none; appearance: none;
     }
     .pill-btn.pill-pink { background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; cursor: pointer; }
     .pill-btn.pill-gray { background: #f5f5f5; color: #666; border-color: #ddd; cursor: pointer; }
     
     .pill-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12); }
-    .pill-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+    .pill-btn:active:not(:disabled) { 
+      transform: translateY(1px) scale(0.95); 
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); 
+    }
     .pill-btn:disabled { background: #e8e8e8 !important; color: #aaa !important; border-color: #ccc !important; cursor: not-allowed; box-shadow: none !important; }
 
     /* ===== 我的托管按钮 ===== */
