@@ -213,14 +213,22 @@
           document.getElementById('startBtn').disabled = !(allReady && data.count >= 2);
         }
         
-        // ★ 核心：不重新渲染整个列表，只精准修改我自己那一行的右侧按钮
-        if (lastStatus && lastStatus.players) {
-            const meData = lastStatus.players.find(p => p.username === MY_USERNAME);
-            if (meData) {
-                meData.ready = data.is_ready; // 把我的状态更新
+        // ★ 终极修复：只精准修改“我自己”那个玩家的 DOM 内容，绝不重绘整个列表！
+        const myPlayerItems = document.querySelectorAll('.player-item');
+        myPlayerItems.forEach(item => {
+            // 找到包含 “（我）” 的那个 DOM 块
+            if (item.innerHTML.includes('me-suffix')) {
+                const rightDiv = item.querySelector('.flex-shrink-0'); // 右侧容器
+                if (rightDiv) {
+                    if (data.is_ready) {
+                        rightDiv.innerHTML = `<span class="tag tag-ready">已准备</span>`;
+                    } else {
+                        // 如果取消准备了，就清空（除非你是房主，否则未准备就是空的）
+                        rightDiv.innerHTML = ''; 
+                    }
+                }
             }
-            renderPlayers(lastStatus.players, lastStatus.owner); // 用更新后的 lastStatus 重绘
-        }
+        });
         fetchState();
       } catch (e) {
         showToast('网络异常'); btn.textContent = oldText;
