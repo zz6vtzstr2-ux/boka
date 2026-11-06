@@ -1957,30 +1957,12 @@ def boka_room(room_code):
         if current_user.boka_room_id and current_user.boka_room_id != room.id:
             leave_any_room(current_user)
             
-        # ★ 核心修复：如果游戏正在进行，不允许加入 BokaPlayer 占座位，直接以旁观者身份渲染页面
-        if room.status == "playing":
-            players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
-            return render_template('boka_room.html',
-                                   room_code=room.room_code,
-                                   room_id=room.id,
-                                   invite_url=request.url,
-                                   ready_count=sum(1 for p in players if p.ready),
-                                   player_count=len(players),
-                                   is_ready=False, # 旁观者不算准备
-                                   is_owner=(room.owner_username == current_user.username),
-                                   players=[
-                                       {"username": p.username, "nickname": p.nickname or p.username,
-                                        "is_owner": p.username == room.owner_username,
-                                        "ready": p.ready}
-                                       for p in players
-                                   ])
-            
-        # 如果房间还在准备中，正常检查人数并加入
+        # 正常检查人数
         player_count = BokaPlayer.query.filter_by(room_id=room.id).count()
         if player_count >= room.max_players:
             return "房间已满", 403
             
-        # ★ 核心：新人进房排到最大座位号 + 1（不会因为别人走了而占坑）
+        # ★ 核心修复：新人排到最大座位号 + 1
         max_seat = db.session.query(db.func.max(BokaPlayer.seat)).filter_by(room_id=room.id).scalar()
         next_seat = (max_seat + 1) if max_seat is not None else 0
 
@@ -1989,7 +1971,7 @@ def boka_room(room_code):
             username=current_user.username,
             nickname=current_user.nickname or current_user.username,
             ready=False,
-            seat=next_seat, # ★ 用 next_seat
+            seat=next_seat, # 用新座位号
             joined_at=datetime.now(),
             status_changed_at=datetime.now(),
             is_ai=False,
@@ -2002,7 +1984,7 @@ def boka_room(room_code):
         me.status_changed_at = datetime.now()
         db.session.commit()
 
-    # 房间准备阶段的正常渲染
+    # 房间渲染
     players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
     ready_count = sum(1 for p in players if p.ready)
     is_owner = room.owner_username == current_user.username
