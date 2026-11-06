@@ -24,23 +24,23 @@
     .top-bar { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(245,237,218,0.92); backdrop-filter: blur(6px); z-index: 100; width: 100%; box-sizing: border-box; flex-wrap: nowrap; gap: 4px; }
     .top-info { background: rgba(255,255,255,0.95); border: 1px solid #d8d0bc; border-radius: 8px; padding: 6px 8px; font-size: 13px; font-weight: bold; color: #8a6d1f; font-family: inherit; letter-spacing: 1px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); white-space: nowrap; cursor: default; }
 
-    /* ★ 顶部按钮物理引擎 */
+    /* ★ 顶部按钮：照抄大厅的物理引擎（重阴影） */
     .top-btn {
       background: #ffffff; border: 1px solid #d8d0bc; border-radius: 8px; padding: 6px 8px; 
       font-size: 13px; font-weight: bold; color: #4a4a4a; font-family: inherit; letter-spacing: 1px; white-space: nowrap;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.12);
-      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease; 
+      box-shadow: 0 4px 8px rgba(0,0,0,0.18) !important;
+      transition: transform 0.1s ease, box-shadow 0.1s ease !important; 
     }
-    .top-btn.danger { background: #fce8ec !important; color: #b85a6a !important; border-color: #e8c8d0 !important; box-shadow: 0 3px 6px rgba(184,90,106,0.2); }
+    .top-btn.danger { 
+      background: #fce8ec !important; color: #b85a6a !important; border-color: #e8c8d0 !important; 
+      box-shadow: 0 4px 8px rgba(184,90,106,0.25) !important; 
+    }
     
-    /* 按下瞬间：下沉 + 颜色变深 + 阴影消失 */
+    /* 按下瞬间：下沉 + 阴影瞬间消失 */
     .top-btn:active:not(:disabled) {
       transform: translateY(2px) !important; 
-      background: #e8e0cc !important; 
-      border-color: #c8bca0 !important;
       box-shadow: 0 0px 0px rgba(0,0,0,0) !important; 
     }
-    .top-btn.danger:active:not(:disabled) { background: #e8a0b0 !important; border-color: #d08090 !important; }
     .top-btn:disabled { background: #e8e8e8 !important; color: #aaa !important; border-color: #ccc !important; box-shadow: none !important; }
 
     /* ===== 战斗区域 ===== */
@@ -70,9 +70,9 @@
     .qmark-card .qmark-wrap::before { content: "?"; font-size: 56px; color: #e8d8a0; font-weight: bold; }
 
     /* ===== 出战按钮 ===== */
-    .play-btn { width: 60px; height: 60px; border-radius: 12px; border: none; background: #5bb8e8; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; flex-shrink: 0; font-family: inherit; display: flex; align-items: center; justify-content: center; padding: 0; box-shadow: 0 3px 6px rgba(91,184,232,0.4); transition: transform 0.1s, box-shadow 0.1s, background 0.1s; }
+    .play-btn { width: 60px; height: 60px; border-radius: 12px; border: none; background: #5bb8e8; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; flex-shrink: 0; font-family: inherit; display: flex; align-items: center; justify-content: center; padding: 0; box-shadow: 0 4px 10px rgba(91,184,232,0.4); transition: transform 0.1s, box-shadow 0.1s; }
     .play-btn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
-    .play-btn:active:not(:disabled) { transform: translateY(2px) !important; background: #3a8ab8 !important; box-shadow: none !important; }
+    .play-btn:active:not(:disabled) { transform: translateY(2px) !important; box-shadow: none !important; }
 
     /* ===== 我的头像块 ===== */
     .my-avatar-block { display: flex; flex-direction: column; align-items: center; }
@@ -81,36 +81,33 @@
     .combo-info { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; font-size: 14px; color: #666; }
     .hand-label { font-size: 12px; color: #888; padding-left: 4px; margin-bottom: 0; }
 
-    /* ★ 侧边胶囊按钮物理引擎 */
+    /* ★ 侧边胶囊按钮（观战、托管）：照抄大厅重阴影 */
     .pill-btn {
       height: 28px; padding: 0 12px; border-radius: 8px; border: 1px solid #ddd;
       font-size: 13px; font-weight: bold; font-family: inherit; display: flex; align-items: center; justify-content: center; white-space: nowrap; letter-spacing: 1px;
-      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12);
-      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.18) !important;
+      transition: transform 0.1s ease, box-shadow 0.1s ease !important;
     }
     .pill-btn.pill-pink { background: #fce8ec; color: #b85a6a; border-color: #e8c8d0; cursor: pointer; }
     .pill-btn.pill-gray { background: #ffffff; color: #666; cursor: pointer; }
     
-    /* 按下瞬间：下沉 + 颜色变深 + 阴影消失 */
+    /* 按下瞬间：下沉 + 阴影消失 */
     .pill-btn:active:not(:disabled) { 
       transform: translateY(2px) !important; 
-      background: #e8e0cc !important; border-color: #c8bca0 !important;
-      box-shadow: none !important; 
+      box-shadow: 0 0px 0px rgba(0,0,0,0) !important; 
     }
-    .pill-btn.pill-pink:active:not(:disabled) { background: #e8a0b0 !important; border-color: #d08090 !important; }
     .pill-btn:disabled { background: #e8e8e8 !important; color: #aaa !important; border-color: #ccc !important; cursor: not-allowed; box-shadow: none !important; }
 
     /* ===== 我的托管按钮 ===== */
     .my-auto-btn {
       background: #fce8ec; color: #b85a6a; border: 1px solid #e8c8d0; border-radius: 8px; 
       height: 32px; padding: 0 18px; font-size: 14px; font-weight: bold; cursor: pointer; font-family: inherit; letter-spacing: 1px; white-space: nowrap;
-      box-shadow: 0 3px 6px rgba(184, 90, 106, 0.2);
-      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+      box-shadow: 0 4px 8px rgba(184, 90, 106, 0.25) !important;
+      transition: transform 0.1s ease, box-shadow 0.1s ease !important;
     }
     .my-auto-btn:active { 
       transform: translateY(2px) !important; 
-      background: #e8a0b0 !important; border-color: #d08090 !important;
-      box-shadow: none !important; 
+      box-shadow: 0 0px 0px rgba(0,0,0,0) !important; 
     }
   </style>
 </head>
