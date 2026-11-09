@@ -198,11 +198,14 @@
       const btn = document.getElementById('readyBtn');
       if (btn.disabled) return;
       
-      // 1. 立刻改按钮文字（0 延迟！）
+      // 1. 立刻判断现在的状态
       const isNowReady = (btn.textContent.trim() === '准备');
-      btn.textContent = isNowReady ? '取消准备' : '准备';
       
-      // 2. 立刻精确修改我这行的标签（绝不碰别人的）
+      // 2. 立刻改变自己按钮上的文字（强制渲染）
+      btn.textContent = isNowReady ? '取消准备' : '准备';
+      btn.style.opacity = '0.5'; // 视觉上立刻给个反馈
+      
+      // 3. 立刻改变自己的标签
       document.querySelectorAll('.player-item').forEach(item => {
           if (item.innerHTML.includes('me-suffix')) {
               const rightDiv = item.querySelector('.flex-shrink-0');
@@ -212,17 +215,28 @@
           }
       });
 
-      // 3. 立刻更新顶部数字
+      // 4. 立刻改顶部的数字
       const readyCountEl = document.getElementById('readyCount');
       if (readyCountEl) {
           let count = parseInt(readyCountEl.textContent) || 0;
           readyCountEl.textContent = isNowReady ? count + 1 : Math.max(0, count - 1);
       }
 
-      // 4. ★ 核心：后台静默发请求，绝对不加 await！发出去就不管了，UI 绝不会卡！
-      fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' }).catch(() => {
-          showToast('网络异常');
-      });
+      // 5. 发出请求（没有任何 await）
+      fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            btn.style.opacity = '1'; // 请求成功，恢复透明度
+            if (data.error) {
+                showToast(data.error);
+                btn.textContent = isNowReady ? '准备' : '取消准备';
+            }
+        })
+        .catch(() => {
+            btn.style.opacity = '1';
+            showToast('网络异常');
+            btn.textContent = isNowReady ? '准备' : '取消准备';
+        });
     }
 
     async function startGame() {
