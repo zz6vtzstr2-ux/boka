@@ -194,21 +194,16 @@
       }
     }
 
-    let isTogglingReady = false; // ★ 新增一个绝对锁变量
-
     async function toggleReady() {
       const btn = document.getElementById('readyBtn');
       if (btn.disabled) return;
       
-      isTogglingReady = true; // ★ 锁死，不让轮询碰我的 UI
+      // 1. 0 延迟，先干了再说！
       const isNowReady = (btn.textContent.trim() === '准备');
-      
-      // 1. 立刻改变按钮文字
       btn.textContent = isNowReady ? '取消准备' : '准备';
       
       // 2. 立刻改变我这行的状态标签
-      const myPlayerItems = document.querySelectorAll('.player-item');
-      myPlayerItems.forEach(item => {
+      document.querySelectorAll('.player-item').forEach(item => {
           if (item.innerHTML.includes('me-suffix')) {
               const rightDiv = item.querySelector('.flex-shrink-0');
               if (rightDiv) {
@@ -219,15 +214,15 @@
 
       btn.disabled = true;
       try {
+        // 请求发出去，后端现在存完数据库才返回，不用担心旧数据覆盖
         await fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' });
-        // 请求成功后，在后台安静地拉一次最新数据，不闪烁
-        await fetchState(true); 
+        // 拿最新数据刷新，没有延迟！
+        await fetchState(); 
       } catch (e) {
         showToast('网络异常');
         btn.textContent = isNowReady ? '准备' : '取消准备';
       } finally {
         btn.disabled = false;
-        isTogglingReady = false; // ★ 请求彻底结束，解除锁
       }
     }
 
