@@ -2112,9 +2112,6 @@ def boka_room_state(room_code):
 @app.route('/boka/room/<room_code>/ready', methods=['POST'])
 @login_required
 def boka_ready(room_code):
-    from sqlalchemy import text
-    import threading
-
     room = BokaRoom.query.filter_by(room_code=room_code).first()
     if not room:
         return jsonify({"error": "房间不存在"}), 404
@@ -2122,19 +2119,13 @@ def boka_ready(room_code):
     if room_code not in BOKA_ROOM_CACHE:
         db_players = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
         BOKA_ROOM_CACHE[room_code] = [
-            {
-                "username": p.username,
-                "nickname": p.nickname or p.username,
-                "is_owner": p.username == room.owner_username,
-                "ready": p.ready,
-                "is_ai": p.is_ai,
-                "is_me": p.username == current_user.username,
-                "id": p.id
-            } for p in db_players
+            {"username": p.username, "nickname": p.nickname or p.username,
+             "is_owner": p.username == room.owner_username, "ready": p.ready,
+             "is_ai": p.is_ai, "is_me": p.username == current_user.username, "id": p.id}
+            for p in db_players
         ]
     
     players_cache = BOKA_ROOM_CACHE[room_code]
-
     me_cache = next((p for p in players_cache if p["username"] == current_user.username), None)
     if not me_cache:
         return jsonify({"error": "你不在房间"}), 400
@@ -2142,6 +2133,13 @@ def boka_ready(room_code):
     new_ready = not me_cache["ready"]
     me_cache["ready"] = new_ready
     ready_count = sum(1 for p in players_cache if p["ready"])
+
+    # ★ 核心修复：去掉多线程，直接同步保存，保证接口返回时数据绝对是最新的
+    me_db = BokaPlayer.query.get(me_cache["id"])
+    if me_db:
+        me_db.ready = new_ready
+        me_db.status_changed_at = datetime.now()
+        db.session.commit()
 
     state = {
         "room_id": room.room_code,
@@ -2153,28 +2151,11 @@ def boka_ready(room_code):
         "is_ready": new_ready,
         "is_owner": (room.owner_username == current_user.username),
         "players": [
-            {
-                "username": p["username"],
-                "nickname": p["nickname"],
-                "is_owner": p["is_owner"],
-                "ready": p["ready"],
-                "is_ai": p["is_ai"],
-                "is_me": p["is_me"],
-            }
+            {"username": p["username"], "nickname": p["nickname"], "is_owner": p["is_owner"],
+             "ready": p["ready"], "is_ai": p["is_ai"], "is_me": p["is_me"]}
             for p in players_cache
         ],
     }
-
-    def save_to_db():
-        with app.app_context():
-            db.session.execute(
-                text("UPDATE boka_player SET ready = :r, status_changed_at = :t WHERE id = :mid"),
-                {"r": new_ready, "t": datetime.now(), "mid": me_cache["id"]}
-            )
-            db.session.commit()
-    
-    threading.Thread(target=save_to_db).start()
-
     return jsonify(state)
 
 @app.route('/boka/room/<room_code>/add_bot', methods=['POST'])
