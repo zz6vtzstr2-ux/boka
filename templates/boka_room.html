@@ -197,31 +197,46 @@
     async function toggleReady() {
       const btn = document.getElementById('readyBtn');
       if (btn.disabled) return;
-      btn.disabled = true;
+      
+      const isNowReady = (btn.textContent.trim() === '准备');
+      
+      // ★ 1. 立刻更新按钮文字
+      btn.textContent = isNowReady ? '取消准备' : '准备';
+      
+      // ★ 2. 立刻精确找到“我”的那一行，只改我的右边标签，绝不碰别人的！
+      document.querySelectorAll('.player-item').forEach(item => {
+          if (item.innerHTML.includes('me-suffix')) {
+              const rightDiv = item.querySelector('.flex-shrink-0');
+              if (rightDiv) {
+                  rightDiv.innerHTML = isNowReady ? `<span class="tag tag-ready">已准备</span>` : '';
+              }
+          }
+      });
 
+      btn.disabled = true;
       try {
-        const res = await fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' });
-        const data = await res.json();
-        if (data.error) { showToast(data.error); return; }
+        // ★ 3. 后台发请求，不用它的返回数据去刷新列表
+        await fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' });
         
-        // 更新按钮文字
-        btn.textContent = data.is_ready ? '取消准备' : '准备';
-        
-        // 更新顶部人数
-        document.getElementById('readyCount').textContent = data.ready_count;
-        document.getElementById('playerCount').textContent = data.count;
-        
-        // 更新房主开始按钮
-        if (IS_OWNER) {
-          const allReady = data.players.every(p => p.ready);
-          document.getElementById('startBtn').disabled = !(allReady && data.count >= 2);
+        // ★ 4. 手动更新一下顶部的“已准备 X / 总人数 Y”
+        const readyCountEl = document.getElementById('readyCount');
+        if (readyCountEl) {
+            let count = parseInt(readyCountEl.textContent) || 0;
+            readyCountEl.textContent = isNowReady ? count + 1 : Math.max(0, count - 1);
         }
         
-        // 拿着后端给的最新数据，瞬间重绘列表（因为后端已经是同步保存了，所以数据是对的）
-        renderPlayers(data.players || [], data.owner);
-        
+        // ★ 5. 如果你是房主，顺手判断一下开始按钮
+        if (IS_OWNER && lastStatus && lastStatus.players) {
+            // 临时把本地自己的状态改了，用于判断
+            const me = lastStatus.players.find(p => p.username === MY_USERNAME);
+            if (me) me.ready = isNowReady;
+            const allReady = lastStatus.players.every(p => p.ready);
+            document.getElementById('startBtn').disabled = !(allReady && lastStatus.count >= 2);
+        }
+
       } catch (e) {
-        showToast('网络异常'); 
+        showToast('网络异常');
+        btn.textContent = isNowReady ? '准备' : '取消准备';
       } finally {
         btn.disabled = false;
       }
