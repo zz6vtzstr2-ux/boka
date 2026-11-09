@@ -133,12 +133,12 @@
 
     <div class="panel">
       <div class="user-block">
-        <a href="/user/{{ current_user.username }}" class="user-link">
+        <div class="user-link" onclick="showProfile('{{ current_user.username }}')" style="cursor: pointer;">
           <div class="avatar-fallback">
             <img src="/static/avatars/{{ current_user.username }}.jpg" onerror="this.remove()" alt="">
           </div>
           <span class="nickname">{{ current_user.nickname or current_user.username }}</span>
-        </a>
+        </div>
       </div>
       <div class="stats-row">
         <div class="stat-box"><div class="lbl">场次</div><div class="val">{{ season_games }}</div></div>
