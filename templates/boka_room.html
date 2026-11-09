@@ -198,14 +198,12 @@
       const btn = document.getElementById('readyBtn');
       if (btn.disabled) return;
       
-      // 1. 立刻判断现在的状态
+      // 1. 【0 毫秒响应】立刻切换按钮文字，并锁定按钮防连点
       const isNowReady = (btn.textContent.trim() === '准备');
-      
-      // 2. 立刻改变自己按钮上的文字（强制渲染）
       btn.textContent = isNowReady ? '取消准备' : '准备';
-      btn.style.opacity = '0.5'; // 视觉上立刻给个反馈
+      btn.disabled = true; // 防止用户狂点导致并发请求冲突
       
-      // 3. 立刻改变自己的标签
+      // 2. 【0 毫秒响应】立刻改变自己那行的状态标签
       document.querySelectorAll('.player-item').forEach(item => {
           if (item.innerHTML.includes('me-suffix')) {
               const rightDiv = item.querySelector('.flex-shrink-0');
@@ -215,25 +213,30 @@
           }
       });
 
-      // 4. 立刻改顶部的数字
+      // 3. 【0 毫秒响应】立刻改变顶部的已准备人数
       const readyCountEl = document.getElementById('readyCount');
       if (readyCountEl) {
           let count = parseInt(readyCountEl.textContent) || 0;
           readyCountEl.textContent = isNowReady ? count + 1 : Math.max(0, count - 1);
       }
 
-      // 5. 发出请求（没有任何 await）
+      // 4. 后台默默发送请求，绝对不去 await 它，UI 已经变完了！
       fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' })
         .then(res => res.json())
         .then(data => {
-            btn.style.opacity = '1'; // 请求成功，恢复透明度
+            btn.disabled = false; // 请求成功，解除按钮锁定
             if (data.error) {
+                // 如果后端报错，把 UI 还原
                 showToast(data.error);
                 btn.textContent = isNowReady ? '准备' : '取消准备';
+                const me = lastStatus?.players.find(p => p.username === MY_USERNAME);
+                if(me) me.ready = !isNowReady;
+                // 重新拉取一次最新状态保底
+                fetchState();
             }
         })
         .catch(() => {
-            btn.style.opacity = '1';
+            btn.disabled = false;
             showToast('网络异常');
             btn.textContent = isNowReady ? '准备' : '取消准备';
         });
