@@ -340,37 +340,28 @@
       });
     }
 
-    async function fetchState(isFromToggle = false) { // ★ 接收参数，区分是不是刚点完准备
+    async function fetchState() {
       try {
         const res = await fetch(`/boka/room/${ROOM_CODE}/state`);
         const data = await res.json();
         if (data.error) return;
         
-        const me = (data.players || []).find(p => p.username === MY_USERNAME);
-        const readyBtn = document.getElementById('readyBtn');
-        
-        if (me) {
-            // ★ 核心：如果正在点准备，或者刚刚点完（isFromToggle），绝对不去覆盖按钮和标签
-            if (!isTogglingReady && !isFromToggle) {
-                if (!readyBtn.disabled) {
-                    readyBtn.textContent = me.ready ? '取消准备' : '准备';
-                }
-            }
-        }
-        
         lastStatus = data;
         document.getElementById('readyCount').textContent = data.ready_count;
         document.getElementById('playerCount').textContent = data.count;
+        
+        const me = (data.players || []).find(p => p.username === MY_USERNAME);
+        const readyBtn = document.getElementById('readyBtn');
+        if (me && !readyBtn.disabled) {
+            readyBtn.textContent = me.ready ? '取消准备' : '准备';
+        }
         
         if (IS_OWNER) {
           const allReady = data.players.every(p => p.ready);
           document.getElementById('startBtn').disabled = !(allReady && data.count >= 2);
         }
         
-        // ★ 核心：如果正在点准备，或者刚刚点完，先不重绘整个列表，防止我的标签闪烁
-        if (!isTogglingReady && !isFromToggle) {
-            renderPlayers(data.players || [], data.owner);
-        }
+        renderPlayers(data.players || [], data.owner);
       } catch (e) { console.error(e); }
     }
 
