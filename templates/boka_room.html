@@ -197,30 +197,31 @@
     async function toggleReady() {
       const btn = document.getElementById('readyBtn');
       if (btn.disabled) return;
-      
-      // 1. 0 延迟，先干了再说！
-      const isNowReady = (btn.textContent.trim() === '准备');
-      btn.textContent = isNowReady ? '取消准备' : '准备';
-      
-      // 2. 立刻改变我这行的状态标签
-      document.querySelectorAll('.player-item').forEach(item => {
-          if (item.innerHTML.includes('me-suffix')) {
-              const rightDiv = item.querySelector('.flex-shrink-0');
-              if (rightDiv) {
-                  rightDiv.innerHTML = isNowReady ? `<span class="tag tag-ready">已准备</span>` : '';
-              }
-          }
-      });
-
       btn.disabled = true;
+
       try {
-        // 请求发出去，后端现在存完数据库才返回，不用担心旧数据覆盖
-        await fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' });
-        // 拿最新数据刷新，没有延迟！
-        await fetchState(); 
+        const res = await fetch(`/boka/room/${ROOM_CODE}/ready`, { method: 'POST' });
+        const data = await res.json();
+        if (data.error) { showToast(data.error); return; }
+        
+        // 更新按钮文字
+        btn.textContent = data.is_ready ? '取消准备' : '准备';
+        
+        // 更新顶部人数
+        document.getElementById('readyCount').textContent = data.ready_count;
+        document.getElementById('playerCount').textContent = data.count;
+        
+        // 更新房主开始按钮
+        if (IS_OWNER) {
+          const allReady = data.players.every(p => p.ready);
+          document.getElementById('startBtn').disabled = !(allReady && data.count >= 2);
+        }
+        
+        // 拿着后端给的最新数据，瞬间重绘列表（因为后端已经是同步保存了，所以数据是对的）
+        renderPlayers(data.players || [], data.owner);
+        
       } catch (e) {
-        showToast('网络异常');
-        btn.textContent = isNowReady ? '准备' : '取消准备';
+        showToast('网络异常'); 
       } finally {
         btn.disabled = false;
       }
