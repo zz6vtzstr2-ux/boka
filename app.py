@@ -2134,14 +2134,14 @@ def boka_ready(room_code):
     me_cache["ready"] = new_ready
     ready_count = sum(1 for p in players_cache if p["ready"])
 
-    # ★ 核心修复：去掉多线程，直接同步保存，保证接口返回时数据绝对是最新的
-    me_db = BokaPlayer.query.get(me_cache["id"])
+    # ★ 核心修复：用 filter_by 查，并用同步提交，绝对不会 500
+    me_db = BokaPlayer.query.filter_by(id=me_cache["id"]).first()
     if me_db:
         me_db.ready = new_ready
         me_db.status_changed_at = datetime.now()
         db.session.commit()
 
-    state = {
+    return jsonify({
         "room_id": room.room_code,
         "status": room.status,
         "count": len(players_cache),
@@ -2155,8 +2155,7 @@ def boka_ready(room_code):
              "ready": p["ready"], "is_ai": p["is_ai"], "is_me": p["is_me"]}
             for p in players_cache
         ],
-    }
-    return jsonify(state)
+    })
 
 @app.route('/boka/room/<room_code>/add_bot', methods=['POST'])
 @login_required
