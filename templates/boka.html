@@ -220,7 +220,15 @@
         showToast("这是电脑玩家，没有资料哦~");
         return;
       }
-      document.getElementById('profileIframe').src = '/user/' + username;
+      // ★ 核心：先清空上一次的内容，防止旧资料残留
+      const iframe = document.getElementById('profileIframe');
+      iframe.src = 'about:blank'; 
+      
+      // 给浏览器一点点时间清空，然后再加载新链接
+      setTimeout(() => {
+          iframe.src = '/user/' + username;
+      }, 10);
+      
       document.getElementById('profileModal').style.display = 'flex';
     }
     
