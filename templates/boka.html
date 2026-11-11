@@ -301,21 +301,21 @@
             jumpUrl = `/boka/room/${r.room_id}`;
           }
         } else {
-          // ... (下面加入房间的逻辑保持不变) ...
-          if (isPlaying) {
-            // ★ 房间搏卡中，允许游荡者进入房间旁观（不占座位）
+          // ★ 核心修复：只要我处于“搏卡中”或“已淘汰”（正在局内），绝对不允许加入其他房间！
+          if (myCurrentStatus.isPlaying || myCurrentStatus.isEliminated) {
+            mainBtnText = "加入房间";
+            mainBtnCls = "room-btn"; 
+            mainBtnDisabled = true;
+          } else if (isPlaying) {
             mainBtnText = "加入房间";
             mainBtnCls = "room-btn btn-blue"; 
             mainBtnDisabled = false;
           } else {
-            // 房间准备中
             mainBtnText = "加入房间";
-            if (myCurrentStatus.isPlaying || myCurrentStatus.isReady) {
-              // 规则6：准备中/搏卡中，不允许进入其他房间
+            if (myCurrentStatus.isReady) {
               mainBtnCls = "room-btn"; 
               mainBtnDisabled = true;
             } else {
-              // 游离状态，可以加入（后端自动退旧房）
               mainBtnCls = "room-btn btn-blue";
               mainBtnDisabled = false;
             }
