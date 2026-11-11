@@ -336,8 +336,12 @@
           // 他人：按玩家级 status 做互斥三合一
           const targetInGame = (p.status === "搏卡中" || p.status === "已淘汰");
           const meData = (lastStatus.players || []).find(x => x.username === MY_USERNAME);
-          const iAmInGame = meData && (meData.status === "搏卡中" || meData.status === "已淘汰");
-          const canSpectate = targetInGame && !iAmInGame;
+          
+          // ★ 核心：只有“我正在搏卡中”时，才不能观战。
+          // “我”已淘汰、游荡、在别的房间，都不影响我观战。
+          const iAmPlaying = meData && (meData.status === "搏卡中");
+          
+          const canSpectate = targetInGame && !iAmPlaying;
 
           if (targetInGame) {
             // 局内人：一律显示观战按钮（我在局里则置灰）
