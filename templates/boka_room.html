@@ -316,13 +316,13 @@
         const isMe = p.username === MY_USERNAME;
 
         let leftHtml = `
-          <div onclick="showProfile('${p.username}')" style="cursor:pointer;">
+          <div style="display:flex; align-items:center; gap:12px; cursor:pointer;" onclick="showProfile('${p.username}')">
             ${avatarHtml(p.username)}
-          </div>
-          <div class="player-name">
-            ${p.nickname}${isMe ? '<span class="me-suffix">（我）</span>' : ''}
-            ${isOwner ? '<span class="tag tag-owner">房主</span>' : ''}
-            ${p.is_ai ? '<span class="tag tag-ai">AI</span>' : ''}
+            <div class="player-name">
+              ${p.nickname}${isMe ? '<span class="me-suffix">（我）</span>' : ''}
+              ${isOwner ? '<span class="tag tag-owner">房主</span>' : ''}
+              ${p.is_ai ? '<span class="tag tag-ai">AI</span>' : ''}
+            </div>
           </div>
         `;
 
