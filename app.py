@@ -3076,16 +3076,22 @@ def boka_battle(room_code):
     spectate_target = request.args.get('spectate')
     is_spectator = False
     
-    # 先找自己
+    # 先找我自己在不在局里
     me = next((g for g in gps if g.username == current_user.username), None)
     
     if spectate_target:
-        # 如果带了观战目标，强制用目标替代自己
+        # ★ 核心防御：如果我自己在局里，且手牌大于0（正在搏卡中），绝对不许看别人！
+        if me and len(json_loads_safe(me.hand)) > 0:
+            # 强行重定向回自己的战斗视角（去掉 spectate 参数）
+            return redirect(url_for('boka_battle', room_code=room_code))
+            
+        # 如果我不在局里（None）或者已经被淘汰（手牌为0），才能去看别人
         target_gp = next((g for g in gps if g.username == spectate_target), None)
         if target_gp:
             is_spectator = True
-            me = target_gp # ★ 核心：此时 me 变成被观战者
+            me = target_gp # 把被观战者当成“我”来渲染
     elif not me:
+        # 没带观战参数，且我不在局里，踢回房间页
         return redirect(url_for('boka_room', room_code=room_code))
         
     layout = calc_boka_layout(len(gps), me.username, gps)
@@ -3097,7 +3103,7 @@ def boka_battle(room_code):
     for g in gps:
         players_view.append({
             "username": g.username, "nickname": g.nickname,
-            "is_me": g.username == me.username, # ★ 被观战者在列表中标记为 me
+            "is_me": g.username == me.username, # 视角核心
             "hand_count": len(json_loads_safe(g.hand)),
             "locked": g.locked,
         })
@@ -3105,7 +3111,6 @@ def boka_battle(room_code):
     round_phase = "比攻" if game.round_no % 2 == 1 else "比防"
     pool_count = len(json_loads_safe(game.card_pool))
     
-    # ★ 为了让前端显示的是被观战者的名字和头像，我们把传入的 user_info 替换掉
     display_nickname = me.nickname or me.username
     display_username = me.username
     
@@ -3118,7 +3123,6 @@ def boka_battle(room_code):
                            my_ready=json_loads_safe(me.ready_card) if me else [],
                            is_spectator=is_spectator, 
                            spectate_target=spectate_target or me.username,
-                           # ★ 新增：把这个传给前端替换 current_user 的显示
                            view_username=display_username,
                            view_nickname=display_nickname)
     
