@@ -861,13 +861,23 @@
                 }
               });
 
-              // 处理观战按钮置灰（一视同仁：只要是座位上的活人/活AI，都能看）
+              // ★ 核心修复：如果在战斗中，强制置灰所有观战按钮！
+              let iAmPlaying = false;
+              const myInfo = data.players_info.find(x => x.is_me);
+              if (myInfo && myInfo.hand_count > 0) {
+                  iAmPlaying = true;
+              }
+
               data.players_info.forEach(p => {
                 if (!p.is_me) {
                   const spBtn = document.getElementById(`spectate-${p.username}`);
                   if (spBtn) {
-                    // 只要这个人还没彻底退出对局（不管是真人还是AI，不管是不是淘汰），都能点
-                    spBtn.disabled = false; 
+                    // 如果我有手牌，或者对方是没进局的（虽然战斗页通常都在局内）
+                    if (iAmPlaying) {
+                        spBtn.disabled = true;
+                    } else {
+                        spBtn.disabled = false; 
+                    }
                   }
                 }
               });
