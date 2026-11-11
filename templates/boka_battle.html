@@ -809,11 +809,8 @@
         const res = await fetch(url);
         const data = await res.json();
         
-        // ★ 核心处理：如果后端查不到人（被观战者退出了），直接踢回房间
         if (data.error) { 
-          if (isSpectator) {
-            window.location.href = '/boka/room/' + roomCode;
-          }
+          if (isSpectator) window.location.href = '/boka/room/' + roomCode;
           isPolling = false; 
           return; 
         }
@@ -824,9 +821,6 @@
         currentPhase = data.phase;
         currentElapsed = elapsed;
 
-        // ==========================================
-        // ★ 数字冻结逻辑：只在非战斗期或 8 秒后刷新数字
-        // ==========================================
         const isTimeToUpdate = (elapsed === -1) || (elapsed >= TIME_UPDATE);
 
         if (isTimeToUpdate) {
@@ -845,7 +839,6 @@
                   document.getElementById('myHandCount').textContent = p.hand_count;
                   if (p.hand_count > 0) myIsPlaying = true;
                   
-                  // ★ 观战者不更新自己的托管状态，保持只读
                   if (!isSpectator) {
                     updateMyAutoUI(p.is_auto);
                   }
@@ -853,7 +846,6 @@
                   const countEl = document.getElementById(`count-${p.username}`);
                   if (countEl) countEl.textContent = p.hand_count;
                   
-                  // 只更新托管标签（没托管就隐藏）
                   const autoTag = document.getElementById(`auto-tag-${p.username}`);
                   if (autoTag) {
                     autoTag.style.display = p.is_auto ? 'inline-flex' : 'none';
@@ -861,28 +853,17 @@
                 }
               });
 
-              // ★ 核心修复：如果在战斗中，强制置灰所有观战按钮！
-              let iAmPlaying = false;
-              const myInfo = data.players_info.find(x => x.is_me);
-              if (myInfo && myInfo.hand_count > 0) {
-                  iAmPlaying = true;
-              }
-
+              // ★ 核心修复：处理观战按钮置灰
               data.players_info.forEach(p => {
                 if (!p.is_me) {
                   const spBtn = document.getElementById(`spectate-${p.username}`);
                   if (spBtn) {
-                    // 如果我有手牌，或者对方是没进局的（虽然战斗页通常都在局内）
-                    if (iAmPlaying) {
-                        spBtn.disabled = true;
-                    } else {
-                        spBtn.disabled = false; 
-                    }
+                    // 只要我是观战状态，所有其他人全都可以点！如果我是正常打牌，全锁死。
+                    spBtn.disabled = !isSpectator;
                   }
                 }
               });
 
-              // ★ 新增：观战者看到被观战者被淘汰的提示弹窗（只弹一次）
               if (isSpectator) {
                   const targetInfo = data.players_info.find(p => p.username === spectateTarget);
                   if (targetInfo && targetInfo.hand_count === 0 && !window.spectateEliminatedShown) {
@@ -907,7 +888,6 @@
 
         if (data.phase === 'selecting') {
             if (lastRound !== data.round_no || myHand.length !== data.my_hand.length || locked) {
-                // 观战者不重置自己的手牌，直接覆盖为后端给的手牌数据
                 myHand = data.my_hand || [];
                 myReady = [];
                 locked = false;
@@ -917,28 +897,23 @@
             }
         }
 
-        // ★ 核心防闪逻辑：如果刚点出战，时间还没开始走，绝对不许清空桌面！
         if (window.localLocked && elapsed < 0) {
-            // 什么都不做，保留本地问号
+            // 保留本地问号
         } else {
             if (elapsed >= 0) {
-                window.localLocked = false; // 时间开始走了，解除锁
+                window.localLocked = false; 
             }
-            // 只有在没展示宋江，且不是本地锁定时，才渲染
             if (!window.isShowingSongjiang && !window.localLocked) {
                 renderPlayedCards(data, elapsed);
             }
         }
 
-        // ==========================================
-        // ★ 结束弹窗渲染（表格化）
-        // ==========================================
         if (data.finished && !window.resultShown && (elapsed === -1 || elapsed >= TIME_UPDATE)) {
           window.resultShown = true;
           clearInterval(pollTimer);
           
           document.getElementById('resultTitle').textContent = "对局结束";
-          document.getElementById('resultLine').textContent = ""; // 清空旧文字
+          document.getElementById('resultLine').textContent = ""; 
           
           let html = `
             <table style="width:100%; border-collapse:collapse; font-size:14px; text-align:center; margin-top: 10px;">
