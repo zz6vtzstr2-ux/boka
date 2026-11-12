@@ -315,9 +315,14 @@
         const isOwner = p.username === owner;
         const isMe = p.username === MY_USERNAME;
 
+        // ★ 如果是 AI，使用立绘头像
+        const avatarSrc = p.username.startsWith('ai_') 
+            ? `/static/cards/${p.nickname}.PNG` 
+            : `/static/avatars/${p.username}.jpg`;
+
         let leftHtml = `
           <div style="display:flex; align-items:center; gap:12px; cursor:pointer;" onclick="showProfile('${p.username}')">
-            ${avatarHtml(p.username)}
+            <div class="avatar-fallback"><img src="${avatarSrc}" onerror="this.remove()" alt=""></div>
             <div class="player-name">
               ${p.nickname}${isMe ? '<span class="me-suffix">（我）</span>' : ''}
               ${isOwner ? '<span class="tag tag-owner">房主</span>' : ''}
