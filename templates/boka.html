@@ -354,25 +354,30 @@
             `;
           }
 
-          let playerLeftHtml = `
-            <div class="room-player-left">
-              ${avatarHtml(p.username)}
-              <div class="player-info-text">
-                ${p.name}${isMe ? '<span class="me-tag">（我）</span>' : ''}${isOwner ? '<span class="owner-tag">房主</span>' : ''}
-              </div>
-            </div>
-          `;
+          // ★ 核心：大厅里如果是 AI，也用立绘头像
+        const avatarSrc = isAI 
+            ? `/static/cards/${p.name}.PNG` 
+            : `/static/avatars/${p.username}.jpg`;
 
-          if (!isAI) {
-              playerLeftHtml = `
-                <div class="room-player-left" style="cursor: pointer;" onclick="event.stopPropagation(); showProfile('${p.username}')">
-                  ${avatarHtml(p.username)}
-                  <div class="player-info-text">
-                    ${p.name}${isMe ? '<span class="me-tag">（我）</span>' : ''}${isOwner ? '<span class="owner-tag">房主</span>' : ''}
-                  </div>
+        let playerLeftHtml = `
+          <div class="room-player-left">
+            <div class="avatar-fallback small"><img src="${avatarSrc}" onerror="this.remove()" alt=""></div>
+            <div class="player-info-text">
+              ${p.name}${isMe ? '<span class="me-tag">（我）</span>' : ''}${isOwner ? '<span class="owner-tag">房主</span>' : ''}
+            </div>
+          </div>
+        `;
+
+        if (!isAI) {
+            playerLeftHtml = `
+              <div class="room-player-left" style="cursor: pointer;" onclick="event.stopPropagation(); showProfile('${p.username}')">
+                <div class="avatar-fallback small"><img src="${avatarSrc}" onerror="this.remove()" alt=""></div>
+                <div class="player-info-text">
+                  ${p.name}${isMe ? '<span class="me-tag">（我）</span>' : ''}${isOwner ? '<span class="owner-tag">房主</span>' : ''}
                 </div>
-              `;
-          }
+              </div>
+            `;
+        }
 
           playersHtml += `
             <div class="room-player-row">
