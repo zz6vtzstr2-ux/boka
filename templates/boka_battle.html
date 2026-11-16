@@ -110,21 +110,24 @@
       overflow: hidden !important;
       -webkit-tap-highlight-color: transparent !important; 
     }
+    /* 创建一个不可见的黑色蒙层（加深颜色） */
     .top-btn::after, .pill-btn::after, .my-auto-btn::after, .play-btn::after {
       content: '';
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.15); /* ★ 阴影颜色的深浅在这里调 */
+      background: rgba(0, 0, 0, 0.25); /* ★ 阴影加深，从 0.15 调到 0.25 */
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.1s ease;
     }
+
+    /* ★ 核心：按下的瞬间，蒙层瞬间出现！ */
     .top-btn:active:not(:disabled)::after,
     .pill-btn:active:not(:disabled)::after,
     .my-auto-btn:active:not(:disabled)::after,
     .play-btn:active:not(:disabled)::after {
       opacity: 1;
-      transition: opacity 0s; /* 瞬间闪现，0延迟 */
+      transition: opacity 0.2s; /* ★ 让阴影停留0.2秒再消散，确保眼睛能看清 */
     }
     .top-btn:active:not(:disabled), 
     .pill-btn:active:not(:disabled), 
