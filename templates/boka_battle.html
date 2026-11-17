@@ -99,6 +99,13 @@
     .pill-btn.pill-gray { background: #ffffff; color: #666; cursor: pointer; }
     .pill-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15); }
     .pill-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); }
+    /* ★ 核心：彻底禁用置灰状态下的物理反馈 */
+    .pill-btn:disabled:active, 
+    .pill-btn:disabled:hover {
+      transform: none !important;
+      box-shadow: none !important;
+      background-color: #e8e8e8 !important;
+    }
     .pill-btn:disabled { background: #e8e8e8 !important; color: #aaa !important; border-color: #ccc !important; cursor: not-allowed; box-shadow: none !important; }
 
     /* ===== 我的托管按钮 ===== */
@@ -123,7 +130,7 @@
     
     <!-- 右侧 -->
     <div style="display: flex; gap: 6px; align-items: center; flex-wrap: nowrap;">
-      <button class="top-btn" onclick="temporaryLeave()">暂离</button>
+      <button class="top-btn" onclick="doLeave()">暂离</button>
       <button class="top-btn" id="exitBtn" style="background: #5bb8e8; color: #fff; border-color: #4aa8d8;" onclick="doQuit()">退出</button>
       <button class="top-btn danger" onclick="discardCards()">弃卡</button>
     </div>
