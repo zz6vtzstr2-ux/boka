@@ -294,9 +294,7 @@ class Mail(db.Model):
     claimed_at = db.Column(db.DateTime, nullable=True)
 
 class BossFightRecord(db.Model):
-    """记录每一次 Boss 出战的详细历史（便于按周/月查数据）"""
     __tablename__ = "boss_fight_record"
-
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     week_num = db.Column(db.Integer, nullable=False)
