@@ -3764,6 +3764,16 @@ def world_boss_finish():
         db.session.add(record)
     record.total_damage += b.damage
     record.last_hit_at = now
+    
+    # ★ 核心：存入历史明细表
+    history_rec = BossFightRecord(
+        user_id=current_user.id,
+        week_num=wb.week_num,
+        damage=b.damage,
+        fought_at=now
+    )
+    db.session.add(history_rec)
+
     db.session.delete(b)
     db.session.commit()
     return jsonify({"success": True, "damage": b.damage,
@@ -3779,17 +3789,105 @@ def data_page():
 @app.route('/data/<mode>')
 @login_required
 def data_rank(mode):
+    from sqlalchemy import extract, func
+    from datetime import datetime, timedelta
+
+    year = request.args.get('year', 'all')
+    month = request.args.get('month', 'all')
+    week = request.args.get('week', 'all')
+
     users = User.query.all()
+    user_map = {u.id: u for u in users}
     ranks = []
-    for u in users:
-        nickname = u.nickname or u.username
-        if mode == 'boka':
-            value = u.score
-        elif mode == 'challenge':
-            value = u.challenge_level - 1 if u.challenge_level > 0 else 0
-        else:
-            value = 0
-        ranks.append({"nickname": nickname, "value": value, "games": 0, "username": u.username})
+
+    if mode == 'boka':
+        # ★ 搏卡数据：按 BokaGameRecord 查
+        query = BokaGameRecord.query
+        if year != 'all':
+            query = query.filter(extract('year', BokaGameRecord.played_at) == int(year))
+        if month != 'all':
+            query = query.filter(extract('month', BokaGameRecord.played_at) == int(month))
+            # 注：你说 boka 如果选了周，就用周一所在月。所以前端如果传了周，boka 这里忽略 week，直接用月。
+        
+        records = query.all()
+        # 聚合统计
+        stats = {}
+        for r in records:
+            if r.username not in stats:
+                stats[r.username] = {'username': r.username, 'value': 0, 'games': 0}
+            stats[r.username]['value'] += r.score_change
+            stats[r.username]['games'] += 1
+        
+        for u_name, s in stats.items():
+            u = User.query.filter_by(username=u_name).first()
+            if u:
+                s['nickname'] = u.nickname or u.username
+                ranks.append(s)
+
+    elif mode == 'challenge':
+        # ★ 挑战数据：按 ChallengeRecord 查
+        query = ChallengeRecord.query
+        if year != 'all':
+            query = query.filter(extract('year', ChallengeRecord.played_at) == int(year))
+        if month != 'all':
+            query = query.filter(extract('month', ChallengeRecord.played_at) == int(month))
+        
+        records = query.all()
+        stats = {}
+        for r in records:
+            u = user_map.get(r.user_id)
+            if not u: continue
+            username = u.username
+            if username not in stats:
+                stats[username] = {'username': username, 'value': 0, 'games': 0}
+            stats[username]['value'] = max(stats[username]['value'], r.level)
+            stats[username]['games'] += 1
+        
+        for u_name, s in stats.items():
+            u = User.query.filter_by(username=u_name).first()
+            if u:
+                s['nickname'] = u.nickname or u.username
+                ranks.append(s)
+
+    elif mode == 'boss':
+        # ★ Boss 数据：按 BossFightRecord 查
+        query = BossFightRecord.query
+        if year != 'all':
+            query = query.filter(extract('year', BossFightRecord.fought_at) == int(year))
+        if month != 'all':
+            query = query.filter(extract('month', BossFightRecord.fought_at) == int(month))
+        
+        if week != 'all':
+            # 计算目标周的时间范围 (比如选了第 1 周，就找那个月第一个周一到现在)
+            # 这里为了简化，我们假设第 X 周，是从该月 1 号起，每隔 7 天算一周
+            if year != 'all' and month != 'all':
+                start_date = datetime(int(year), int(month), 1)
+                # 找到该月的第一个周一
+                while start_date.weekday() != 0:
+                    start_date += timedelta(days=1)
+                # 累加周数
+                start_date += timedelta(days=(int(week) - 1) * 7)
+                end_date = start_date + timedelta(days=7)
+                query = query.filter(BossFightRecord.fought_at >= start_date, BossFightRecord.fought_at < end_date)
+
+        records = query.all()
+        stats = {}
+        for r in records:
+            u = user_map.get(r.user_id)
+            if not u: continue
+            username = u.username
+            if username not in stats:
+                stats[username] = {'username': username, 'value': 0, 'games': 0}
+            stats[username]['value'] += r.damage
+            stats[username]['games'] += 1
+
+        for u_name, s in stats.items():
+            u = User.query.filter_by(username=u_name).first()
+            if u:
+                s['nickname'] = u.nickname or u.username
+                ranks.append(s)
+
+    # 排序输出
     ranks.sort(key=lambda x: x["value"], reverse=True)
     return jsonify({"ranks": ranks})
 
@@ -4026,6 +4124,7 @@ with app.app_context():
         'ALTER TABLE "boka_game_player" ADD COLUMN IF NOT EXISTS beauty_used INTEGER DEFAULT 0',
         'ALTER TABLE "boka_game_player" ADD COLUMN IF NOT EXISTS beauty_used INTEGER DEFAULT 0',
         'ALTER TABLE "boka_game_player" ADD COLUMN IF NOT EXISTS is_auto BOOLEAN DEFAULT FALSE',
+        'ALTER TABLE "boss_fight_record" ADD COLUMN IF NOT EXISTS fought_at TIMESTAMP',
     ]
     try:
         with db.engine.begin() as conn:
