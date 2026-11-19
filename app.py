@@ -10,7 +10,7 @@ from models import (
     WorldBoss, BossDeck, BossDamage, BossBattle,
     BokaRoom, BokaPlayer,
     BokaGame, BokaGamePlayer, BokaGameRecord,
-    ChallengeRecord, Mail,
+    ChallengeRecord, Mail, BossFightRecord, # ← 加上这个
 )
 from cards_data import CARDS, CARD_BY_NAME, CARD_BY_ID
 from combos_data import COMBOS, SPECIAL_CARDS
