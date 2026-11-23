@@ -3957,16 +3957,101 @@ def mail_claim(mid):
     return jsonify({"success": True, "gold": m.gold, "total_gold": current_user.gold})
 
 # ========== 我的资料 ==========
+# ---- 主页看自己（全屏页面） ----
 @app.route('/profile')
 @login_required
 def profile():
-    trophies = current_user.get_champion_months()
+    user = current_user
+    
+    # 1. 搏卡数据
+    boka_records = BokaGameRecord.query.filter_by(username=user.username).all()
+    boka_games = len(boka_records)
+    boka_sum = sum(r.score_change for r in boka_records)
+    boka_avg = round(boka_sum / boka_games, 1) if boka_games else 0
+    month_start = get_current_season_start()
+    month_records = [r for r in boka_records if r.played_at and r.played_at >= month_start]
+    month_score = sum(r.score_change for r in month_records)
+    all_users_month_scores = {u.username: sum(r.score_change for r in boka_records if r.username == u.username and r.played_at >= month_start) for u in User.query.all()}
+    sorted_month = sorted(all_users_month_scores.values(), reverse=True)
+    month_rank = sorted_month.index(month_score) + 1 if month_score in sorted_month else '--'
+    
+    # 2. 挑战数据
+    chal_records = ChallengeRecord.query.filter_by(user_id=user.id).all()
+    chal_games = len(chal_records)
+    chal_wins = sum(1 for r in chal_records if r.won)
+    chal_winrate = f"{round((chal_wins / chal_games) * 100, 1)}%" if chal_games else "0%"
+    chal_max_lv = max((r.level for r in chal_records), default=0)
+    
+    # 3. Boss 数据
+    boss_records = BossFightRecord.query.filter_by(user_id=user.id).all()
+    boss_games = len(boss_records)
+    boss_sum = sum(r.damage for r in boss_records)
+    boss_avg = round(boss_sum / boss_games, 1) if boss_games else 0
+    this_week = get_current_week_num()
+    this_week_recs = [r for r in boss_records if r.week_num == this_week]
+    week_damage = sum(r.damage for r in this_week_recs)
+    all_users_week_damages = {u.username: sum(r.damage for r in boss_records if r.user_id == u.id and r.week_num == this_week) for u in User.query.all()}
+    sorted_week = sorted(all_users_week_damages.values(), reverse=True)
+    week_rank = sorted_week.index(week_damage) + 1 if week_damage in sorted_week else '--'
+
     return render_template('profile.html',
-                           trophies=trophies,
-                           boka_best=current_user.boka_best_score,
-                           boka_best_time=current_user.boka_best_time,
-                           boss_best=current_user.boss_best_damage,
-                           boss_best_time=current_user.boss_best_time)
+        trophies=user.get_champion_months(),
+        month_score=month_score, month_rank=month_rank,
+        boka_best=user.boka_best_score or 0, boka_best_time=user.boka_best_time or "",
+        boka_avg=boka_avg, boka_games=boka_games,
+        chal_max_lv=chal_max_lv, chal_games=chal_games, chal_winrate=chal_winrate,
+        week_damage=week_damage, week_rank=week_rank,
+        boss_best=user.boss_best_damage or 0, boss_best_time=user.boss_best_time or "",
+        boss_avg=boss_avg
+    )
+
+# ---- 弹窗看任何人（包含自己） ----
+@app.route('/user/<username>')
+@login_required
+def user_profile(username):
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return "玩家不存在", 404
+        
+    boka_records = BokaGameRecord.query.filter_by(username=user.username).all()
+    boka_games = len(boka_records)
+    boka_sum = sum(r.score_change for r in boka_records)
+    boka_avg = round(boka_sum / boka_games, 1) if boka_games else 0
+    month_start = get_current_season_start()
+    month_records = [r for r in boka_records if r.played_at and r.played_at >= month_start]
+    month_score = sum(r.score_change for r in month_records)
+    all_users_month_scores = {u.username: sum(r.score_change for r in boka_records if r.username == u.username and r.played_at >= month_start) for u in User.query.all()}
+    sorted_month = sorted(all_users_month_scores.values(), reverse=True)
+    month_rank = sorted_month.index(month_score) + 1 if month_score in sorted_month else '--'
+    
+    chal_records = ChallengeRecord.query.filter_by(user_id=user.id).all()
+    chal_games = len(chal_records)
+    chal_wins = sum(1 for r in chal_records if r.won)
+    chal_winrate = f"{round((chal_wins / chal_games) * 100, 1)}%" if chal_games else "0%"
+    chal_max_lv = max((r.level for r in chal_records), default=0)
+    
+    boss_records = BossFightRecord.query.filter_by(user_id=user.id).all()
+    boss_games = len(boss_records)
+    boss_sum = sum(r.damage for r in boss_records)
+    boss_avg = round(boss_sum / boss_games, 1) if boss_games else 0
+    this_week = get_current_week_num()
+    this_week_recs = [r for r in boss_records if r.week_num == this_week]
+    week_damage = sum(r.damage for r in this_week_recs)
+    all_users_week_damages = {u.username: sum(r.damage for r in boss_records if r.user_id == u.id and r.week_num == this_week) for u in User.query.all()}
+    sorted_week = sorted(all_users_week_damages.values(), reverse=True)
+    week_rank = sorted_week.index(week_damage) + 1 if week_damage in sorted_week else '--'
+
+    return render_template('user_profile.html',
+        profile_user=user, 
+        trophies=user.get_champion_months(),
+        month_score=month_score, month_rank=month_rank,
+        boka_best=user.boka_best_score or 0, boka_best_time=user.boka_best_time or "",
+        boka_avg=boka_avg, boka_games=boka_games,
+        chal_max_lv=chal_max_lv, chal_games=chal_games, chal_winrate=chal_winrate,
+        week_damage=week_damage, week_rank=week_rank,
+        boss_best=user.boss_best_damage or 0, boss_best_time=user.boss_best_time or "",
+        boss_avg=boss_avg
+    )
 
 @app.route('/change_password', methods=['POST'])
 @login_required
@@ -4007,32 +4092,6 @@ def upload_avatar():
     current_user.last_avatar_change = datetime.now()
     db.session.commit()
     return redirect(url_for('profile'))
-
-@app.route('/user/<username>')
-@login_required
-def user_profile(username):
-    user = User.query.filter_by(username=username).first()
-    if not user:
-        return "玩家不存在", 404
-    trophies = user.get_champion_months()
-    return render_template('user_profile.html',
-                           profile_user=user, trophies=trophies,
-                           boka_best=user.boka_best_score,
-                           boka_best_time=user.boka_best_time,
-                           boss_best=user.boss_best_damage,
-                           boss_best_time=user.boss_best_time,
-                           score=user.score or 0) # ★ 新增：传积分
-
-@app.route('/player_profile')
-@login_required
-def player_profile():
-    trophies = current_user.get_champion_months()
-    return render_template('player_profile.html',
-                           trophies=trophies,
-                           boka_best=current_user.boka_best_score,
-                           boka_best_time=current_user.boka_best_time,
-                           boss_best=current_user.boss_best_damage,
-                           boss_best_time=current_user.boss_best_time)
 # ========== 临时创建账号 ==========
 @app.route('/init_accounts')
 def init_accounts():
