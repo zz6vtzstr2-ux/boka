@@ -205,25 +205,28 @@
     <div class="panel">
       <div class="panel-title">我的数据</div>
       <div class="data-tabs">
-        <button onclick="showData('boka', this)">搏卡</button>
+        <button class="active" onclick="showData('boka', this)">搏卡</button>
         <button onclick="showData('challenge', this)">个人挑战</button>
         <button onclick="showData('boss', this)">世界Boss</button>
       </div>
-      <div class="data-content" id="data-boka">
-        <div class="row best">历史最高：{{ boka_best }}（达成时间：{{ boka_best_time }}）</div>
-        <div class="row">平均分数：--</div>
-        <div class="row">平均排名：--</div>
-        <div class="row">平均场次：--</div>
+      
+      <div class="data-content active" id="data-boka">
+        <div class="row">本月积分：<span class="best">{{ month_score }}（排名: {{ month_rank }}）</span></div>
+        <div class="row">历史最高：{{ boka_best }}（{{ boka_best_time }}）</div>
+        <div class="row">平均分数：{{ boka_avg }}</div>
+        <div class="row">本月场次：{{ boka_games }} 场</div>
       </div>
+      
       <div class="data-content" id="data-challenge">
-        <div class="row">目前关卡：--</div>
-        <div class="row">获胜场次：--</div>
-        <div class="row">失败场次：--</div>
+        <div class="row">最高关卡：{{ chal_max_lv }}</div>
+        <div class="row">参加场次：{{ chal_games }} 场</div>
+        <div class="row">获胜场次：{{ chal_winrate }}</div>
       </div>
+      
       <div class="data-content" id="data-boss">
-        <div class="row best">历史最高：{{ boss_best }}（达成时间：{{ boss_best_time }}）</div>
-        <div class="row">平均伤害：--</div>
-        <div class="row">平均排名：--</div>
+        <div class="row">本周伤害：<span class="best">{{ week_damage }}（排名: {{ week_rank }}）</span></div>
+        <div class="row">历史最高：{{ boss_best }}（{{ boss_best_time }}）</div>
+        <div class="row">平均伤害：{{ boss_avg }}</div>
       </div>
     </div>
 
