@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据排行榜 · 搏卡游戏</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "LXGW WenKai", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background-color: #e8e0cc; color: #333; margin: 0; padding: 16px 16px 90px 16px; min-height: 100vh;
+    }
+    .container { max-width: 868px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.92); border: 1px solid #d8d0bc; border-radius: 16px; padding: 16px 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); margin-bottom: 16px; }
+    .title-block .page-name { font-size: 28px; font-weight: bold; color: #2c3e50; letter-spacing: 4px; text-indent: 4px; }
+    .back-btn { background: #fce8ec; padding: 10px 20px; border-radius: 8px; border: 1px solid #e8c8d0; font-size: 15px; color: #b85a6a; text-decoration: none; white-space: nowrap; }
+    .panel { background: rgba(255,255,255,0.92); border: 1px solid #d8d0bc; border-radius: 16px; padding: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); margin-bottom: 16px; }
+    .panel-title { display: inline-block; background: #fdf6d8; color: #8a6d1f; padding: 8px 20px; border-radius: 20px; border: 1px solid #f0e0a0; font-size: 18px; font-weight: bold; letter-spacing: 3px; text-indent: 3px; margin-bottom: 16px; }
+    
+    /* 筛选区 */
+    .filter-row { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+    @media (min-width: 600px) { .filter-row { flex-direction: row; align-items: center; } }
+    .filter-item { display: flex; align-items: center; gap: 8px; flex: 1; }
+    .filter-item label { font-size: 14px; font-weight: bold; color: #666; white-space: nowrap; }
+    .filter-item select { flex: 1; padding: 10px 12px; border: 1px solid #d8d0bc; border-radius: 8px; background: #fdfaf0; font-family: inherit; font-size: 14px; color: #333; outline: none; cursor: pointer; }
+    .filter-item select:disabled { background: #e0e0e0; color: #aaa; cursor: not-allowed; }
+
+    /* Tabs（照抄玩家资料） */
+    .data-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .data-tabs button {
+      flex: 1; padding: 10px 6px; border: none; border-radius: 12px; cursor: pointer;
+      background: #5bb8e8; color: #fff; font-size: 14px; font-weight: bold; font-family: inherit; letter-spacing: 1px;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3); transition: transform 0.15s; white-space: nowrap;
+    }
+    .data-tabs button:hover { transform: translateY(-2px); background: #4aa8d8; }
+    .data-tabs button.active { background: #3d8ec9; }
+
+    .data-title { text-align: center; font-size: 16px; color: #8a6d1f; font-weight: bold; margin-bottom: 12px; }
+
+    /* 表格 & 冻结首列 */
+    .table-wrap { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; min-width: 400px; border-collapse: collapse; }
+    th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #f0e8d0; font-size: 14px; white-space: nowrap; }
+    th { color: #888; font-weight: bold; }
+    .sticky-col { position: sticky; left: 0; background: rgba(255,255,255,0.95); z-index: 1; border-right: 1px solid #f0e8d0; }
+    td img { width: 32px; height: 32px; border-radius: 6px; vertical-align: middle; margin-right: 8px; object-fit: cover; border: 1px solid #e0d8c0; }
+    td a { color: #2c3e50; text-decoration: none; font-weight: bold; }
+    td a:hover { color: #b85a6a; }
+    .val-col { font-weight: bold; color: #b85a6a; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title-block"><div class="page-name">数据排行榜</div></div>
+      <a href="/" class="back-btn">返回主页</a>
+    </div>
+
+    <!-- 筛选 -->
+    <div class="panel">
+      <div class="panel-title">数据筛选</div>
+      <div class="filter-row">
+        <div class="filter-item">
+          <label>时间</label>
+          <select id="yearSelect">
+            <option value="all">总数据</option>
+            <!-- 动态填充 -->
+          </select>
+        </div>
+        <div class="filter-item">
+          <label>月份</label>
+          <select id="monthSelect" disabled>
+            <option value="all">全部月份</option>
+            <option value="1">1月</option>...
+            <option value="12">12月</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <label>周次</label>
+          <select id="weekSelect" disabled>
+            <option value="all">全月</option>
+            <option value="1">第 1 周</option>...
+            <option value="5">第 5 周</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 数据展示 -->
+    <div class="panel">
+      <div class="data-tabs">
+        <button class="active" onclick="showMode('boka', this)">搏卡</button>
+        <button onclick="showMode('challenge', this)">个人挑战</button>
+        <button onclick="showMode('boss', this)">世界 Boss</button>
+      </div>
+      
+      <div class="data-title" id="modeTitle">搏卡总榜</div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="sticky-col">玩家</th>
+              <th id="col2">积分</th>
+              <th id="col3">场次</th>
+            </tr>
+          </thead>
+          <tbody id="rankBody">
+            <tr><td colspan="3" style="text-align:center; color:#aaa;">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let mode = 'boka';
+
+    // 年份动态填充（从 2026 年开始）
+    const yearSelect = document.getElementById('yearSelect');
+    const currentYear = new Date().getFullYear();
+    const startYear = Math.max(2026, currentYear);
+    for (let y = startYear; y >= 2026; y--) {
+        const opt = document.createElement('option');
+        opt.value = y; opt.textContent = y + '年';
+        yearSelect.appendChild(opt);
+    }
+
+    // 级联选择控制
+    yearSelect.addEventListener('change', () => {
+      const monthSelect = document.getElementById('monthSelect');
+      const weekSelect = document.getElementById('weekSelect');
+      if (yearSelect.value === 'all') {
+        monthSelect.value = 'all'; monthSelect.disabled = true;
+        weekSelect.value = 'all'; weekSelect.disabled = true;
+      } else {
+        monthSelect.disabled = false;
+      }
+      loadRank();
+    });
+
+    document.getElementById('monthSelect').addEventListener('change', () => {
+      const weekSelect = document.getElementById('weekSelect');
+      if (document.getElementById('monthSelect').value === 'all') {
+        weekSelect.value = 'all'; weekSelect.disabled = true;
+      } else {
+        weekSelect.disabled = false;
+      }
+      loadRank();
+    });
+
+    document.getElementById('weekSelect').addEventListener('change', loadRank);
+
+    function showMode(m, btn) {
+      mode = m;
+      document.querySelectorAll('.data-tabs button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      const col2 = document.getElementById('col2');
+      const col3 = document.getElementById('col3');
+      
+      if (m === 'challenge') {
+        col2.textContent = '最高关卡';
+        col3.textContent = '胜率 / 场次';
+      } else if (m === 'boss') {
+        col2.textContent = '总伤害';
+        col3.textContent = '最高伤害 / 次数';
+      } else {
+        col2.textContent = '积分增减';
+        col3.textContent = '场次';
+      }
+      loadRank();
+    }
+
+    async function loadRank() {
+      const body = document.getElementById('rankBody');
+      body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#aaa;">加载中...</td></tr>';
+      
+      const year = yearSelect.value;
+      const month = document.getElementById('monthSelect').value;
+      const week = document.getElementById('weekSelect').value;
+      
+      const params = new URLSearchParams({ year, month, week });
+      const url = `/data/${mode}?${params.toString()}`;
+      
+      // 更新标题
+      let titleStr = year === 'all' ? "历史总榜 " : year + "年 ";
+      if (month !== 'all') titleStr += month + "月 ";
+      if (week !== 'all') titleStr += "第" + week + "周 ";
+      titleStr += (mode === 'boka' ? "搏卡" : (mode === 'challenge' ? "挑战" : "Boss"));
+      document.getElementById('modeTitle').textContent = titleStr + " 数据";
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        body.innerHTML = '';
+        
+        if (!data.ranks || data.ranks.length === 0) {
+            body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#aaa; padding:20px;">该时间段暂无数据</td></tr>';
+            return;
+        }
+
+        data.ranks.forEach((r) => {
+          const tr = document.createElement('tr');
+          const isAI = r.username.startsWith('ai_');
+          const avatarSrc = isAI ? `/static/cards/${r.nickname}.PNG` : `/static/avatars/${r.username}.jpg`;
+          const avatarHtml = isAI 
+              ? `<img src="${avatarSrc}" onerror="this.src='/static/cards/default.PNG'">`
+              : `<img src="${avatarSrc}" onerror="this.remove()">`;
+          const nameHtml = r.nickname;
+
+          let col2Text = r.value || 0;
+          let col3Text = r.games || 0;
+          
+          if (mode === 'challenge') {
+            const winRate = r.games > 0 ? ((r.wins / r.games) * 100).toFixed(1) + '%' : '0%';
+            col3Text = `${winRate} / ${r.games}场`;
+          } else if (mode === 'boss') {
+            col3Text = `${r.max_dmg || 0} / ${r.games}次`;
+          }
+
+          tr.innerHTML = `
+            <td class="sticky-col" style="cursor:pointer;" onclick="showProfile('${r.username}')">${avatarHtml} ${nameHtml}</td>
+            <td class="val-col">${col2Text}</td>
+            <td>${col3Text}</td>
+          `;
+          body.appendChild(tr);
+        });
+      } catch (e) {
+        body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#b85a6a; padding:20px;">网络异常</td></tr>';
+      }
+    }
+
+    function showProfile(username) {
+      if (username.startsWith('ai_')) { return; }
+      const iframe = document.getElementById('profileIframe');
+      iframe.src = 'about:blank';
+      setTimeout(() => { iframe.src = '/user/' + username; }, 10);
+      document.getElementById('profileModal').style.display = 'flex';
+    }
+
+    showMode('boka', document.querySelector('.data-tabs button'));
+  </script>
+
+  <!-- 资料弹窗 (复用其他页面的) -->
+  <div id="profileModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
+    <div style="background:#e8e0cc; width:95%; max-width:500px; height:85vh; border-radius:20px; border:4px double #f0e0a0; position:relative; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.5); display:flex; flex-direction:column;">
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#fffdf5; border-bottom:1px solid #d8d0bc; z-index:10;">
+        <h3 style="margin:0; color:#8a6d1f; font-size:22px;">玩家资料</h3>
+        <button onclick="document.getElementById('profileModal').style.display='none'" style="background:#fce8ec; color:#b85a6a; border:1px solid #e8c8d0; padding:8px 24px; border-radius:8px; font-size:16px; font-weight:bold; font-family:inherit; cursor:pointer;">关闭</button>
+      </div>
+      <iframe id="profileIframe" src="" style="flex:1; width:100%; border:none; background:#e8e0cc;"></iframe>
+    </div>
+  </div>
+</body>
+</html>
