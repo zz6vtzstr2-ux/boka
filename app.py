@@ -3961,84 +3961,108 @@ def mail_claim(mid):
 def get_profile_stats(user):
     from sqlalchemy import func
     
-    # 1. 搏卡数据
+    # ================= 1. 搏卡数据 =================
     boka_records = BokaGameRecord.query.filter_by(username=user.username).all()
     boka_games = len(boka_records)
     boka_sum = sum(r.score_change for r in boka_records)
     boka_avg = round(boka_sum / boka_games, 1) if boka_games else 0
     
-    # 本月搏卡积分和排名
     month_start = get_current_season_start()
     month_records = [r for r in boka_records if r.played_at and r.played_at >= month_start]
     month_score = sum(r.score_change for r in month_records)
     
-    all_users_month_scores = {}
-    all_users_boka_avg = {}
-    for u in User.query.all():
-        u_recs = BokaGameRecord.query.filter_by(username=u.username).all()
-        # 本月分
-        u_month_recs = [r for r in u_recs if r.played_at and r.played_at >= month_start]
-        all_users_month_scores[u.username] = sum(r.score_change for r in u_month_recs)
-        # 平均分
-        u_sum = sum(r.score_change for r in u_recs)
-        all_users_boka_avg[u.username] = round(u_sum / len(u_recs), 1) if u_recs else 0
-
-    sorted_month = sorted(all_users_month_scores.values(), reverse=True)
-    month_rank = sorted_month.index(month_score) + 1 if month_score in sorted_month else '--'
-    
-    sorted_avg = sorted(all_users_boka_avg.values(), reverse=True)
-    avg_rank = sorted_avg.index(boka_avg) + 1 if boka_avg in sorted_avg else '--'
-
-    # 历史最高（取存储的最高和本月分数的最大值）
     boka_best = user.boka_best_score or 0
     boka_best_time = user.boka_best_time or ""
     if month_score > boka_best:
         boka_best = month_score
         boka_best_time = "本月"
 
-    # 2. 挑战数据
+    all_users_month_scores = {}
+    all_users_boka_avg = {}
+    all_users_boka_games = {}
+    all_users_boka_best = {}
+    for u in User.query.all():
+        u_recs = BokaGameRecord.query.filter_by(username=u.username).all()
+        u_month_recs = [r for r in u_recs if r.played_at and r.played_at >= month_start]
+        all_users_month_scores[u.username] = sum(r.score_change for r in u_month_recs)
+        u_sum = sum(r.score_change for r in u_recs)
+        all_users_boka_avg[u.username] = round(u_sum / len(u_recs), 1) if u_recs else 0
+        all_users_boka_games[u.username] = len(u_recs)
+        u_best = u.boka_best_score or 0
+        u_current_month_score = sum(r.score_change for r in u_month_recs)
+        all_users_boka_best[u.username] = max(u_best, u_current_month_score)
+
+    def get_rank(val, data_dict):
+        sorted_vals = sorted(data_dict.values(), reverse=True)
+        return sorted_vals.index(val) + 1 if val in sorted_vals else '--'
+
+    # ================= 2. 挑战数据 =================
     chal_records = ChallengeRecord.query.filter_by(user_id=user.id).all()
     chal_games = len(chal_records)
     chal_wins = sum(1 for r in chal_records if r.won)
-    chal_winrate = f"{round((chal_wins / chal_games) * 100, 1)}%" if chal_games else "0%"
+    chal_winrate_val = (chal_wins / chal_games) if chal_games else 0
+    chal_winrate = f"{round(chal_winrate_val * 100, 1)}%"
     chal_max_lv = max((r.level for r in chal_records), default=0)
 
-    # 3. Boss 数据
+    all_users_chal_lv = {}
+    all_users_chal_games = {}
+    all_users_chal_wins = {}
+    all_users_chal_winrate = {}
+    for u in User.query.all():
+        u_recs = ChallengeRecord.query.filter_by(user_id=u.id).all()
+        u_games = len(u_recs)
+        u_wins = sum(1 for r in u_recs if r.won)
+        all_users_chal_lv[u.username] = max((r.level for r in u_recs), default=0)
+        all_users_chal_games[u.username] = u_games
+        all_users_chal_wins[u.username] = u_wins
+        # 胜率排名：按胜率高低排，如果胜率一样，场次多的排前面（体现含金量）
+        all_users_chal_winrate[u.username] = (u_wins / u_games) if u_games else 0
+
+    sorted_winrate_keys = sorted(all_users_chal_winrate.keys(), key=lambda k: (all_users_chal_winrate[k], all_users_chal_games[k]), reverse=True)
+    chal_winrate_rank = sorted_winrate_keys.index(user.username) + 1 if user.username in sorted_winrate_keys else '--'
+
+    # ================= 3. Boss 数据 =================
     boss_records = BossFightRecord.query.filter_by(user_id=user.id).all()
     boss_games = len(boss_records)
     boss_sum = sum(r.damage for r in boss_records)
     boss_avg = round(boss_sum / boss_games, 1) if boss_games else 0
+    
+    boss_best = user.boss_best_damage or 0
+    boss_best_time = user.boss_best_time or ""
+    this_week = get_current_week_num()
+    this_week_recs = [r for r in boss_records if r.week_num == this_week]
+    week_damage = sum(r.damage for r in this_week_recs)
+    if week_damage > boss_best:
+        boss_best = week_damage
+        boss_best_time = "本周"
 
     all_users_week_damages = {}
     all_users_boss_avg = {}
-    this_week = get_current_week_num()
+    all_users_boss_best = {}
     for u in User.query.all():
         u_recs = BossFightRecord.query.filter_by(user_id=u.id).all()
-        # 本周伤害
         u_week_recs = [r for r in u_recs if r.week_num == this_week]
         all_users_week_damages[u.username] = sum(r.damage for r in u_week_recs)
-        # 平均伤害
         u_sum = sum(r.damage for r in u_recs)
         all_users_boss_avg[u.username] = round(u_sum / len(u_recs), 1) if u_recs else 0
-
-    # 本周 Boss 伤害和排名
-    this_week_recs = [r for r in boss_records if r.week_num == this_week]
-    week_damage = sum(r.damage for r in this_week_recs)
-
-    sorted_week = sorted(all_users_week_damages.values(), reverse=True)
-    week_rank = sorted_week.index(week_damage) + 1 if week_damage in sorted_week else '--'
-
-    sorted_boss_avg = sorted(all_users_boss_avg.values(), reverse=True)
-    boss_avg_rank = sorted_boss_avg.index(boss_avg) + 1 if boss_avg in sorted_boss_avg else '--'
+        u_best = u.boss_best_damage or 0
+        u_current_week_dmg = sum(r.damage for r in u_week_recs)
+        all_users_boss_best[u.username] = max(u_best, u_current_week_dmg)
 
     return {
-        "month_score": month_score, "month_rank": month_rank,
-        "boka_best": boka_best, "boka_best_time": boka_best_time,
-        "boka_avg": boka_avg, "boka_avg_rank": avg_rank, "boka_games": boka_games,
-        "chal_max_lv": chal_max_lv, "chal_games": chal_games, "chal_wins": chal_wins, "chal_winrate": chal_winrate,
-        "week_damage": week_damage, "week_rank": week_rank,
-        "boss_best": user.boss_best_damage or 0, "boss_best_time": user.boss_best_time or "",
-        "boss_avg": boss_avg, "boss_avg_rank": boss_avg_rank
+        "month_score": month_score, "month_rank": get_rank(month_score, all_users_month_scores),
+        "boka_best": boka_best, "boka_best_time": boka_best_time, "boka_best_rank": get_rank(boka_best, all_users_boka_best),
+        "boka_avg": boka_avg, "boka_avg_rank": get_rank(boka_avg, all_users_boka_avg), 
+        "boka_games": boka_games, "boka_games_rank": get_rank(boka_games, all_users_boka_games),
+        
+        "chal_max_lv": chal_max_lv, "chal_lv_rank": get_rank(chal_max_lv, all_users_chal_lv),
+        "chal_games": chal_games, "chal_games_rank": get_rank(chal_games, all_users_chal_games),
+        "chal_wins": chal_wins, "chal_wins_rank": get_rank(chal_wins, all_users_chal_wins),
+        "chal_winrate": chal_winrate, "chal_winrate_rank": chal_winrate_rank,
+        
+        "week_damage": week_damage, "week_rank": get_rank(week_damage, all_users_week_damages),
+        "boss_best": boss_best, "boss_best_time": boss_best_time, "boss_best_rank": get_rank(boss_best, all_users_boss_best),
+        "boss_avg": boss_avg, "boss_avg_rank": get_rank(boss_avg, all_users_boss_avg)
     }
 
 # ---- 主页看自己（全屏页面） ----
