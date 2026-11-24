@@ -216,23 +216,23 @@
       <!-- 搏卡 -->
       <div class="data-content active" id="data-boka">
         <div class="row">本月积分：<span class="best">{{ month_score }}（排名: {{ month_rank }}）</span></div>
-        <div class="row">历史最高：{{ boka_best }}（{{ boka_best_time }}）（排名: {{ month_rank if boka_best_time == '本月' else '--' }}）</div>
+        <div class="row">历史最高：{{ boka_best }}（{{ boka_best_time }}）（排名: {{ boka_best_rank }}）</div>
         <div class="row">场均得分：{{ boka_avg }}（排名: {{ boka_avg_rank }}）</div>
-        <div class="row">本月场次：{{ boka_games }} 场</div>
+        <div class="row">本月场次：{{ boka_games }} 场（排名: {{ boka_games_rank }}）</div>
       </div>
       
       <!-- 挑战 -->
       <div class="data-content" id="data-challenge">
-        <div class="row">最高关卡：{{ chal_max_lv }}（排名: --）</div>
-        <div class="row">参加场次：{{ chal_games }} 场（排名: --）</div>
-        <div class="row">获胜场次：{{ chal_wins }} 场（排名: --）</div>
-        <div class="row">胜率：{{ chal_winrate }}（排名: --）</div>
+        <div class="row">最高关卡：{{ chal_max_lv }}（排名: {{ chal_lv_rank }}）</div>
+        <div class="row">参加场次：{{ chal_games }} 场（排名: {{ chal_games_rank }}）</div>
+        <div class="row">获胜场次：{{ chal_wins }} 场（排名: {{ chal_wins_rank }}）</div>
+        <div class="row">胜率：{{ chal_winrate }}（排名: {{ chal_winrate_rank }}）</div>
       </div>
       
       <!-- Boss -->
       <div class="data-content" id="data-boss">
         <div class="row">本周伤害：<span class="best">{{ week_damage }}（排名: {{ week_rank }}）</span></div>
-        <div class="row">单次最高：{{ boss_best }}（{{ boss_best_time }}）（排名: {{ week_rank if boss_best_time == '本周' else '--' }}）</div>
+        <div class="row">单次最高：{{ boss_best }}（{{ boss_best_time }}）（排名: {{ boss_best_rank }}）</div>
         <div class="row">平均伤害：{{ boss_avg }}（排名: {{ boss_avg_rank }}）</div>
       </div>
     </div>
