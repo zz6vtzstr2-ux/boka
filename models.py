@@ -71,6 +71,16 @@ class User(UserMixin, db.Model):
     boss_week = db.Column(db.Integer, default=1)
     boss_hp_current = db.Column(db.Integer, default=300000)
 
+    # 新增的预计算统计字段
+    boka_total_games = db.Column(db.Integer, default=0)
+    boka_total_score = db.Column(db.Integer, default=0)
+    chal_total_games = db.Column(db.Integer, default=0)
+    chal_total_wins = db.Column(db.Integer, default=0)
+    chal_max_level = db.Column(db.Integer, default=0)
+    boss_total_games = db.Column(db.Integer, default=0)
+    boss_total_damage = db.Column(db.BigInteger, default=0)
+    boss_max_damage = db.Column(db.Integer, default=0)
+   
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
