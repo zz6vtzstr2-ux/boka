@@ -3985,7 +3985,7 @@ def get_profile_stats(user):
     boka_avg = round(boka_sum / boka_games, 1) if boka_games else 0
 
     # 用纯 SQL 算全服排名（利用 User 表的字段，极快）
-    boka_games_rank = db.session.query(func.count(User.id)).filter(User.boka_games > boka_games).scalar() + 1
+    boka_games_rank = db.session.query(func.count(User.id)).filter(User.boka_total_games > boka_games).scalar() + 1
     # 如果你不想加 User.boka_games 字段，就用下面这句也行，但稍微慢一点点
     # boka_games_rank = db.session.query(func.count(distinct(BokaGameRecord.username))).filter(...) 
 
