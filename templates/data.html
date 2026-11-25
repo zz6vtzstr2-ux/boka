@@ -88,10 +88,10 @@
 
     <!-- 数据展示 -->
     <div class="panel">
-      <div class="data-tabs">
-        <button class="active" onclick="showMode('boka', this)">搏卡</button>
-        <button onclick="showMode('challenge', this)">个人挑战</button>
-        <button onclick="showMode('boss', this)">世界 Boss</button>
+      <div class="data-tabs" style="display: flex; gap: 8px; width: 100%; margin-bottom: 16px;">
+        <button class="active" onclick="showMode('boka', this)" style="flex: 1; padding: 10px 6px; border: none; border-radius: 12px; cursor: pointer; background: #3d8ec9; color: #fff; font-size: 14px; font-weight: bold; font-family: inherit; letter-spacing: 1px; box-shadow: 0 2px 6px rgba(91,184,232,0.3);">搏卡</button>
+        <button onclick="showMode('challenge', this)" style="flex: 1; padding: 10px 6px; border: none; border-radius: 12px; cursor: pointer; background: #5bb8e8; color: #fff; font-size: 14px; font-weight: bold; font-family: inherit; letter-spacing: 1px; box-shadow: 0 2px 6px rgba(91,184,232,0.3);">个人挑战</button>
+        <button onclick="showMode('boss', this)" style="flex: 1; padding: 10px 6px; border: none; border-radius: 12px; cursor: pointer; background: #5bb8e8; color: #fff; font-size: 14px; font-weight: bold; font-family: inherit; letter-spacing: 1px; box-shadow: 0 2px 6px rgba(91,184,232,0.3);">世界 Boss</button>
       </div>
       
       <div class="data-title" id="modeTitle">搏卡总榜</div>
