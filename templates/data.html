@@ -103,10 +103,12 @@
 
     <!-- 数据展示 -->
     <div class="panel">
-      <div class="data-tabs">
-        <button class="active" onclick="showMode('boka', this)">搏卡</button>
-        <button onclick="showMode('challenge', this)">个人挑战</button>
-        <button onclick="showMode('boss', this)">世界 Boss</button>
+      <div style="display: flex; gap: 8px; margin-bottom: 16px; width: 100%;">
+        <button id="tab-boka" onclick="showMode('boka', this)" style="flex: 1; padding: 10px 6px; border: none; border-radius: 12px; font-size: 14px; font-weight: bold; font-family: inherit; letter-spacing: 1px; background: #3d8ec9; color: #fff; box-shadow: 0 2px 6px rgba(91,184,232,0.3); cursor: pointer;">搏卡</button>
+        
+        <button id="tab-challenge" onclick="showMode('challenge', this)" style="flex: 1; padding: 10px 6px; border: none; border-radius: 12px; font-size: 14px; font-weight: bold; font-family: inherit; letter-spacing: 1px; background: #5bb8e8; color: #fff; box-shadow: 0 2px 6px rgba(91,184,232,0.3); cursor: pointer;">个人挑战</button>
+        
+        <button id="tab-boss" onclick="showMode('boss', this)" style="flex: 1; padding: 10px 6px; border: none; border-radius: 12px; font-size: 14px; font-weight: bold; font-family: inherit; letter-spacing: 1px; background: #5bb8e8; color: #fff; box-shadow: 0 2px 6px rgba(91,184,232,0.3); cursor: pointer;">世界 Boss</button>
       </div>
       
       <div class="data-title" id="modeTitle">搏卡总榜</div>
@@ -194,8 +196,16 @@
     // ===== 板块切换 =====
     function showMode(m, btn) {
       mode = m;
-      document.querySelectorAll('.data-tabs button').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      
+      // 重置所有按钮为浅蓝色
+      const btns = ['tab-boka', 'tab-challenge', 'tab-boss'];
+      btns.forEach(id => {
+          document.getElementById(id).style.background = '#5bb8e8';
+      });
+      
+      // 把当前点击的按钮变成深蓝色
+      btn.style.background = '#3d8ec9';
+      
       sortCol = 'value';
       sortAsc = false;
       loadRank();
