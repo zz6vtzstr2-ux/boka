@@ -38,15 +38,37 @@
 
     /* ===== 三个胶囊按钮 ===== */
     /* ★ 这里我连空格都和你的资料页一模一样，没有任何多余的修改 */
-    .data-tabs { display: flex; gap: 8px; margin-bottom: 12px; width: 100%; }
-    .data-tabs button {
-      flex: 1 1 0; min-width: 0; padding: 10px 6px; border: none; border-radius: 12px; cursor: pointer;
-      background: #5bb8e8; color: #fff; font-size: 14px; font-weight: bold; font-family: inherit; letter-spacing: 1px;
-      box-shadow: 0 2px 6px rgba(91,184,232,0.3); transition: transform 0.15s; white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis;
+    /* ===== 三个胶囊按钮（根据截图完全复刻） ===== */
+    .data-tabs { 
+      display: flex; 
+      gap: 8px; 
+      margin-bottom: 16px; 
+      width: 100%; 
     }
-    .data-tabs button:hover { transform: translateY(-2px); background: #4aa8d8; }
-    .data-tabs button.active { background: #3d8ec9; }
+    .data-tabs button {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 10px 6px;
+      border: 1px solid #d8d0bc; /* 浅边框 */
+      border-radius: 12px;
+      cursor: pointer;
+      background: #fdfaf0; /* 未选中：米黄色底 */
+      color: #4a4a4a;      /* 未选中：深灰色字 */
+      font-size: 14px;
+      font-weight: bold;
+      font-family: inherit;
+      letter-spacing: 1px;
+      transition: transform 0.15s, background 0.15s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .data-tabs button.active {
+      background: #5bb8e8; /* 选中：蓝色底 */
+      color: #fff;         /* 选中：白色字 */
+      border-color: #5bb8e8;
+      box-shadow: 0 2px 6px rgba(91,184,232,0.3); /* 选中：带点发光阴影 */
+    }
 
     .data-title { text-align: center; font-size: 16px; color: #8a6d1f; font-weight: bold; margin-bottom: 12px; }
 
