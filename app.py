@@ -2064,6 +2064,11 @@ def boka_room_state(room_code):
                 else:
                     playing_usernames.add(gp.username)
 
+    # ★ 核心修复：从数据库查出真实的座位顺序，强制给缓存排序，防止玩家上下乱跳
+    db_order = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+    seat_map = {p.username: p.seat for p in db_order}
+    players_cache.sort(key=lambda x: seat_map.get(x["username"], 999))
+
     # 3. 组装返回给前端的 players 数据，并注入 status 字段
     players_data = []
     # 查出本局所有玩家的座位表（提前查一次）
@@ -2133,6 +2138,12 @@ def boka_ready(room_code):
         ]
     
     players_cache = BOKA_ROOM_CACHE[room_code]
+
+    # ★ 核心修复：在这里强制按数据库的座位号排序
+    db_order = BokaPlayer.query.filter_by(room_id=room.id).order_by(BokaPlayer.seat).all()
+    seat_map = {p.username: p.seat for p in db_order}
+    players_cache.sort(key=lambda x: seat_map.get(x["username"], 999))
+
     me_cache = next((p for p in players_cache if p["username"] == current_user.username), None)
     if not me_cache:
         return jsonify({"error": "你不在房间"}), 400
