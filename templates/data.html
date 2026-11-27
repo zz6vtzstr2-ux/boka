@@ -82,11 +82,29 @@
     th.sort-asc::after { content: " ▲"; font-size: 10px; }
     th.sort-desc::after { content: " ▼"; font-size: 10px; }
     
-    .sticky-col { position: sticky; left: 0; background: rgba(255,255,255,0.95); z-index: 1; border-right: 1px solid #f0e8d0; text-align: left; min-width: 110px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
-    
-    td img { width: 32px; height: 32px; border-radius: 6px; vertical-align: middle; margin-right: 8px; object-fit: cover; border: 1px solid #e0d8c0; cursor: pointer; }
-    td .name-text { color: #2c3e50; text-decoration: none; font-weight: bold; cursor: pointer; }
-    td .name-text:hover { color: #b85a6a; }
+    .sticky-col { 
+      position: sticky; 
+      left: 0; 
+      background: rgba(255,255,255,0.95); 
+      z-index: 1; 
+      border-right: 1px solid #f0e8d0; 
+      text-align: left; 
+      width: 110px;      /* ★ 锁死宽度 */
+      min-width: 110px; 
+      max-width: 110px; 
+      overflow: hidden; 
+      text-overflow: ellipsis; 
+    }
+    td img { 
+      width: 32px; 
+      height: 32px; 
+      border-radius: 6px; 
+      vertical-align: middle; 
+      margin-right: 6px; 
+      object-fit: cover; 
+      border: 1px solid #e0d8c0; 
+      cursor: pointer; 
+    }
     .val-col { font-weight: bold; color: #b85a6a; }
   </style>
 </head>
