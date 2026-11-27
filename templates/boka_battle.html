@@ -44,8 +44,7 @@
 
     /* ===== 战斗区域 ===== */
     .side { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; }
-    .side .pname { font-size: 15px; font-weight: bold; color: #4a4a4a; }
-    .side .hand-count { font-size: 12px; color: #888; }
+    
     .played-area { position: relative; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; height: 140px; margin-top: 0px; margin-bottom: 0; padding-top: 10px; }
 
     .center-banner { font-size: 20px; font-weight: bold; color: #fff; letter-spacing: 6px; text-indent: 6px; padding: 6px 24px; border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); white-space: nowrap; margin: 10px 0 20px 0; }
@@ -117,6 +116,37 @@
     }
     .my-auto-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(184, 90, 106, 0.25); }
     .my-auto-btn:active { transform: translateY(1px); box-shadow: 0 1px 2px rgba(184, 90, 106, 0.05); }
+ 
+    /* ===== 对手区默认样式（2人局，或基础结构） ===== */
+    .opponents-container { display: flex; flex-direction: column; width: 100%; align-items: center; }
+    .opponent-item { display: flex; flex-direction: column; align-items: center; width: 100%; margin-top: 5px; }
+    .opponent-info { position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+    .opponent-info .avatar-wrap img { width: 50px; height: 50px; border-radius: 10px; border: 2px solid #e8c8d0; object-fit: cover; background: #fffdf5; }
+    .opponent-info .pname { font-size: 14px; font-weight: bold; margin-top: 4px; color: #4a4a4a; white-space: nowrap; }
+    .opponent-info .hand-count { font-size: 12px; color: #888; margin-top: 2px; }
+    .opponent-info .opponent-action-col { position: absolute; left: 100%; margin-left: 8px; top: 5px; display: flex; flex-direction: column; gap: 6px; }
+    .opponent-item .played-area { width: 100%; }
+
+    /* ===== 3人及以上 - 手机端（竖排：左信息 右出牌） ===== */
+    @media (max-width: 767px) {
+      .opponents-container.multi-player { gap: 10px; align-items: flex-start; }
+      .opponents-container.multi-player .opponent-item { flex-direction: row; align-items: center; padding: 0 10px; margin-top: 0; }
+      .opponents-container.multi-player .opponent-info { width: 80px; flex-shrink: 0; align-items: center; }
+      .opponents-container.multi-player .opponent-info .avatar-wrap img { width: 40px; height: 40px; }
+      .opponents-container.multi-player .opponent-info .pname { font-size: 13px; }
+      .opponents-container.multi-player .opponent-info .hand-count { font-size: 11px; }
+      .opponents-container.multi-player .opponent-info .opponent-action-col { position: static; flex-direction: row; margin-left: 0; margin-top: 4px; margin-bottom: 0; }
+      .opponents-container.multi-player .opponent-info .opponent-action-col .pill-btn { height: 22px; padding: 0 6px; font-size: 11px; }
+      .opponents-container.multi-player .opponent-item .played-area { flex: 1; margin-left: 8px; height: 100px; padding-top: 0; }
+    }
+
+    /* ===== 3人及以上 - 电脑端（环形布局基础） ===== */
+    @media (min-width: 768px) {
+      .opponents-container.multi-player { position: relative; height: 350px; display: block; }
+      .opponents-container.multi-player .opponent-item { position: absolute; width: 140px; margin-top: 0; }
+      .opponents-container.multi-player .opponent-item .played-area { height: 140px; }
+    }
+  
   </style>
 </head>
 <body>
@@ -137,38 +167,37 @@
   </div>
 
   <div class="arena">
-    <!-- 对手区（循环渲染所有非当前视角的人） -->
-    {% for p in players %}
-    {% if not p.is_me %}
-    <div class="side ai" style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: 5px;">
-      
-      <!-- 对手信息块 -->
-      <div style="position: relative; display: flex; flex-direction: column; align-items: center;" onclick="showProfile('{{ p.username }}')">
-        {% if p.username.startswith('ai_') %}
-          <!-- ★ 核心：用武将立绘作为 AI 头像 -->
-          <img src="/static/cards/{{ p.nickname }}.PNG" style="width: 50px !important; height: 50px !important; border-radius: 10px; border: 2px solid #e8c8d0; object-fit: cover; background: #fffdf5;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-          <div class="ai-avatar-placeholder" style="display: none; width: 50px !important; height: 50px !important; border-radius: 10px; font-size: 14px;">对手</div>
-        {% else %}
-          <!-- 真人玩家用上传的头像 -->
-          <img src="/static/avatars/{{ p.username }}.jpg" style="width: 50px !important; height: 50px !important; border-radius: 10px; border: 2px solid #e8c8d0; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-          <div class="ai-avatar-placeholder" style="display: none; width: 50px !important; height: 50px !important; border-radius: 10px; font-size: 14px;">对手</div>
-        {% endif %}
+    <!-- 对手区（万能自适应布局） -->
+    {% set opponents = players | rejectattr("is_me", "equalto", true) %}
+    {% if opponents %}
+    <div class="opponents-container {% if opponents|length > 1 %}multi-player{% endif %}" id="opponentsContainer">
+      {% for p in opponents %}
+      <div class="opponent-item" 
+           data-side="{{ layout[p.username].side if layout and p.username in layout else 'top' }}"
+           data-index="{{ layout[p.username].index if layout and p.username in layout else 0 }}">
         
-        <div class="pname" style="font-size: 14px; font-weight: bold; margin-top: 4px; white-space: nowrap; color: #4a4a4a;">{{ p.nickname }}</div>
-        <div class="hand-count" style="font-size: 12px; color: #888; margin-top: 2px;">手牌 <span id="count-{{ p.username }}">{{ p.hand_count }}</span></div>
-        
-        <!-- 右侧按钮区 -->
-        <div class="opponent-action-col" style="position: absolute; left: 100%; margin-left: 8px; top: 5px; display: flex; flex-direction: column; gap: 6px;" onclick="event.stopPropagation();">
-          <button class="pill-btn pill-gray" id="spectate-{{ p.username }}" onclick="switchSpectateTarget('{{ p.username }}')">观战</button>
-          <span class="pill-btn pill-pink" id="auto-tag-{{ p.username }}" style="display: none;">托管中</span>
+        <div class="opponent-info" onclick="showProfile('{{ p.username }}')">
+            <div class="avatar-wrap">
+                {% if p.username.startswith('ai_') %}
+                  <img src="/static/cards/{{ p.nickname }}.PNG" onerror="this.src='/static/cards/default.PNG'">
+                {% else %}
+                  <img src="/static/avatars/{{ p.username }}.jpg" onerror="this.src='/static/avatars/default.jpg'">
+                {% endif %}
+            </div>
+            <div class="pname">{{ p.nickname }}</div>
+            <div class="hand-count">手牌 <span id="count-{{ p.username }}">{{ p.hand_count }}</span></div>
+            
+            <div class="opponent-action-col" onclick="event.stopPropagation();">
+              <button class="pill-btn pill-gray" id="spectate-{{ p.username }}" onclick="switchSpectateTarget('{{ p.username }}')">观战</button>
+              <span class="pill-btn pill-pink" id="auto-tag-{{ p.username }}" style="display: none;">托管中</span>
+            </div>
         </div>
-      </div>
 
-      <!-- 对手出牌区 -->
-      <div class="played-area" id="play-{{ p.username }}" style="width: 100%;"></div>
+        <div class="played-area" id="play-{{ p.username }}"></div>
+      </div>
+      {% endfor %}
     </div>
     {% endif %}
-    {% endfor %}
 
     <!-- 中间比攻/比防 -->
     <div class="center-banner atk" id="centerBanner" style="margin: 10px 0 20px 0;"></div>
@@ -619,6 +648,55 @@
       }
     }
 
+    // ★ 电脑端环形布局动态适配器
+    function adjustLayout() {
+        const container = document.getElementById('opponentsContainer');
+        if (!container) return;
+        
+        const items = container.querySelectorAll('.opponent-item');
+        const isMulti = container.classList.contains('multi-player');
+        
+        // 2人局 或 手机端3+：清除绝对定位，交给 CSS
+        if (!isMulti || window.innerWidth < 768) {
+            container.style.height = '';
+            items.forEach(item => {
+                item.style.position = '';
+                item.style.left = '';
+                item.style.right = '';
+                item.style.top = '';
+                item.style.transform = '';
+            });
+            return;
+        }
+
+        // 电脑端 3+：环形布局
+        container.style.height = '350px';
+        items.forEach(item => {
+            item.style.position = 'absolute';
+            const side = item.getAttribute('data-side');
+            const index = parseInt(item.getAttribute('data-index') || '0');
+            
+            if (side === 'top') {
+                item.style.top = '0';
+                item.style.transform = 'translateX(-50%)';
+                // 如果顶部有两个，左右分开
+                item.style.left = items.length === 2 ? (index === 0 ? '35%' : '65%') : '50%';
+            } else if (side === 'left') {
+                item.style.left = '15%';
+                item.style.top = (120 + index * 150) + 'px';
+                item.style.transform = 'translateX(0)';
+            } else if (side === 'right') {
+                item.style.left = '85%';
+                item.style.top = (120 + index * 150) + 'px';
+                item.style.transform = 'translateX(-100%)';
+            }
+        });
+    }
+    
+    // 监听窗口缩放
+    window.addEventListener('resize', adjustLayout);
+    document.addEventListener('DOMContentLoaded', adjustLayout);
+    
     function initSpectatorUI() {
       const exitBtn = document.getElementById('exitBtn');
       
