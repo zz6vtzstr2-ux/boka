@@ -184,9 +184,9 @@
     async function createRoom() {
       if (!CAN_CREATE) { showToast('班级收藏不足 6 张，无法创建房间'); return; }
       
-      // 规则1：准备中或搏卡中，不允许创建
-      if (myCurrentStatus.isReady || myCurrentStatus.isPlaying) {
-        showToast('请先退出当前房间（取消准备）再创建');
+      // ★ 核心：只要在房间里，就不允许创建，防止误解散房间
+      if (myCurrentStatus.roomId) {
+        showToast('请先退出当前房间，再创建新房间');
         return;
       }
 
@@ -259,7 +259,8 @@
 
       // 处理顶部“创建房间”按钮
       const createBtn = document.getElementById('createRoomBtn');
-      if (!CAN_CREATE || myCurrentStatus.isPlaying || myCurrentStatus.isReady) {
+      // ★ 核心：只要在房间里（不管准没准备），按钮就置灰
+      if (!CAN_CREATE || myCurrentStatus.roomId || myCurrentStatus.isPlaying || myCurrentStatus.isReady) {
         createBtn.disabled = true;
       } else {
         createBtn.disabled = false;
