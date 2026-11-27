@@ -3967,71 +3967,97 @@ def mail_claim(mid):
     db.session.commit()
     return jsonify({"success": True, "gold": m.gold, "total_gold": current_user.gold})
 
-# ========== 我的资料 ==========# ---- 辅助函数：计算所有数据（极速 SQL 版） ----
+# ========== 我的资料 ==========
+# ---- 辅助函数：计算所有数据（极速 SQL 版） ----
 def get_profile_stats(user):
     from sqlalchemy import func
     
-    # 1. 搏卡数据 (查历史记录表)
+    # ================= 1. 搏卡数据 =================
     month_start = get_current_season_start()
+    
+    # 我的本月积分
     month_score = db.session.query(func.sum(BokaGameRecord.score_change)).filter(
         BokaGameRecord.username == user.username, BokaGameRecord.played_at >= month_start
     ).scalar() or 0
     
-    total_stats = db.session.query(
-        func.count(BokaGameRecord.id), func.sum(BokaGameRecord.score_change)
-    ).filter(BokaGameRecord.username == user.username).first()
-    boka_games = total_stats[0] or 0
-    boka_sum = total_stats[1] or 0
-    boka_avg = round(boka_sum / boka_games, 1) if boka_games else 0
+    # 本月积分排名 (用子查询算比我高的人数，秒出)
+    subq_month = db.session.query(
+        BokaGameRecord.username, func.sum(BokaGameRecord.score_change).label('total')
+    ).filter(BokaGameRecord.played_at >= month_start).group_by(BokaGameRecord.username).subquery()
+    month_rank = db.session.query(func.count(subq_month.c.username)).filter(subq_month.c.total > month_score).scalar() + 1 if month_score > 0 else '--'
 
-    # 用纯 SQL 算全服排名（利用 User 表的字段，极快）
-    boka_games_rank = db.session.query(func.count(User.id)).filter(User.boka_total_games > boka_games).scalar() + 1
-    # 如果你不想加 User.boka_games 字段，就用下面这句也行，但稍微慢一点点
-    # boka_games_rank = db.session.query(func.count(distinct(BokaGameRecord.username))).filter(...) 
-
+    # 历史最高
     boka_best = user.boka_best_score or 0
     boka_best_time = user.boka_best_time or ""
     if month_score > boka_best:
         boka_best = month_score
         boka_best_time = "本月"
+    boka_best_rank = db.session.query(func.count(User.id)).filter(User.boka_best_score > boka_best).scalar() + 1
 
-    # 2. 挑战数据（直接读 User 表，0 延迟）
+    # 场均得分 & 场次
+    boka_games = user.boka_total_games or 0
+    boka_sum = user.boka_total_score or 0
+    boka_avg = round(boka_sum / boka_games, 1) if boka_games else 0
+    
+    # 场次排名
+    boka_games_rank = db.session.query(func.count(User.id)).filter(User.boka_total_games > boka_games).scalar() + 1
+    # 场均排名 (利用 CASE WHEN 防止除以 0)
+    boka_avg_rank = db.session.query(func.count(User.id)).filter(
+        (User.boka_total_score * 1.0 / func.nullif(User.boka_total_games, 0)) > boka_avg
+    ).scalar() + 1 if boka_games > 0 else '--'
+
+    # ================= 2. 挑战数据 =================
     chal_games = user.chal_total_games or 0
     chal_wins = user.chal_total_wins or 0
     chal_max_lv = user.chal_max_level or 0
     chal_winrate = f"{round((chal_wins / chal_games) * 100, 1)}%" if chal_games else "0%"
 
-    # 纯 SQL 算挑战排名
     chal_lv_rank = db.session.query(func.count(User.id)).filter(User.chal_max_level > chal_max_lv).scalar() + 1
     chal_games_rank = db.session.query(func.count(User.id)).filter(User.chal_total_games > chal_games).scalar() + 1
     chal_wins_rank = db.session.query(func.count(User.id)).filter(User.chal_total_wins > chal_wins).scalar() + 1
-    # 胜率排名：胜率大于我的，或者胜率等于我但场次比我多的
+    # 胜率排名 (先比胜率，胜率一样比场次)
     chal_winrate_rank = db.session.query(func.count(User.id)).filter(
-        (User.chal_total_wins * 1.0 / User.chal_total_games) > (chal_wins / chal_games if chal_games else 0)
+        (User.chal_total_wins * 1.0 / func.nullif(User.chal_total_games, 0)) > (chal_wins / chal_games if chal_games else 0)
     ).scalar() + 1 if chal_games > 0 else '--'
 
-    # 3. Boss 数据（直接读 User 表，0 延迟）
+    # ================= 3. Boss 数据 =================
+    this_week = get_current_week_num()
+    week_damage = db.session.query(func.sum(BossFightRecord.damage)).filter(
+        BossFightRecord.user_id == user.id, BossFightRecord.week_num == this_week
+    ).scalar() or 0
+    
+    # 本周伤害排名 (这里只查 BossFightRecord，利用刚加的索引，极快)
+    subq_week = db.session.query(
+        BossFightRecord.user_id, func.sum(BossFightRecord.damage).label('total')
+    ).filter(BossFightRecord.week_num == this_week).group_by(BossFightRecord.user_id).subquery()
+    week_rank = db.session.query(func.count(subq_week.c.user_id)).filter(subq_week.c.total > week_damage).scalar() + 1 if week_damage > 0 else '--'
+
     boss_games = user.boss_total_games or 0
     boss_sum = user.boss_total_damage or 0
     boss_avg = round(boss_sum / boss_games, 1) if boss_games else 0
     boss_best = user.boss_max_damage or 0
+    boss_best_time = "本周" if week_damage > boss_best else ""
 
     boss_games_rank = db.session.query(func.count(User.id)).filter(User.boss_total_games > boss_games).scalar() + 1
+    boss_avg_rank = db.session.query(func.count(User.id)).filter(
+        (User.boss_total_damage * 1.0 / func.nullif(User.boss_total_games, 0)) > boss_avg
+    ).scalar() + 1 if boss_games > 0 else '--'
     boss_best_rank = db.session.query(func.count(User.id)).filter(User.boss_max_damage > boss_best).scalar() + 1
 
     return {
-        "month_score": month_score, "month_rank": '--', # 本月排名暂略
-        "boka_best": boka_best, "boka_best_time": boka_best_time, "boka_best_rank": '--',
-        "boka_avg": boka_avg, "boka_avg_rank": '--', "boka_games": boka_games, "boka_games_rank": boka_games_rank,
+        "month_score": month_score, "month_rank": month_rank,
+        "boka_best": boka_best, "boka_best_time": boka_best_time, "boka_best_rank": boka_best_rank,
+        "boka_avg": boka_avg, "boka_avg_rank": boka_avg_rank, 
+        "boka_games": boka_games, "boka_games_rank": boka_games_rank,
         
         "chal_max_lv": chal_max_lv, "chal_lv_rank": chal_lv_rank,
         "chal_games": chal_games, "chal_games_rank": chal_games_rank,
         "chal_wins": chal_wins, "chal_wins_rank": chal_wins_rank,
         "chal_winrate": chal_winrate, "chal_winrate_rank": chal_winrate_rank,
         
-        "week_damage": 0, "week_rank": '--',
-        "boss_best": boss_best, "boss_best_time": "", "boss_best_rank": boss_best_rank,
-        "boss_avg": boss_avg, "boss_avg_rank": '--' # 平均伤害排名同理
+        "week_damage": week_damage, "week_rank": week_rank,
+        "boss_best": boss_best, "boss_best_time": boss_best_time, "boss_best_rank": boss_best_rank,
+        "boss_avg": boss_avg, "boss_avg_rank": boss_avg_rank
     }
 
 # ---- 主页看自己（全屏页面） ----
@@ -4190,6 +4216,11 @@ with app.app_context():
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boss_total_games INTEGER DEFAULT 0',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boss_total_damage BIGINT DEFAULT 0',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS boss_max_damage INTEGER DEFAULT 0',
+        'CREATE INDEX IF NOT EXISTS ix_boka_game_record_username ON boka_game_record (username)',
+        'CREATE INDEX IF NOT EXISTS ix_boka_game_record_played_at ON boka_game_record (played_at)',
+        'CREATE INDEX IF NOT EXISTS ix_challenge_record_user_id ON challenge_record (user_id)',
+        'CREATE INDEX IF NOT EXISTS ix_challenge_record_played_at ON challenge_record (played_at)',
+        'CREATE INDEX IF NOT EXISTS ix_boss_fight_record_user_id ON boss_fight_record (user_id)',
     ]
     try:
         with db.engine.begin() as conn:
