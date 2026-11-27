@@ -269,25 +269,25 @@ class BokaGameRecord(db.Model):
     __tablename__ = "boka_game_record"
 
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(50), nullable=False)
+    username = db.Column(db.String(50), index=True, nullable=False)
+    played_at = db.Column(db.DateTime, index=True, nullable=True)
     game_id = db.Column(db.Integer, nullable=True)
     room_code = db.Column(db.String(10), nullable=True)
     rank = db.Column(db.Integer, nullable=True)
     player_count = db.Column(db.Integer, default=0)
     score_before = db.Column(db.Integer, default=0)
     score_change = db.Column(db.Integer, default=0)
-    score_after = db.Column(db.Integer, default=0)
-    played_at = db.Column(db.DateTime, nullable=True)
+    score_after = db.Column(db.Integer, default=0)  
 
 class ChallengeRecord(db.Model):
     """挑战对局记录（每局一条）"""
     __tablename__ = "challenge_record"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=True, nullable=False)
+    played_at = db.Column(db.DateTime, index=True, nullable=True)
     level = db.Column(db.Integer, nullable=False)
-    won = db.Column(db.Boolean, default=False)
-    played_at = db.Column(db.DateTime, nullable=True)
+    won = db.Column(db.Boolean, default=False)  
 
 class Mail(db.Model):
     """站内邮件：奖励 / 公告"""
@@ -306,7 +306,7 @@ class Mail(db.Model):
 class BossFightRecord(db.Model):
     __tablename__ = "boss_fight_record"
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=True, nullable=False)
+    fought_at = db.Column(db.DateTime, index=True, nullable=True)
     week_num = db.Column(db.Integer, nullable=False)
     damage = db.Column(db.Integer, default=0)
-    fought_at = db.Column(db.DateTime, default=datetime.now)
