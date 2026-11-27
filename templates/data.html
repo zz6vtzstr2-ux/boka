@@ -73,33 +73,63 @@
     .data-title { text-align: center; font-size: 16px; color: #8a6d1f; font-weight: bold; margin-bottom: 12px; }
 
     /* ===== 表格 & 冻结首列 ===== */
-    .table-wrap { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
+    .table-wrap { 
+      overflow-x: auto; 
+      width: 100%; 
+      -webkit-overflow-scrolling: touch; 
+    }
     
-    /* ★ 核心：使用 fixed 布局，防止数据列无脑拉伸 */
-    table { width: 100%; min-width: 400px; border-collapse: collapse; table-layout: fixed; }
+    /* ★ 核心：锁死列宽，允许表格自然撑开并触发滑动 */
+    table { 
+      width: max-content; /* 让表格宽度由内容决定 */
+      min-width: 100%;    /* 但最少占满屏幕 */
+      border-collapse: collapse; 
+      table-layout: fixed; /* 强制遵守我们设定的宽度 */
+    }
     
-    th, td { padding: 12px 8px; text-align: center; border-bottom: 1px solid #f0e8d0; font-size: 14px; white-space: nowrap; }
-    th { color: #888; font-weight: bold; cursor: pointer; position: relative; user-select: none; }
+    th, td { 
+      padding: 12px 8px; 
+      text-align: center; 
+      border-bottom: 1px solid #f0e8d0; 
+      font-size: 14px; 
+      white-space: nowrap; 
+      overflow: hidden; 
+      text-overflow: ellipsis;
+    }
+    th { color: #888; font-weight: bold; cursor: pointer; user-select: none; }
     th:hover { color: #b85a6a; }
     
     th.sort-asc::after { content: " ▲"; font-size: 10px; }
     th.sort-desc::after { content: " ▼"; font-size: 10px; }
     
-    /* ★ 第一列：自动吃掉剩余空间，但限制最大宽度 */
+    /* ★ 第一列：固定宽一点，头像+长名字放得下 */
     .sticky-col { 
-      position: sticky; left: 0; background: rgba(255,255,255,0.95); z-index: 1; border-right: 1px solid #f0e8d0; text-align: left; 
-      width: auto; 
-      min-width: 110px; 
-      max-width: 150px; /* 限制玩家名列最大宽度 */
-      overflow: hidden; text-overflow: ellipsis; 
+      position: sticky; 
+      left: 0; 
+      background: rgba(255,255,255,0.95); 
+      z-index: 1; 
+      border-right: 1px solid #f0e8d0; 
+      text-align: left; 
+      width: 130px; 
+      min-width: 130px;
     }
     
-    /* ★ 核心：强制其他列全部变成紧凑的 80px */
+    /* ★ 数据列：固定 85px，数字位数再怎么变多也绝对撑得下 */
     th:not(.sticky-col), td:not(.sticky-col) {
-        width: 80px; 
+      width: 85px; 
+      min-width: 85px;
     }
     
-    td img { width: 32px; height: 32px; border-radius: 6px; vertical-align: middle; margin-right: 8px; object-fit: cover; border: 1px solid #e0d8c0; cursor: pointer; }
+    td img { 
+      width: 28px; 
+      height: 28px; 
+      border-radius: 6px; 
+      vertical-align: middle; 
+      margin-right: 6px; 
+      object-fit: cover; 
+      border: 1px solid #e0d8c0; 
+      cursor: pointer; 
+    }
     td .name-text { color: #2c3e50; text-decoration: none; font-weight: bold; cursor: pointer; }
     td .name-text:hover { color: #b85a6a; }
     .val-col { font-weight: bold; color: #b85a6a; }
