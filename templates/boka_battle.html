@@ -168,7 +168,7 @@
 
   <div class="arena">
     <!-- 对手区（万能自适应布局） -->
-    {% set opponents = players | rejectattr("is_me", "equalto", true) %}
+    {% set opponents = players | rejectattr("is_me", "equalto", true) | list %}
     {% if opponents %}
     <div class="opponents-container {% if opponents|length > 1 %}multi-player{% endif %}" id="opponentsContainer">
       {% for p in opponents %}
